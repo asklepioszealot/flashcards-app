@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pediatri Çalışması</title>
+    <style>
+        :root {
+            --color-bg-primary: #fcfcf9;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #134252;
+            --color-text-secondary: #626c71;
+            --color-accent: #218085;
+            --color-accent-hover: #1d7480;
+            --color-border: rgba(94, 82, 64, 0.2);
+            --color-card-front: #ffffff;
+            --color-card-back: #f8f9fa;
+        }
+
+        [data-theme="dark"] {
+            --color-bg-primary: #1f2121;
+            --color-bg-secondary: #262828;
+            --color-text-primary: #f5f5f9;
+            --color-text-secondary: #a7a9a9;
+            --color-accent: #32b8c6;
+            --color-accent-hover: #2da6b2;
+            --color-border: rgba(119, 124, 124, 0.3);
+            --color-card-front: #2a2c2c;
+            --color-card-back: #323535;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header-left h1 {
+            font-size: 32px;
+            margin-bottom: 5px;
+            color: var(--color-text-primary);
+        }
+
+        .header-left p {
+            color: var(--color-text-secondary);
+            font-size: 16px;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .controls-panel {
+            background: var(--color-bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--color-border);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--color-text-primary);
+            font-size: 14px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        select, input[type="number"] {
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        input[type="number"] {
+            max-width: 120px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--color-accent);
+            color: white;
+        }
+
+        .btn:hover {
+            background: var(--color-accent-hover);
+        }
+
+        .btn-secondary {
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(33, 128, 133, 0.1);
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .card-container {
+            perspective: 1000px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--color-bg-secondary);
+            border-radius: 16px;
+            padding: 40px;
+            min-height: 400px;
+            max-width: 900px;
+            margin: 0 auto;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--color-border);
+            cursor: pointer;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            backface-visibility: hidden;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 60px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-front {
+            background: var(--color-card-front);
+        }
+
+        .card-back {
+            background: var(--color-card-back);
+            transform: rotateY(180deg);
+        }
+
+        .card-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-accent);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .card-content {
+            font-size: 20px;
+            line-height: 1.6;
+            color: var(--color-text-primary);
+            text-align: center;
+            white-space: pre-line;
+        }
+
+        .card-back .card-content {
+            font-size: 17px;
+            text-align: left;
+            line-height: 1.8;
+        }
+
+        .card-back .card-content strong {
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+
+        .highlight-critical {
+            color: #0d5f6b;
+            font-weight: 700;
+        }
+
+        [data-theme="dark"] .highlight-critical {
+            color: #4dd4e1;
+            font-weight: 700;
+        }
+
+        .highlight-important {
+            color: #0d5f6b;
+            font-weight: 400;
+        }
+
+        [data-theme="dark"] .highlight-important {
+            color: #4dd4e1;
+            font-weight: 400;
+        }
+
+        .card-back .card-content strong {
+            color: #0d5f6b;
+        }
+
+        [data-theme="dark"] .card-back .card-content strong {
+            color: #4dd4e1;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .nav-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--color-accent);
+            color: white;
+            min-width: 120px;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: var(--color-accent-hover);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .card-counter {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            text-align: center;
+        }
+
+        .card-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .subject-badge {
+            color: white;
+            font-size: 13px;
+            padding: 8px 20px;
+            background: var(--color-accent);
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .subject-display {
+            text-align: center;
+            color: white;
+            font-size: 13px;
+            padding: 8px 16px;
+            background: var(--color-accent);
+            border-radius: 6px;
+            font-weight: 500;
+            display: inline-block;
+            margin-top: auto;
+        }
+
+        .subject-container {
+            text-align: center;
+            padding-top: 20px;
+        }
+
+        .card-content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-border);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--color-accent);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .card-back .card-face, .card-back {
+            overflow-y: auto;
+        }
+
+        .assessment-panel {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 15px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            pointer-events: none;
+        }
+
+        .assessment-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .assess-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 130px;
+        }
+
+        .assess-btn.know { background: #16a34a; color: white; }
+        .assess-btn.know:hover { background: #15803d; transform: scale(1.05); }
+        .assess-btn.review { background: #ea580c; color: white; }
+        .assess-btn.review:hover { background: #c2410c; transform: scale(1.05); }
+        .assess-btn.dunno { background: #dc2626; color: white; }
+        .assess-btn.dunno:hover { background: #b91c1c; transform: scale(1.05); }
+
+        .assess-btn.selected {
+            outline: 3px solid var(--color-text-primary);
+            outline-offset: 2px;
+        }
+
+        .score-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            padding: 10px 20px;
+            background: var(--color-bg-secondary);
+            border-radius: 10px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 15px;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .score-item .count {
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--color-text-primary);
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 8px;
+            background: var(--color-border);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+            border-radius: 8px;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .filter-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 7px 16px;
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover { background: rgba(33,128,133,0.1); }
+        .filter-btn.active { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+
+        .reset-btn {
+            padding: 7px 16px;
+            border: 1px solid #dc2626;
+            border-radius: 8px;
+            background: transparent;
+            color: #dc2626;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reset-btn:hover { background: #dc2626; color: white; }
+
+        .kbd-hint {
+            text-align: center;
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-top: 10px;
+        }
+
+        .kbd-hint kbd {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: inherit;
+            font-size: 11px;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-controls {
+                width: 100%;
+            }
+
+            .card {
+                padding: 30px 20px;
+                min-height: 350px;
+            }
+
+            .card-face {
+                padding: 40px 25px;
+            }
+
+            .card-content {
+                font-size: 18px;
+            }
+
+            .card-back .card-content {
+                font-size: 16px;
+            }
+
+            .control-row {
+                flex-direction: column;
+            }
+
+            .navigation {
+                flex-direction: column;
+            }
+
+            .nav-btn {
+                width: 100%;
+            }
+
+            .assessment-panel {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .assess-btn {
+                min-width: unset;
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>Pediatri Flashcards</h1>
+                <p>Dr. Ahmet Kara 🩺</p>
+            </div>
+            <div class="header-controls">
+                <select id="topic-select" onchange="filterByTopic()">
+                    <option value="hepsi">Tüm Başlıklar</option>
+                </select>
+                
+                <input type="number" id="jump-input" min="1" max="20" placeholder="Soru No" style="max-width: 90px;">
+                <button class="btn btn-small" onclick="jumpToCard()">Git</button>
+                
+                <div class="toggle-container">
+                    <span>☀️</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span>🌙</span>
+                </div>
+                
+                <button class="btn-secondary btn btn-small" onclick="shuffleCards()">🔀 Karıştır</button>
+                <button class="btn-secondary btn btn-small" onclick="exportCards()">📥 Export</button>
+                <button class="btn-secondary btn btn-small" onclick="printCards()">🖨️ Yazdır</button>
+            </div>
+        </div>
+
+        <div class="score-bar" id="score-bar">
+            <div class="score-item">✅ <span class="count" id="score-know">0</span></div>
+            <div class="score-item">🔄 <span class="count" id="score-review">0</span></div>
+            <div class="score-item">❌ <span class="count" id="score-dunno">0</span></div>
+            <div class="score-item">📊 <span class="count" id="score-percent">0/0 (%0)</span></div>
+        </div>
+
+        <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="setFilter('all')">📋 Tümü</button>
+            <button class="filter-btn" onclick="setFilter('review')">🔄 Tekrar Göz At</button>
+            <button class="filter-btn" onclick="setFilter('dunno')">❌ Bilmiyorum</button>
+            <button class="filter-btn" onclick="setFilter('unanswered')">⬜ Değerlendirilmemiş</button>
+            <button class="reset-btn" onclick="resetProgress()">🗑️ Sıfırla</button>
+        </div>
+
+        <div class="navigation">
+            <button class="nav-btn" id="prev-btn" onclick="previousCard()">← Önceki</button>
+            <div class="card-info">
+                <div class="card-counter" id="card-counter">1 / 20</div>
+                <div class="subject-badge" id="subject-badge-nav">Kan Transfüzyonu</div>
+            </div>
+            <button class="nav-btn" id="next-btn" onclick="nextCard()">Sonraki →</button>
+        </div>
+
+        <div class="card-container">
+            <div class="card" id="flashcard" onclick="flipCard()">
+                <div class="card-face card-front">
+                    <div class="card-content-wrapper">
+                        <div class="card-label">SORU</div>
+                        <div class="card-content" id="question-text"></div>
+                    </div>
+                    <div class="subject-container">
+                        <div class="subject-display" id="subject-display-front"></div>
+                    </div>
+                </div>
+                <div class="card-face card-back">
+                    <div class="card-content-wrapper">
+                        <div class="card-label">CEVAP</div>
+                        <div class="card-content" id="answer-text"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="assessment-panel" id="assessment-panel">
+            <button class="assess-btn know" onclick="assessCard('know')" title="Klavye: 1">✅ Tamam</button>
+            <button class="assess-btn review" onclick="assessCard('review')" title="Klavye: 2">🔄 Tekrar Göz At</button>
+            <button class="assess-btn dunno" onclick="assessCard('dunno')" title="Klavye: 3">❌ Bilmiyorum</button>
+        </div>
+
+        <div class="kbd-hint">
+            <kbd>Space</kbd> Çevir &nbsp; <kbd>←</kbd><kbd>→</kbd> Gezin &nbsp; <kbd>1</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp; <kbd>3</kbd> Bilmiyorum
+        </div>
+    </div>
+
+    <script>
+        /*
+        ═══════════════════════════════════════════════════════════════════════════════
+         AI PROMPT KILAVUZU: FLASHCARD OLUŞTURMA TALİMATI
+        ═══════════════════════════════════════════════════════════════════════════════
+
+        [KONU İSMİ] konusu hakkında flashcard formatında soru-cevap kartları oluştur.
+        Konunun tüm detayları ele alınmalı. Açıklamalar doyurucu ve öğretici olmalı.
+        Sorular ve açıklamalar düzgün bir formatta üçlü vurgu sistemine
+        (bold, coloured, both) uyarak yazılmalı.
+
+        Kartları hazırlamada kaynak olarak Nelson Pediatrics 22th Ed, PubMed, AAP,
+        Cochrane gibi güncel kılavuz ve textbook'ları esas alabilirsin.
+
+        Soruları yazarken pediatri uzmanı bir hoca gibi düşün ve bir tıp öğrencisine
+        bu konudan neler sorardın ve hangi cevapları beklerdin bunları düşün.
+        Soru sayısı tüm detayları kapsayacak kadar çok olmalı.
+
+        ─────────────────────────────────────────────────────────────────────────────
+        KART FORMATI:
+        ─────────────────────────────────────────────────────────────────────────────
+
+        Her kart aşağıdaki JavaScript object formatında olmalı:
+
+        {
+            q: "Soru metni buraya",
+            a: "Cevap metni buraya (HTML formatlı)",
+            subject: "Konu Adı"
+        }
+
+        ─────────────────────────────────────────────────────────────────────────────
+        CEVAP FORMATLAMA KURALLARI (Üçlü Vurgu Sistemi):
+        ─────────────────────────────────────────────────────────────────────────────
+
+        • En önemli bilgiler (başlıklar, kritik tanımlar, sayısal değerler):
+          <strong class='highlight-critical'>metin</strong>
+
+        • Uyarılar ve dikkat notları:
+          <span class='highlight-important'>⚠️ metin</span>
+
+        • Normal vurgular (terimler, liste başlıkları):
+          <strong>metin</strong>
+
+        • Satır atlamak için: \n\n
+        • Madde işareti için: • (bullet karakteri)
+
+        ─────────────────────────────────────────────────────────────────────────────
+        ÖRNEK KART:
+        ─────────────────────────────────────────────────────────────────────────────
+
+        {
+            q: "Eritrosit süspansiyonunda 3 ml/kg verildiğinde Hb kaç g/dL artar?",
+            a: "<strong class='highlight-critical'>3 ml/kg → Hb 1 g/dL artar</strong>\n\n
+                Tam kanda ise <strong>7 ml/kg → Hb 1 g/dL artar</strong>\n\n
+                <span class='highlight-important'>⚠️ Buzdolabından çıkarıldıktan sonra
+                30 dk içinde verilmeli</span>",
+            subject: "Kan Transfüzyonu"
+        }
+
+        ─────────────────────────────────────────────────────────────────────────────
+        ÖNEMLİ NOTLAR:
+        ─────────────────────────────────────────────────────────────────────────────
+
+        • Sadece JavaScript object array'i olarak yaz, başka açıklama ekleme.
+        • subject değerini tüm kartlarda "[KONU ADI]" olarak kullan.
+        • Yeni konu eklenirse: subject değerini yaz, topic-select otomatik güncellenir.
+
+        ═══════════════════════════════════════════════════════════════════════════════
+        */
+        const flashcards = [
+{
+q: "Raşitizm nedir? Osteomalazi ile farkı nedir?",
+a: "<strong class='highlight-critical'>Raşitizm: büyüme plağında (fiziste) yetersiz mineralizasyon → kıkırdak-osteoid birikimi ve deformite</strong>\n\n<strong class='highlight-critical'>Osteomalazi: büyüme plağı kapandıktan sonra (adölesan/erişkin) osteoidin yetersiz mineralizasyonu</strong>\n\n<strong>Ayırt ettiren nokta</strong>: Raşitizmde <strong>fizis genişlemesi + metafizer değişiklikler</strong>; osteomalazide <strong>kemik ağrısı, psödofraktürler</strong> ön planda.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional (beslenmeye bağlı) raşitizmin temel patogenez özeti nedir?",
+a: "<strong class='highlight-critical'>Temel sorun: D vitamini eksikliği ve/veya düşük kalsiyum alımı → Ca/P homeostaz bozulur → fiziste mineralizasyon durur</strong>\n\n<strong>Akış</strong>:\n• D vitamini ↓ → intestinal <strong>kalsiyum emilimi</strong> ↓\n• <strong>PTH</strong> ↑ (sekonder hiperparatiroidi)\n• Böbrekten <strong>fosfat atılımı</strong> ↑ → <strong>hipofosfatemi</strong>\n• <strong>ALP</strong> ↑ (artmış osteoblast aktivitesi)\n• Fiziste <strong>cupping/fraying</strong> ve deformiteler gelişir.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamininin kalsiyum-fosfor dengesi üzerindeki ana etkileri nelerdir?",
+a: "<strong class='highlight-critical'>D vitamini (özellikle 1,25(OH)2D): intestinal Ca ve P emilimini artırır</strong>\n\n<strong>Başlıca etkiler</strong>:\n• Barsakta <strong>TRPV6</strong> ve Ca taşıyıcı proteinleri ↑ → Ca emilimi ↑\n• Barsakta fosfat emilimi ↑\n• Kemikte mineralizasyon için gerekli <strong>Ca×P</strong> ürününü destekler\n• PTH ile birlikte kemik-böbrek ekseninde denge kurar.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamininin başlıca kaynakları nelerdir?",
+a: "<strong class='highlight-critical'>1) Deri sentezi (UVB) 2) Diyet/fortifiye gıdalar 3) Takviyeler</strong>\n\n<strong>Diyet kaynakları</strong>:\n• Yağlı balıklar, balık yağı\n• Yumurtanın sarısı, karaciğer (daha az)\n• <strong>Fortifiye</strong> süt/ürünleri, bazı tahıllar\n\n<span class='highlight-important'>⚠️ Cam arkasından UVB geçişi belirgin azalır; “pencere önü güneşlenme” etkisiz sayılır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini metabolizmasını basamak basamak anlat.",
+a: "<strong class='highlight-critical'>Deri (D3) → Karaciğer (25-hidroksilasyon) → Böbrek (1α-hidroksilasyon) → aktif hormon</strong>\n\n<strong>Basamaklar</strong>:\n• UVB (290–315 nm) ile 7-dehidrokolesterolden <strong>kolekalsiferol (D3)</strong>\n• Karaciğer: <strong>25(OH)D</strong> (kalsidiol)\n• Böbrek: <strong>1,25(OH)2D</strong> (kalsitriol)\n• İnaktivasyon: <strong>24-hidroksilaz</strong> yolu",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "1α-hidroksilaz aktivitesi hangi faktörlerle düzenlenir?",
+a: "<strong class='highlight-critical'>PTH ↑ ve hipofosfatemi → 1α-hidroksilaz ↑; FGF23 ↑ ve hiperkalsemi → ↓</strong>\n\n<strong>Özet</strong>:\n• <strong>PTH</strong>: ↑\n• <strong>Düşük fosfat</strong>: ↑\n• <strong>FGF23</strong>: ↓\n• <strong>Yüksek 1,25(OH)2D</strong>: negatif geri bildirim (↓)",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "25(OH)D mi 1,25(OH)2D mi? D vitamini durumunu değerlendirmede hangisi seçilir?",
+a: "<strong class='highlight-critical'>D vitamini durumunun en iyi göstergesi: serum <strong>25(OH)D</strong></strong>\n\n<span class='highlight-important'>⚠️ 1,25(OH)2D genellikle D eksikliğinde normal/yüksek olabilir (PTH ile yükselir) → “yanıltıcı normal”</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini düzeyi sınıflaması için pratik eşikler nelerdir? (ng/mL ve nmol/L)",
+a: "<strong class='highlight-critical'>Raşitik aralık çoğunlukla: 25(OH)D < 12 ng/mL (< 30 nmol/L)</strong>\n\n<strong>Global konsensus sınıflaması</strong>:\n• <strong class='highlight-critical'>Yeterli: ≥ 50 nmol/L (≥ 20 ng/mL)</strong>\n• <strong>Yetersiz: 30–50 nmol/L (12–20 ng/mL)</strong>\n• <strong class='highlight-critical'>Eksik: < 30 nmol/L (< 12 ng/mL)</strong>\n\n<strong>Dönüşüm</strong>: <strong class='highlight-critical'>1 ng/mL = 2.5 nmol/L</strong> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizm için en önemli risk faktörleri nelerdir?",
+a: "<strong class='highlight-critical'>En tipik risk: yalnız anne sütü + D takviyesi yok + az güneş/kapalı giyim</strong>\n\n<strong>Risk faktörleri</strong>:\n• <strong>Koyu ten</strong>, yüksek enlem, kış mevsimi\n• <strong>Kapalı giyim</strong>, güneşten kaçınma\n• <strong>Prematürite</strong> (depo azlığı)\n• <strong>Malabsorpsiyon</strong> (çölyak, IBD), kolestaz\n• <strong>Obezite</strong>\n• İlaçlar: <strong>enzim indükleyici antiepileptikler</strong>, glukokortikoidler\n\n<span class='highlight-important'>⚠️ “Sadece evde olmak” bile (güneş görmeme) tek başına ciddi risk olabilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Anne sütünde D vitamini neden yetersiz kalır? Klinik sonucu ne olabilir?",
+a: "<strong class='highlight-critical'>Anne sütünde D vitamini içeriği çoğu bebek için tek başına yeterli değildir → ek 400 IU/gün gerekir</strong> \n\n<strong>Klinik sonuç</strong>:\n• Bebekte <strong>D eksikliği</strong>\n• Uzarsa <strong>raşitizm</strong> ve/veya <strong>hipokalsemi</strong> (tetani, nöbet)\n\n<span class='highlight-important'>⚠️ “Anne D vitamini kullanıyor” bebeğin otomatik korunacağı anlamına gelmez</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Konjenital (doğumsal) raşitizm nasıl gelişir ve ipucu bulgular nelerdir?",
+a: "<strong class='highlight-critical'>Maternal D vitamini eksikliği/hipokalsemi → fetüste mineralizasyon bozukluğu → konjenital raşitizm</strong> \n\n<strong>İpuçları</strong>:\n• Yenidoğanda <strong>hipokalsemi</strong>, irritabilite/nöbet\n• <strong>Geniş fontanel</strong>, kraniotabes\n• Kordon kanında <strong>ALP yüksekliği</strong>\n\n<span class='highlight-important'>⚠️ Anne riskli gruptaysa (kapalı giyim, koyu ten, malabsorpsiyon) gebelikte D vitamini planı kritik</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmin yaşa göre klinik bulguları: bebekte neler beklersin?",
+a: "<strong class='highlight-critical'>Bebekte tipik: kraniotabes + frontal bossing + geniş fontanel + hipotoni/gevşeklik</strong>\n\n<strong>Sık bulgular</strong>:\n• <strong>Kraniotabes</strong> (özellikle oksipital)\n• <strong>Frontal bossing</strong>\n• <strong>Gecikmiş diş çıkarma</strong>\n• <strong>Hipotoni</strong>, motor gelişim geriliği\n• <strong>Wrist/ankle widening</strong> (bilek/ayak bileği genişliği)\n\n<span class='highlight-important'>⚠️ Ağır hipokalsemide laringospazm, apne, nöbet görülebilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmin yürüyen çocukta (toddler) tipik iskelet bulguları nelerdir?",
+a: "<strong class='highlight-critical'>Yürüyen çocukta: genu varum/valgum + metafizer genişleme + raşitik rozari</strong>\n\n<strong>Bulgular</strong>:\n• <strong>Genu varum</strong> (daha sık) veya <strong>genu valgum</strong>\n• <strong>Raşitik rozari</strong> (kostokondral bileşkelerde boncuklanma)\n• <strong>Harrison oluğu</strong>\n• <strong>Öne doğru göğüs deformitesi</strong>\n• Bileklerde “bilezik” görünümü\n\n<span class='highlight-important'>⚠️ Fizyolojik genu varum genelde simetrik ve yaşla düzelir; progresyon/asimetri alarmdır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmin adölesanda/ileri yaş çocukta klinik ipuçları nelerdir?",
+a: "<strong class='highlight-critical'>Adölesanda: kemik ağrısı + proksimal kas güçsüzlüğü + stres kırıkları/psödofraktür eğilimi</strong>\n\n<strong>İpuçları</strong>:\n• <strong>Yürüme-merdiven çıkma zor</strong> (proksimal miyopati)\n• <strong>Bel/kalça ağrısı</strong>\n• Spor yapanlarda <strong>stres fraktürü</strong>\n• Duruş bozukluğu\n\n<span class='highlight-important'>⚠️ “Sadece kas ağrısı/performans düşüklüğü” diye atlanabilir; D vitamini öyküsü mutlaka sorgulanır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Hipokalsemiye bağlı acil bulgular nelerdir?",
+a: "<strong class='highlight-critical'>Hipokalsemi acilleri: tetani, nöbet, laringospazm, QT uzaması</strong>\n\n<strong>Klinik</strong>:\n• Perioral parestezi, karpopedal spazm\n• Stridor/laringospazm\n• Jeneralize nöbet\n• EKG: <strong>QT uzaması</strong>\n\n<span class='highlight-important'>⚠️ Nöbet geçiren bebekte “D eksikliği + hipokalsemi” mutlaka ayırıcı tanıda olmalı</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliği ile ilişkili dilate kardiyomiyopati nasıl olur? Ne zaman düşünürsün?",
+a: "<strong class='highlight-critical'>Ağır D vitamini eksikliği → ağır hipokalsemi → miyokard kontraktilitesi bozulur → dilate kardiyomiyopati gelişebilir</strong>\n\n<strong>Ne zaman düşünülür?</strong>\n• Bebekte <strong>kalp yetmezliği</strong> bulguları + eşlik eden <strong>hipokalsemi</strong>\n• Raşitizm bulguları olan bebekte taşikardi, hepatomegali\n\n<span class='highlight-important'>⚠️ Tedavide sadece diüretik yetmez; <strong>kalsiyum</strong> ve <strong>D vitamini</strong> replasmanı esastır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizmde tipik biyokimyasal patern nedir?",
+a: "<strong class='highlight-critical'>Klasik patern: ALP ↑↑, PTH ↑, fosfor ↓; kalsiyum erken dönemde normal, ilerleyince ↓ olabilir</strong>\n\n<strong>Beklenen</strong>:\n• <strong>ALP</strong>: belirgin yüksek\n• <strong>PTH</strong>: yüksek\n• <strong>Fosfor</strong>: düşük (PTH ile renal kayıp)\n• <strong>25(OH)D</strong>: düşük\n• <strong>Kalsiyum</strong>: normal veya düşük\n\n<span class='highlight-important'>⚠️ Kalsiyumun normal olması raşitizmi dışlamaz (kompansatuvar PTH etkisi)</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde ALP neden yükselir ve klinik önemi nedir?",
+a: "<strong class='highlight-critical'>ALP yükselmesi artmış osteoblast aktivitesi/osteoid üretiminin biyokimyasal yansımasıdır</strong>\n\n<strong>Klinik önemi</strong>:\n• Tanıda <strong>en duyarlı</strong> göstergelerden\n• Tedavi yanıtında zamanla düşer\n\n<span class='highlight-important'>⚠️ ALP yaşa göre zaten yüksek olabilir; yorum yaş-uygun referansla yapılmalı</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde fosfor düşüklüğünün temel mekanizması nedir?",
+a: "<strong class='highlight-critical'>D eksikliği → Ca emilimi ↓ → PTH ↑ → böbrekten fosfat atılımı ↑ → hipofosfatemi</strong>\n\n<strong>Ek not</strong>: Hipofosfatemi mineralizasyonu en çok bozan faktörlerden biridir; fiziste “yumuşama” ve deformiteyi sürdürür.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde kalsiyum neden her zaman düşük değildir?",
+a: "<strong class='highlight-critical'>Sekonder hiperparatiroidi kalsiyumu bir süre “normalde tutar” (kemikten mobilizasyon + renal Ca geri emilimi)</strong>\n\n<strong>Sonuç</strong>:\n• Erken dönemde <strong>normokalsemi</strong> görülebilir\n• Hastalık ilerledikçe depolar tükenir → <strong>hipokalsemi</strong> gelişebilir\n\n<span class='highlight-important'>⚠️ “Kalsiyum normal → raşitizm yok” yaklaşımı hatalıdır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm şüphesinde istenecek temel laboratuvar paneli nedir?",
+a: "<strong class='highlight-critical'>Temel panel: Ca, P, ALP, PTH, 25(OH)D + böbrek fonksiyonu</strong>\n\n<strong>İdeal ekler</strong>:\n• <strong>Mg</strong> (hipomagnezemi hipokalsemiyi dirençli yapar)\n• <strong>Üre/kreatinin</strong>, bikarbonat (RTA/CKD ayırıcı)\n• İdrar: <strong>Ca/Cr</strong>, gerekirse <strong>TmP/GFR</strong>\n\n<span class='highlight-important'>⚠️ Tek başına 25(OH)D ile yetinme; raşitizm biyokimya + radyoloji ile doğrulanır</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm tanısında görüntüleme: hangi grafi ve hangi bulgular?",
+a: "<strong class='highlight-critical'>Tanıyı doğrulayan: metafizer değişiklikler (widening, cupping, fraying) + fizis genişlemesi</strong>\n\n<strong>Tercih edilen</strong>:\n• <strong>El bileği (distal radius/ulna)</strong> ve/veya <strong>diz (distal femur/proksimal tibia)</strong> grafileri\n\n<strong>Radyolojik bulgular</strong>:\n• <strong>Metafizer cupping</strong>\n• <strong>Fraying</strong> (püsküllenme)\n• <strong>Splaying</strong> (genişleme)\n• Osteopeni, deformite",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Radyografide ‘raşitik rozari’ ile ne kastedilir?",
+a: "<strong class='highlight-critical'>Kostokondral bileşkelerde büyüme plağı genişlemesi → boncuklanma görünümü</strong>\n\n<strong>Klinik karşılığı</strong>:\n• Muayenede “tespih tanesi” gibi çıkıntılar\n• Uzun sürmüş mineralizasyon bozukluğunu düşündürür.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Tedavi sonrası radyolojik iyileşme nasıl izlenir? Beklenen zaman çizelgesi?",
+a: "<strong class='highlight-critical'>Radyolojik iyileşme genelde haftalar içinde başlar; tam düzelme aylar sürebilir</strong>\n\n<strong>Pratik</strong>:\n• Ağrı/irritabilite ve hipokalsemi bulguları: <strong>günler–1-2 hafta</strong>\n• Grafide iyileşme işaretleri: <strong>2–4 hafta</strong>\n• ALP/PTH normalleşmesi ve kemik remodeling: <strong>3–6 ay</strong>\n\n<span class='highlight-important'>⚠️ Klinik düzelme olsa bile “idame” ve takip kesilirse nüks olabilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizm ile hipofosfatemik raşitizmi biyokimyada nasıl ayırırsın?",
+a: "<strong class='highlight-critical'>Nutritional: 25(OH)D düşük + PTH yüksek; Hipofosfatemik: 25(OH)D genelde normal, Ca normal, PTH normal/az ↑, fosfat düşük (renal kayıp)</strong>\n\n<strong>Ayırt ettiren test</strong>:\n• <strong>TmP/GFR</strong> düşük (renal fosfat wasting)\n• Gerekirse <strong>FGF23</strong> değerlendirmesi\n\n<span class='highlight-important'>⚠️ Hipofosfatemik raşitizmde sadece D3 vermek yetmez; hedef fosfat eksenidir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Fizyolojik genu varum ile raşitizme bağlı genu varumu ayıran kırmızı bayraklar nelerdir?",
+a: "<strong class='highlight-critical'>Kırmızı bayrak: progresyon, asimetri, kısa boy/gelişme geriliği, bilek genişliği, raşitik rozari</strong>\n\n<strong>Fizyolojik genu varum</strong>:\n• Genelde <strong>simetrik</strong>\n• Yaşla (özellikle 18–24 ay sonrası) <strong>kendiliğinden düzelme</strong> eğilimi\n\n<span class='highlight-important'>⚠️ Tek taraflı deformite veya hızlı kötüleşme → Blount hastalığı/raşitizm/dizplazi düşün</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm ayırıcı tanısında hangi başlıklar mutlaka olmalı?",
+a: "<strong class='highlight-critical'>Ayırıcı tanı 4’lü: nutritional (D/Ca) • renal (CKD/RTA) • fosfat wasting (FGF23) • genetik D metabolizması</strong>\n\n<strong>Diğerleri</strong>:\n• <strong>Skeletal displaziler</strong>\n• <strong>Blount</strong>\n• <strong>Non-accidental injury</strong> (kırık paterni)\n\n<span class='highlight-important'>⚠️ “D vitamini düşük” tek başına kırıkları açıklamaz; klinik-radyoloji uyumu şart</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliği ile ‘D vitamini eksikliği raşitizmi’ aynı şey midir?",
+a: "<strong class='highlight-critical'>Hayır. D vitamini eksikliği biyokimyasal olabilir; raşitizm için büyüme plağında mineralizasyon bozukluğu ve radyolojik bulgu gerekir</strong>\n\n<strong>Özet</strong>:\n• <strong>D eksikliği</strong>: düşük 25(OH)D, klinik/radyoloji olmayabilir\n• <strong>Raşitizm</strong>: klinik + biyokimya + <strong>grafi ile doğrulama</strong> \n\n<span class='highlight-important'>⚠️ Düşük 25(OH)D gördüğünde “otomatik raşitizm” demeden bilek grafisini düşün</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizmde tedavinin 2 temel ayağı nedir?",
+a: "<strong class='highlight-critical'>Tedavinin temeli: yeterli <strong>D vitamini</strong> + yeterli <strong>kalsiyum</strong></strong> \n\n<strong>Neden ikisi birlikte?</strong>\n• Tek başına D vitamini verilse bile <strong>diyet kalsiyumu düşükse</strong> iyileşme yavaş/eksik kalır\n• Kombinasyon tedavisi biyokimya ve radyolojiyi daha hızlı düzeltir",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizm tedavisinde minimum önerilen günlük D vitamini dozu ve süre nedir?",
+a: "<strong class='highlight-critical'>Minimum: <strong>2000 IU/gün</strong> D vitamini, en az <strong>3 ay (≥12 hafta)</strong></strong> \n\n<strong>Not</strong>: Bazı çocuklarda (ağır hastalık, malabsorpsiyon) daha uzun süre gerekebilir.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Global konsensus (Munns 2016) tedavi dozları (yaşa göre) nasıldır?",
+a: "<strong class='highlight-critical'>Yaşa göre günlük tedavi dozu (90 gün):</strong> \n\n• <strong>0–3 ay:</strong> <strong class='highlight-critical'>2000 IU/gün</strong>\n• <strong>3–12 ay:</strong> <strong class='highlight-critical'>2000 IU/gün</strong>\n• <strong>12 ay–12 yaş:</strong> <strong class='highlight-critical'>3000–6000 IU/gün</strong>\n• <strong>≥12 yaş:</strong> <strong class='highlight-critical'>6000 IU/gün</strong>\n\n<strong>İdame (iyileşme sonrası):</strong>\n• <strong class='highlight-critical'>0–12 ay: 400 IU/gün</strong>\n• <strong class='highlight-critical'>≥12 ay: 600 IU/gün</strong> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "‘Stoss’ (bolus) tedavisi nedir? Ne zaman düşünülür, riskleri nelerdir?",
+a: "<strong class='highlight-critical'>Stoss: tek seferde yüksek doz D vitamini (uyum sorunu olanlarda pratik olabilir)</strong>\n\n<strong>Global konsensus tek doz örnekleri</strong>:\n• <strong>3–12 ay:</strong> <strong class='highlight-critical'>50.000 IU</strong>\n• <strong>12 ay–12 yaş:</strong> <strong class='highlight-critical'>150.000 IU</strong>\n• <strong>≥12 yaş:</strong> <strong class='highlight-critical'>300.000 IU</strong> \n\n<span class='highlight-important'>⚠️ Hiperkalsemi/hiperkalsiüri riski vardır; özellikle 300.000–600.000 IU ile hiperkalsemi bildirilmiştir</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm tedavisinde kalsiyum desteği ne kadar olmalı?",
+a: "<strong class='highlight-critical'>Tedavide günlük elemental kalsiyum hedefi: en az <strong>500 mg/gün</strong></strong> \n\n<strong>Nasıl sağlanır?</strong>\n• Diyetle (süt/yoğurt/peynir) veya\n• Kalsiyum karbonat/sitrat preparatları\n\n<span class='highlight-important'>⚠️ Sadece D vitamini verip kalsiyumu ihmal etmek → yetersiz yanıt ve nüks riski</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D2 (ergokalsiferol) ile D3 (kolekalsiferol) farkı pratikte ne ifade eder?",
+a: "<strong class='highlight-critical'>Günlük tedavide D2 ve D3 benzer etkili; bolus/tek dozda D3 daha avantajlı olabilir (daha uzun yarı ömür)</strong> \n\n<strong>Pratik yaklaşım</strong>:\n• Uygun preparat varsa <strong>D3</strong> tercih etmek kolaylık sağlar\n• Hedef: <strong>doğru doz + yeterli süre + kalsiyum</strong>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm tedavisinde oral mı IM mi? Hangisi tercih edilir?",
+a: "<strong class='highlight-critical'>Tercih: <strong>oral</strong> tedavi (25(OH)D’yi daha hızlı yükseltir)</strong> \n\n<span class='highlight-important'>⚠️ IM tedavi genelde “uyumsuzluk/erişim” gibi özel durumlarda düşünülür; rutin ilk seçenek değildir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Hipokalsemik nöbeti olan raşitik bebekte akut yönetim basamakları nedir?",
+a: "<strong class='highlight-critical'>Acil: IV kalsiyum + EKG monitorizasyonu + altta yatan D eksikliğini düzeltme</strong>\n\n<strong>Basamaklar</strong>:\n• ABC + damar yolu\n• <strong>IV kalsiyum glukonat</strong> (yavaş, monitörize)\n• Eşlik ediyorsa <strong>Mg</strong> düzelt\n• Ardından <strong>oral kalsiyum</strong> + uygun <strong>D vitamini</strong> rejimi\n\n<span class='highlight-important'>⚠️ Ekstravazasyon riski: IV kalsiyumu güvenli hatla ve yavaş ver</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Tedaviye yanıtı hangi laboratuvarlarla ve ne zaman izlersin?",
+a: "<strong class='highlight-critical'>Yanıt izlemi: Ca/P (erken), PTH-ALP (orta), 25(OH)D ve grafi (geç)</strong>\n\n<strong>Pratik takip</strong>:\n• 1–2 hafta: <strong>Ca, P</strong> (hipo/hiperkalsemi?)\n• 4–6 hafta: <strong>ALP, PTH</strong> düşüş eğilimi\n• ~3 ay: <strong>radyolojik iyileşme</strong> + gerekirse 25(OH)D\n\n<span class='highlight-important'>⚠️ Stoss sonrası hiperkalsemi riski daha belirgin → daha sık Ca/idrarda Ca izle</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Tedaviden sonra idame D vitamini dozu nedir?",
+a: "<strong class='highlight-critical'>İdame: 0–12 ay <strong>400 IU/gün</strong>; ≥12 ay <strong>600 IU/gün</strong></strong> \n\n<span class='highlight-important'>⚠️ İdameyi kesmek, risk faktörü devam ediyorsa nüks raşitizme davetiye çıkarır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Sağlıklı çocukta D vitamini profilaksisi (AAP) nasıl olmalı?",
+a: "<strong class='highlight-critical'>AAP: <strong><12 ay 400 IU/gün</strong>; <strong>≥1 yaş 600 IU/gün</strong></strong> \n\n<strong>Kimlere özellikle?</strong>\n• Tam/parsiyel anne sütü alanlar\n• Fortifiye süt/ürün tüketimi düşük olanlar\n\n<span class='highlight-important'>⚠️ “Sadece formula alıyor” çocukta da toplam alım 400 IU’yu karşılamıyorsa ek gerekebilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "CDC’nin bebek/çocuk D vitamini önerisi nasıldır?",
+a: "<strong class='highlight-critical'>CDC: <12 ay 400 IU/gün; 12–24 ay 600 IU/gün</strong> \n\n<strong>Pratik mesaj</strong>: Yaşa göre hedef değişir; özellikle yürümeye başlayan dönemde 600 IU/gün sık referans alınır.",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Gebelikte D vitamini için konsensus önerisi nedir?",
+a: "<strong class='highlight-critical'>Gebelikte önerilen alım: <strong>600 IU/gün</strong> (riskli gruplarda eksiklikten kaçın)</strong> \n\n<span class='highlight-important'>⚠️ Gebelikte eksiklik → neonatal hipokalsemi/konjenital raşitizm riskini artırabilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Laktasyonda anneye yüksek doz D verip bebeği ‘anne sütünden’ korumak doğru mu?",
+a: "<strong class='highlight-critical'>Genel yaklaşım: bebeğe <strong>doğrudan 400 IU/gün</strong> vermek standarttır</strong> \n\n<span class='highlight-important'>⚠️ Laktasyonda çok yüksek anne dozları (ör. 2000–6400 IU/gün) süt D içeriğini artırsa da rutin strateji olarak önerilmez; bebek takviyesi daha güvenli ve öngörülebilirdir</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Güneş maruziyeti ile D vitamini sentezi konusunda çocuklara rutin ‘güneşlenme’ önerilir mi?",
+a: "<strong class='highlight-critical'>Rutin “güneşlenme dozu” reçete etmek zordur; güvenli eşik yoktur</strong>\n\n<span class='highlight-important'>⚠️ Global konsensus: Popülasyon düzeyinde yeterli D sentezi sağlayan ‘güvenli UV eşiği’ belirlenemez; cilt kanseri riski nedeniyle temel strateji fortifikasyon + suplementasyondur</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini toksisitesi nasıl tanımlanır ve klinik olarak ne görürsün?",
+a: "<strong class='highlight-critical'>Toksisite: hiperkalsemi + yüksek 25(OH)D (sıklıkla ≥250 nmol/L) + hiperkalsiüri + PTH baskılanması</strong> \n\n<strong>Klinik</strong>:\n• Bulantı-kusma, kabızlık\n• Poliüri-polidipsi, dehidratasyon\n• Letarji/konfüzyon\n• Nefrolitiazis/nefrokalsinozis\n\n<span class='highlight-important'>⚠️ Güneşten toksisite olmaz; genelde aşırı takviye ile olur</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini için yaşa göre tolere edilebilir üst alım düzeyi (UL) nedir?",
+a: "<strong class='highlight-critical'>NIH ODS’ye göre UL (tüm kaynaklardan):</strong> \n\n• <strong>0–6 ay:</strong> <strong class='highlight-critical'>1000 IU/gün</strong>\n• <strong>7–12 ay:</strong> <strong class='highlight-critical'>1500 IU/gün</strong>\n• <strong>1–3 yaş:</strong> <strong class='highlight-critical'>2500 IU/gün</strong>\n• <strong>4–8 yaş:</strong> <strong class='highlight-critical'>3000 IU/gün</strong>\n• <strong>9–18 yaş:</strong> <strong class='highlight-critical'>4000 IU/gün</strong>\n\n<span class='highlight-important'>⚠️ Raşitizm tedavisinde kısa süreli daha yüksek dozlar hekim gözetiminde kullanılabilir</span> ",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizmde ‘kalsiyum eksikliği baskın’ ise biyokimya nasıl farklılaşabilir?",
+a: "<strong class='highlight-critical'>Düşük kalsiyum alımı baskınsa: 25(OH)D çok düşük olmayabilir; PTH yüksek, fosfat düşük, ALP yüksek yine tipiktir</strong>\n\n<strong>İpuçları</strong>:\n• Diyet öyküsü: süt/yoğurt/peynir çok az\n• 25(OH)D: normal-sınırda düşük olabilir\n• Tedavide <strong>kalsiyum replasmanı</strong> kritik hızlandırıcıdır\n\n<span class='highlight-important'>⚠️ “D vitamini normal → raşitizm yok” yanlışı burada daha sık yapılır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Renal tübüler asidoz (RTA) raşitizme nasıl yol açar? Hangi ipuçları var?",
+a: "<strong class='highlight-critical'>Kronik asidoz → kemikten tamponlama + mineralizasyon bozukluğu → raşitizm/osteomalazi</strong>\n\n<strong>İpuçları</strong>:\n• Büyüme geriliği, poliüri\n• <strong>Düşük bikarbonat</strong> (metabolik asidoz)\n• İdrar pH paterni (tip 1 distal vs tip 2 proksimal)\n\n<span class='highlight-important'>⚠️ RTA’da sadece D vitamini vermek yetmez; asidozu düzeltmek şarttır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Kronik böbrek hastalığında (CKD) raşitizm/renal osteodistrofi hangi mekanizmayla gelişir?",
+a: "<strong class='highlight-critical'>CKD: 1α-hidroksilaz aktivitesi ↓ + fosfat retansiyonu ↑ + sekonder hiperparatiroidi → renal osteodistrofi/raşitik değişiklikler</strong>\n\n<strong>İpuçları</strong>:\n• Kreatinin yüksekliği\n• Fosfat yüksek/normal (evreye göre)\n• PTH belirgin yüksek\n\n<span class='highlight-important'>⚠️ CKD’de tedavi çoğu zaman <strong>aktif D (kalsitriol/analog)</strong> ve fosfat kontrolü gerektirir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Malabsorpsiyon (çölyak/IBD) raşitizm yapabilir mi? Ne beklersin?",
+a: "<strong class='highlight-critical'>Evet. Yağ malabsorpsiyonu → D vitamini emilimi ↓ → eksiklik ve raşitizm</strong>\n\n<strong>İpuçları</strong>:\n• Kronik ishal, kilo alamama\n• Demir eksikliği eşlik edebilir\n• 25(OH)D düşük, ALP yüksek\n\n<span class='highlight-important'>⚠️ Tedavi yalnız takviye değil; altta yatan malabsorpsiyonun tedavisi şart</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Kolestazda D vitamini yönetimi neden daha zor olabilir?",
+a: "<strong class='highlight-critical'>Kolestaz → safra asidi azalır → yağda eriyen vitaminlerin (A-D-E-K) emilimi bozulur</strong>\n\n<strong>Pratik</strong>:\n• Standart oral D3 dozu yetersiz kalabilir\n• Daha yüksek doz/özel formülasyon gerekebilir\n• Sık biyokimya izlemi (Ca, idrar Ca) önemlidir\n\n<span class='highlight-important'>⚠️ “D veriyorum düzelmiyor” olgularında kolestaz/malabsorpsiyon mutlaka düşünülür</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Enzim indükleyici antiepileptikler D vitamini eksikliğini nasıl artırır?",
+a: "<strong class='highlight-critical'>Karaciğer enzim indüksiyonu → D vitamini katabolizması ↑ → 25(OH)D düşer</strong>\n\n<strong>İlaç örnekleri</strong>:\n• Fenitoin, fenobarbital, karbamazepin\n\n<span class='highlight-important'>⚠️ Uzun süre antiepileptik kullanan çocuklarda D vitamini ve kemik sağlığı takibi ihmal edilmemeli</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Vitamin D-bağımlı raşitizm Tip 1A (VDDR1A) nedir? Tipik laboratuvar paterni?",
+a: "<strong class='highlight-critical'>VDDR1A: 1α-hidroksilaz (CYP27B1) defekti → 1,25(OH)2D düşük → hipokalsemi/raşitizm</strong>\n\n<strong>Laboratuvar</strong>:\n• 25(OH)D: <strong>normal</strong>\n• 1,25(OH)2D: <strong class='highlight-critical'>düşük</strong>\n• PTH: yüksek\n• ALP: yüksek\n\n<strong>Tedavi</strong>: <strong class='highlight-critical'>kalsitriol</strong> + kalsiyum",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Vitamin D-bağımlı raşitizm Tip 2A (VDDR2A) nedir? Klinik ipucu ne olabilir?",
+a: "<strong class='highlight-critical'>VDDR2A: Vitamin D reseptör (VDR) direnci → yüksek 1,25(OH)2D’ye rağmen etkisiz</strong>\n\n<strong>Laboratuvar</strong>:\n• 25(OH)D: normal\n• 1,25(OH)2D: <strong class='highlight-critical'>yüksek</strong>\n• PTH/ALP: yüksek\n\n<strong>Klinik ipucu</strong>:\n• Bazı olgularda <strong>alopesi</strong> eşlik edebilir\n\n<span class='highlight-important'>⚠️ Tedavi zor olabilir; yüksek doz kalsitriol + yüksek kalsiyum (bazen IV) gerekebilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Hipofosfatemik raşitizmde (FGF23 aracılı) temel tedavi prensibi nedir?",
+a: "<strong class='highlight-critical'>Hedef: renal fosfat kaybını telafi etmek ve FGF23 eksenini yönetmek</strong>\n\n<strong>Klasik</strong>:\n• Bölünmüş doz <strong>fosfat</strong> + <strong>aktif D (kalsitriol)</strong>\n\n<strong>Seçilmiş olgular</strong>:\n• Anti-FGF23 tedaviler (örn. burosumab)\n\n<span class='highlight-important'>⚠️ Nutritional raşitizm algoritmasıyla karıştırma; 25(OH)D genelde normaldir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde TmP/GFR ne zaman istenir ve neyi gösterir?",
+a: "<strong class='highlight-critical'>TmP/GFR, böbreğin fosfatı geri emme kapasitesini gösterir; “renal fosfat kaybı” şüphesinde istenir</strong>\n\n<strong>Ne zaman?</strong>\n• Fosfat düşük ama 25(OH)D normal/yanıt yetersiz\n• Aile öyküsü/deformite erken başlıyor\n\n<strong>Yorum</strong>:\n• <strong class='highlight-critical'>Düşük TmP/GFR → fosfat wasting</strong> (FGF23 ilişkili vb.)",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde ‘büyüme plağı’ mikroskobik düzeyde neye benzer?",
+a: "<strong class='highlight-critical'>Hipertrofik kondrosit zonu genişler, kalsifikasyon hattı bozulur → düzensiz, geniş fizis</strong>\n\n<strong>Sonuç</strong>:\n• Metafizde <strong>genişleme</strong>\n• Mekanik yükle deformite (varum/valgum)\n• Kemik “yumuşak” hissi",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde göğüs kafesi deformitelerinin klinik önemi nedir?",
+a: "<strong class='highlight-critical'>Ağır olguda göğüs deformitesi → solunum iş yükü artışı ve enfeksiyonlara yatkınlık</strong>\n\n<strong>Örnek bulgular</strong>:\n• <strong>Harrison oluğu</strong>\n• <strong>Göğüs ön duvar protrüzyonu</strong>\n• Raşitik rozari\n\n<span class='highlight-important'>⚠️ Bebekte tekrarlayan alt solunum yolu enfeksiyonu + deformite → ağır raşitizm düşündürür</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde ‘wrist widening’ (bilek genişlemesi) neden olur?",
+a: "<strong class='highlight-critical'>Distal radius/ulna metafizinde mineralizasyon bozukluğu → kıkırdak-osteoid birikimi → metafizer genişleme</strong>\n\n<strong>Muayene</strong>:\n• “Bilezik” gibi sert/kalın hissedilebilir\n• Genellikle simetriktir (nutritional olguda)",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde kas güçsüzlüğü ve motor gecikmenin mekanizması nedir?",
+a: "<strong class='highlight-critical'>D vitamini eksikliği + hipokalsemi/hipofosfatemi → kas fonksiyonu bozulur → proksimal miyopati ve hipotoni</strong>\n\n<strong>Klinik</strong>:\n• Oturma/ayağa kalkma gecikmesi\n• Merdiven çıkamama\n\n<span class='highlight-important'>⚠️ “Sadece fizyoterapi” ile düzelmez; biyokimyasal nedeni düzeltmek şarttır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm şüphesinde anamnezde hangi 6 soru ‘olmazsa olmaz’dır?",
+a: "<strong class='highlight-critical'>Olmazsa olmaz anamnez: beslenme, suplement, güneş, büyüme, GIS, ilaç</strong>\n\n• <strong>Anne sütü/formula</strong> ve miktar\n• <strong>D vitamini</strong> kullanımı (doz/süre/uyum)\n• <strong>Güneş maruziyeti</strong> ve giyim\n• Büyüme-gelişme eğrisi\n• Kronik ishal/kolestaz bulguları\n• Antiepileptik/steroid kullanımı",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde fizik muayenede ‘hızlı tarama’ nasıl yapılır?",
+a: "<strong class='highlight-critical'>Hızlı tarama: baş (kraniotabes/fontanel) + göğüs (rozari) + ekstremite (bilek/varum) + kas tonusu</strong>\n\n<strong>Bak-dokun</strong>:\n• Oksipital kraniotabes\n• Fontanel genişliği\n• Kostokondral boncuklanma\n• Bilek/ayak bileği genişliği\n• Bacak aksı (varum/valgum)\n• Proksimal güç (Gowers benzeri kalkış)",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde diş ve mine üzerine etkiler neler olabilir?",
+a: "<strong class='highlight-critical'>Kronik eksiklik → diş sürmesinde gecikme ve mine hipoplazisi</strong>\n\n<strong>İpuçları</strong>:\n• Diş çıkarma gecikmesi\n• Çürüğe yatkınlık\n• Mine defektleri\n\n<span class='highlight-important'>⚠️ ‘Sadece diş sorunu’ gibi görünse de eşlik eden iskelet bulguları sorgulanmalı</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliği için tarama (screening) kimlerde düşünülür?",
+a: "<strong class='highlight-critical'>Rutin herkesin 25(OH)D bakılması değil; risk grubu ve klinik şüphede ölçüm</strong>\n\n<strong>Risk grupları</strong>:\n• Koyu ten/kapalı giyim/az güneş\n• Prematür/SGA\n• Malabsorpsiyon/kolestaz\n• CKD/karaciğer hastalığı\n• Enzim indükleyici ilaç kullanımı\n\n<span class='highlight-important'>⚠️ Tarama + tedavi planı birlikte düşünülmeli; “bakıp bırakmak” klinik fayda sağlamaz</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm tanısını doğrulamak için hangi 3 bileşenin birlikte olması idealdir?",
+a: "<strong class='highlight-critical'>Tanı üçlüsü: <strong>klinik</strong> + <strong>biyokimya</strong> + <strong>radyoloji</strong></strong> \n\n<strong>Örnek</strong>:\n• Klinik: varum, rozari\n• Biyokimya: ALP↑, PTH↑, P↓\n• Radyoloji: cupping/fraying",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutritional raşitizmde ‘en tipik’ laboratuvar tuzağı (trap) nedir?",
+a: "<strong class='highlight-critical'>Tuzak: kalsiyumun normal olması</strong>\n\n<strong>Neden tuzak?</strong>\n• PTH kompansasyonu ile Ca bir süre normal kalır\n• Asıl kırıcı parametre çoğu zaman <strong>fosfat düşüklüğü</strong> ve <strong>ALP yüksekliği</strong>dir\n\n<span class='highlight-important'>⚠️ Normal Ca görüldüğünde bile ALP/PTH/P ve grafi ile devam et</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliğinde 25(OH)D neden ‘depo’ göstergesidir?",
+a: "<strong class='highlight-critical'>25(OH)D yarı ömrü uzun ve dolaşımda en yüksek konsantrasyonda olan formdur → depoyu yansıtır</strong>\n\n<strong>1,25(OH)2D neden depo değildir?</strong>\n• Kısa yarı ömür\n• PTH ile regüle olup eksiklikte bile normal/yüksek olabilir",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliği ile ilişkili kırık riskini nasıl yorumlarsın?",
+a: "<strong class='highlight-critical'>Sadece düşük 25(OH)D, raşitizm bulgusu yoksa kırık risk artışı tutarlı değildir; raşitizm varsa kemik zayıflığı belirgindir</strong> \n\n<span class='highlight-important'>⚠️ İstismar şüphesinde ‘D vitamini düşük’ bahanesiyle klinik-radyolojik değerlendirme ihmal edilmez</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde neden ‘fosfor’ mineralizasyon için kritik sayılır?",
+a: "<strong class='highlight-critical'>Hidroksiapatit oluşumu için Ca ve P gerekir; hipofosfatemi mineralizasyonun en güçlü frenidir</strong>\n\n<strong>Pratik sonuç</strong>:\n• PTH yüksekliği ile fosfor düşerse raşitizm sürer\n• Tedavide kalsiyum yeterliliği PTH’ı düşürerek fosforu toparlatır",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde büyüme geriliği hangi mekanizmayla olur?",
+a: "<strong class='highlight-critical'>Fiziste mineralizasyon bozukluğu → endokondral ossifikasyon aksar → lineer büyüme yavaşlar</strong>\n\n<strong>Klinik</strong>:\n• Boy SDS düşer\n• Bacak deformiteleri mekanik yükü artırıp mobiliteyi azaltır\n\n<span class='highlight-important'>⚠️ Kronik hastalık/malabsorpsiyon eşlik ediyorsa büyüme etkisi daha belirgin olur</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Prematüre bebekte ‘metabolik kemik hastalığı’ ile raşitizm ilişkisi nedir?",
+a: "<strong class='highlight-critical'>Prematürelerde mineral depoları az + hızlı büyüme → Ca/P yetersizliği → raşitizme benzer osteopeni gelişebilir</strong>\n\n<strong>İpuçları</strong>:\n• ALP yüksek, fosfat düşük\n• Uzun süre parenteral beslenme\n\n<span class='highlight-important'>⚠️ Tedavide sadece D değil; fosfat ve kalsiyum optimizasyonu temel</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde hangi deformiteler ‘acil ortopedik’ değerlendirme gerektirebilir?",
+a: "<strong class='highlight-critical'>Şiddetli/progresif aks deformitesi, asimetri, fonksiyon kaybı ve patolojik kırık</strong>\n\n<strong>Özellikle</strong>:\n• Tek taraflı belirgin varum/valgum\n• Çok hızlı ilerleyen deformite\n• Yürüme ciddi bozulmuşsa\n\n<span class='highlight-important'>⚠️ Medikal tedavi ile biyokimya düzelmeden cerrahi planlamak nüks/başarısızlık riskini artırır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini takviyesinde IU–mikrogram dönüşümü nedir?",
+a: "<strong class='highlight-critical'>D vitamini dönüşüm: <strong>1 µg = 40 IU</strong></strong> \n\n<strong>Örnek</strong>:\n• 10 µg = 400 IU\n• 15 µg = 600 IU",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizm tedavisinde ‘reassess’ (yeniden değerlendirme) ne zaman ve neden yapılır?",
+a: "<strong class='highlight-critical'>3 ay sonunda yeniden değerlendir: bazı çocuklar daha uzun tedavi gerektirir</strong> \n\n<strong>Neden?</strong>\n• Devam eden risk faktörü (malabsorpsiyon, uyumsuzluk)\n• Ağır başlangıç biyokimyası\n• Yetersiz kalsiyum alımı\n\n<span class='highlight-important'>⚠️ Yanıt yoksa “tanı yanlış mı?” sorusunu mutlaka yeniden sor</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Viva: Raşitizm şüphesi olan 18 aylık çocuk geldi. İlk 3 adımın ne?",
+a: "<strong class='highlight-critical'>Optimal yaklaşım (3 adım):</strong>\n\n• <strong>1)</strong> Anamnez: beslenme (süt/anne sütü), D takviyesi, güneş, büyüme, GIS/ilaç\n• <strong>2)</strong> Muayene: rozari, bilek genişliği, varum/valgum, kraniotabes, tonus\n• <strong>3)</strong> Tetkik: <strong>Ca, P, ALP, PTH, 25(OH)D</strong> + el bileği grafisi\n\n<span class='highlight-important'>⚠️ Ca normal çıksa bile (PTH ile) raşitizmi dışlama</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Viva: 25(OH)D düşük ama Ca/P/ALP normal. Ne dersin?",
+a: "<strong class='highlight-critical'>Bu tablo “biyokimyasal D vitamini eksikliği” olabilir; raşitizm kanıtı yoksa klinik+radyoloji ile doğrula</strong>\n\n<strong>Yapılacaklar</strong>:\n• Risk faktörlerini değerlendir\n• Uygun yaş dozunda <strong>profilaksi/idame</strong> planla\n• Klinik bulgu varsa grafi ekle\n\n<span class='highlight-important'>⚠️ 1,25(OH)2D istemek çoğu zaman gereksiz ve yanıltıcıdır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Viva: Raşitizm tedavisine başladın; 10 gün sonra bebekte irritabilite ve poliüri gelişti. En çok neyi dışlarsın?",
+a: "<strong class='highlight-critical'>Öncelik: <strong>hiperkalsemi</strong> (özellikle stoss/yanlış doz) ve hiperkalsiüri</strong>\n\n<strong>Hemen bak</strong>:\n• Serum <strong>Ca</strong>\n• İdrar <strong>Ca/Cr</strong>\n• Gerekirse 25(OH)D\n\n<span class='highlight-important'>⚠️ Yanlışlıkla “fazla damla” en sık iatrojenik toksisite nedenidir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Viva: 25(OH)D normal, PTH yüksek, fosfor düşük, ALP yüksek. Ne düşünürsün?",
+a: "<strong class='highlight-critical'>İki ana olasılık: düşük kalsiyum alımı baskın nutritional raşitizm veya renal fosfat kaybı (FGF23 ilişkili)</strong>\n\n<strong>Ayırıcı adımlar</strong>:\n• Diyet kalsiyumu sorgula ve düzelt\n• İdrarda fosfat kaybı için <strong>TmP/GFR</strong>\n• Böbrek fonksiyonu ve asidoz (RTA)\n\n<span class='highlight-important'>⚠️ “D normal → tedavi yok” demek büyük hata; mineral eksenini tamamla</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Viva: Konjenital raşitizmi önlemek için gebeye ne önerirsin?",
+a: "<strong class='highlight-critical'>Gebelikte: <strong>600 IU/gün D vitamini</strong> + yeterli kalsiyum alımı; risk gruplarında eksikliği aktif önle</strong> \n\n<strong>Risk grubu</strong>:\n• Kapalı giyim/koyu ten\n• Malabsorpsiyon/kolestaz\n• Çok az güneş\n\n<span class='highlight-important'>⚠️ Maternal eksiklik → neonatal hipokalsemi ve konjenital raşitizm riskini artırır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Süt çocuklarında raşitizmin en erken iskelet bulgusu nedir? Fizyolojik kraniotabes ile nasıl ayırırsın?",
+a: "<strong class='highlight-critical'>En erken iskelet bulgusu: Kraniotabes</strong> (kafa kemiklerinin “pinpon topu” gibi içeri çöküp geri gelmesi)\n\n<strong>Ayırıcı</strong>:\n• Yenidoğanda/ilk aylarda hafif kraniotabes <strong>fizyolojik</strong> görülebilir\n• <strong class='highlight-critical'>3. aydan sonra persistan kraniotabes patolojiktir</strong> ve raşitizm açısından değerlendirilmelidir\n\n<span class='highlight-important'>⚠️ Kraniotabes tek başına tanı koydurmaz; biyokimya + el bileği/diz grafisi ile desteklenmelidir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutrisyonel D vitamini eksikliği raşitizminde laboratuvar evreleri (Evre 1–2–3) nasıldır?",
+a: "<strong class='highlight-critical'>Klasik 3 evre biyokimya modeli</strong>:\n\n<strong>Evre 1 (erken):</strong>\n• <strong class='highlight-critical'>Kalsiyum düşebilir</strong> (özellikle süt çocuğunda)\n• PTH henüz belirgin yükselmemiş olabilir\n\n<strong>Evre 2 (en sık yakalanan):</strong>\n• <strong class='highlight-critical'>Sekonder hiperparatiroidi</strong> gelişir\n• <strong class='highlight-critical'>Kalsiyum normalleşir</strong> (PTH kompansasyonu)\n• <strong class='highlight-critical'>Fosfor düşer</strong> (renal fosfat kaybı)\n• <strong class='highlight-critical'>ALP artar</strong>\n\n<strong>Evre 3 (ileri):</strong>\n• Depolar tükenir\n• <strong class='highlight-critical'>Hem kalsiyum hem fosfor düşer</strong>\n• <strong class='highlight-critical'>ALP çok yüksektir</strong>\n\n<span class='highlight-important'>⚠️ Kalsiyumun normal olması raşitizmi dışlamaz; Evre 2 çok tipiktir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmin klasik radyolojik bulguları nelerdir? Looser hatları nereye oturur?",
+a: "<strong class='highlight-critical'>En iyi hızlı büyüyen metafizlerde (el bileği, diz) görülür</strong>:\n\n• <strong>Cupping:</strong> Metafizlerin çanaklaşması\n• <strong>Splaying:</strong> Metafizlerin enine genişlemesi\n• <strong>Fraying:</strong> Metafiz kenarlarının düzensiz/fırçamsı görünümü\n• <strong>Kortikal incelme</strong>, osteopeni\n\n<strong>Looser hatları (psödofraktür):</strong>\n• <strong class='highlight-critical'>Daha çok osteomalazide tipiktir</strong>\n• Ağır/uzamış mineralizasyon bozukluğunda <strong>insufficiency (stres) kırıkları</strong> şeklinde görülebilir\n\n<span class='highlight-important'>⚠️ Radyoloji “tanıyı doğrulayan” bileşendir; yalnız klinikle yetinme</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "X-Linked Hipofosfatemik Raşitizm (XLH) patofizyolojisi nasıldır?",
+a: "<strong class='highlight-critical'>PHEX geni mutasyonu → FGF-23 artışı → renal fosfat kaybı + 1α-hidroksilaz inhibisyonu</strong>\n\n<strong>FGF-23 etkileri</strong>:\n• Proksimal tübülde NaPi (NPT2a/c) taşıyıcılarını ↓ → <strong class='highlight-critical'>fosfatüri</strong>\n• <strong>1α-hidroksilaz</strong> ↓ → 1,25(OH)2D düşük/uygunsuz normal\n\n<strong>Laboratuvar paterni</strong>:\n• <strong class='highlight-critical'>Fosfor düşük</strong>\n• <strong>Կalsiyum genelde normal</strong>\n• <strong>PTH başlangıçta normal/az ↑</strong>\n\n<span class='highlight-important'>⚠️ 25(OH)D çoğu kez normaldir; sorun “D eksikliği” değil, fosfat eksenidir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Hipofosfatazya (Hypophosphatasia) nedir ve raşitizmden laboratuvarla nasıl ayrılır?",
+a: "<strong class='highlight-critical'>Hipofosfatazya: doku-nonspesifik alkalen fosfataz (TNSALP/ALPL) defekti → mineralizasyon bozukluğu</strong>\n\n<strong>Raşitizmden ayıran temel fark</strong>:\n• <strong class='highlight-critical'>ALP çok düşüktür</strong> (raşitizmde ALP genellikle yüksek)\n\n<strong>Ek ipuçları</strong>:\n• Diş kaybı, kemik ağrısı/deformite\n• Sık eşlik edebilen biyokimya: <strong>PLP (B6) yüksek</strong>, fosfoetanolamin artışı\n\n<span class='highlight-important'>⚠️ Yanlışlıkla yüksek doz D/kalsiyum verilirse <strong class='highlight-critical'>hiperkalsemi ve nefrokalsinozis</strong> riski artar</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Vitamin D Bağımlı Raşitizm Tip 3 (VDDR-3) mekanizması nedir?",
+a: "<strong class='highlight-critical'>VDDR-3: CYP3A4 enziminin aşırı aktivitesi → D vitamini metabolitlerinin (25(OH)D ve 1,25(OH)2D) hızla inaktivasyonu</strong>\n\n<strong>Klinik-lab ipuçları</strong>:\n• Standart dozlara rağmen <strong class='highlight-critical'>persistan eksiklik bulguları</strong>\n• Düzeltmek için <strong class='highlight-critical'>çok yüksek doz D vitamini</strong> gereksinimi\n\n<span class='highlight-important'>⚠️ Malabsorpsiyon/uyumsuzluk dışlandıktan sonra düşün; yönetim mutlaka yakın izlem gerektirir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Tümörle İlişkili Osteomalazi (TIO) nedir? XLH’den nasıl ayırırsın?",
+a: "<strong class='highlight-critical'>TIO: genellikle fosfatürik mezenkimal tümörlerin aşırı <strong>FGF-23</strong> salgılaması → edinsel hipofosfatemi/osteomalazi</strong>\n\n<strong>Laboratuvar</strong>:\n• <strong class='highlight-critical'>Fosfor düşük</strong>\n• <strong class='highlight-critical'>TmP/GFR düşük</strong> (renal fosfat wasting)\n• 1,25(OH)2D <strong>düşük/uygunsuz normal</strong>\n\n<strong>XLH’den ayıran</strong>:\n• <strong class='highlight-critical'>Edinsel başlangıç</strong> (çoğu kez daha geç yaş)\n• Aile öyküsü yok\n\n<strong>Tedavi</strong>:\n• <strong class='highlight-critical'>Tümörün cerrahi çıkarılması → dramatik düzelme</strong>\n• Cerrahi mümkün değilse fosfat + aktif D, seçilmiş olguda anti-FGF23 yaklaşımları\n\n<span class='highlight-important'>⚠️ “Açıklanamayan dirençli hipofosfatemi”de TIO mutlaka akla gelmeli</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "D vitamini eksikliği olan çocukta hipokalsemik konvülsiyon/laringospazm hangi dönemde daha sık ve neden?",
+a: "<strong class='highlight-critical'>En sık: hızlı büyüme dönemlerinde (infantlık ve puberte)</strong>\n\n<strong>Ek risk dönemi</strong>:\n• <strong class='highlight-critical'>Tedavinin ilk günleri</strong>: mineralizasyon hızlanınca kalsiyum hızla kemiğe geçebilir\n\n<strong>Hungry bone (aç kemik) benzeri mekanizma</strong>:\n• Tedavi ile kemik “kalsiyumu içine çeker” → serum Ca düşebilir\n\n<span class='highlight-important'>⚠️ Bu nedenle raşitizm tedavisinde <strong class='highlight-critical'>kalsiyum desteği</strong> ile başlamak/eklemek kritik olabilir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Nutrisyonel raşitizmde Stoss tedavisi nedir? Kalsiyum desteği nasıl planlanır?",
+a: "<strong class='highlight-critical'>Stoss tedavisi: tek seferde yüksek doz D vitamini (oral/IM) verilmesi</strong>\n\n<strong>Doz aralığı (genel):</strong> <strong class='highlight-critical'>100.000–600.000 IU</strong> (uyum sorunu olanlarda)\n• Pratikte sık kullanılan tek doz: <strong class='highlight-critical'>~300.000 IU</strong>\n\n<strong>Kalsiyum desteği</strong>:\n• <strong class='highlight-critical'>30–75 mg/kg/gün elementer kalsiyum</strong> (klinik/biyokimyaya göre)\n\n<strong>Takip</strong>:\n• <strong>2–4 hafta</strong> içinde Ca/idrarda Ca (± PTH, ALP) kontrolü\n\n<span class='highlight-important'>⚠️ Stoss sonrası hiperkalsemi/hiperkalsiüri riski artar; “damla sayısı hatası” en sık iatrojenik nedendir</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Preterm bebeklerde Metabolik Kemik Hastalığı (Osteopenia of Prematurity) ana nedeni ve taramada kritik eşikler nedir?",
+a: "<strong class='highlight-critical'>Fetal Ca/P birikiminin ~%80’i son trimesterde olur; prematüre bu depodan mahrum kalır</strong>\n\n<strong>Risk faktörleri</strong>:\n• Uzun süre <strong>TPN</strong>\n• <strong>Furosemid</strong> gibi diüretikler\n• <strong>Postnatal steroid</strong>\n\n<strong>Tarama/ipuçları</strong>:\n• <strong class='highlight-critical'>ALP > 800–1000 IU/L</strong> (özellikle trend yükselişi)\n• <strong class='highlight-critical'>Serum fosfor düşük</strong>\n\n<span class='highlight-important'>⚠️ Yönetimde yalnız D değil; Ca ve özellikle fosfat optimizasyonu esastır</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Güneş ışığı ile Vitamin D sentezini etkileyen faktörler nelerdir?",
+a: "<strong class='highlight-critical'>Sentezi belirleyen ana eksen: UVB erişimi + cilt pigmenti + maruziyet koşulları</strong>\n\n<strong>Faktörler</strong>:\n• <strong>Melanin:</strong> koyu tende UVB absorbsiyonu ↑ → sentez daha yavaş\n• <strong>Hava kirliliği/bulut:</strong> UVB geçişi ↓\n• <strong>Güneş kremi:</strong> <strong class='highlight-critical'>SPF > 8</strong> ile sentez belirgin azalabilir (çok yüksek oranda)\n• <strong>Enlem/mevsim:</strong> <strong class='highlight-critical'>37. paralelin kuzeyinde kış aylarında</strong> yeterli UVB azalır\n• <strong class='highlight-critical'>Cam:</strong> UVB’yi süzer → pencere arkasından sentez olmaz\n\n<span class='highlight-important'>⚠️ Güvenli “güneş reçetesi” zordur; pediatride ana strateji takviye/fortifikasyondur</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Vitamin D toksisitesi (hipervitaminoz D) klinik-laboratuvar ve tedavi yaklaşımı nasıldır?",
+a: "<strong class='highlight-critical'>Toksisite: hiperkalsemi + hiperkalsiüri + PTH baskılanması + çok yüksek 25(OH)D</strong>\n\n<strong>Laboratuvar</strong>:\n• <strong class='highlight-critical'>Hiperkalsemi</strong>, <strong class='highlight-critical'>hiperkalsiüri</strong>\n• <strong>PTH düşük</strong>\n• <strong class='highlight-critical'>25(OH)D genelde >150 ng/mL</strong> (klinikle birlikte)\n\n<strong>Klinik</strong>:\n• Bulantı-kusma, kabızlık\n• Poliüri-polidipsi, dehidratasyon\n• Letarji/konfüzyon\n\n<strong>Tedavi (basamaklı)</strong>:\n• D vitamini kes + <strong>düşük kalsiyum</strong> alımı\n• <strong class='highlight-critical'>İV hidrasyon</strong> (önce)\n• Gerekirse diürez (klinik protokole göre)\n• <strong class='highlight-critical'>Glikokortikoid</strong> (barsak Ca emilimini ve 1,25 etkisini azaltabilir)\n• Ağır olguda kalsitonin/bisfosfonat seçenekleri\n\n<span class='highlight-important'>⚠️ Toksisite çoğunlukla “aşırı takviye/yanlış doz” ile olur; güneşle toksisite beklenmez</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Rachitic Rosary ve Harrison oluğu nedir? Skorbütle nasıl karışır?",
+a: "<strong class='highlight-critical'>Rachitic Rosary:</strong> kostokondral bileşkelerin genişlemesi → göğüs duvarında “tespih” gibi boncuklanma\n\n<strong class='highlight-critical'>Harrison oluğu:</strong> diyaframın kaburgalara tutunduğu hatta, zayıf mineralize kemikte içe çekilme ile yatay oluk\n\n<strong>Skorbüt (C vitamini eksikliği) ile fark</strong>:\n• Skorbütte kostokondral çıkıntılar <strong class='highlight-critical'>daha sivri ve daha ağrılı</strong> olabilir\n• Mekanizma: <strong>subperiostal kanama</strong> ve doku frajilitesi\n\n<span class='highlight-important'>⚠️ Göğüs ağrısı/hassasiyet belirginse skorbüt mutlaka ayırıcıda olsun</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+},
+{
+q: "Raşitizmde genu varum ve genu valgum ne zaman daha sık görülür? Fizyolojik varum tuzağı nedir?",
+a: "<strong class='highlight-critical'>Genu varum (O bacak):</strong> genelde <strong>yürümeye başlayan dönemde</strong> yük binmesiyle belirginleşir\n\n<strong class='highlight-critical'>Genu valgum (X bacak):</strong> daha çok <strong>daha büyük çocuklarda</strong> ve <strong>puberte</strong> döneminde deformite paterni olabilir\n\n<span class='highlight-important'>⚠️ 2 yaş altındaki hafif genu varum fizyolojik olabilir; progresyon/asimetri, bilek genişliği ve biyokimya-radyoloji uyumsuzluğu patolojiyi düşündürür</span>",
+subject: "Raşitizm ve D vitamini eksikliği"
+}
+];
+
+        // ═══ STATE ═══
+        const STORAGE_KEY = 'flashcards_state_v6';
+        let currentCardIndex = 0;
+        let isFlipped = false;
+        let allFlashcards = [...flashcards];
+        let filteredFlashcards = [...flashcards];
+        let cardOrder = [...Array(filteredFlashcards.length).keys()];
+        let assessments = {};   // key: card question hash → 'know' | 'review' | 'dunno'
+        let activeFilter = 'all';  // 'all' | 'review' | 'dunno' | 'unanswered'
+
+        // ═══ CARD ID HELPER ═══
+        function cardId(card) {
+            // simple hash from question text
+            let h = 0;
+            for (let i = 0; i < card.q.length; i++) {
+                h = ((h << 5) - h + card.q.charCodeAt(i)) | 0;
+            }
+            return 'c' + Math.abs(h);
+        }
+
+        // ═══ LOCAL STORAGE ═══
+        function saveState() {
+            const state = {
+                assessments,
+                currentCardIndex,
+                theme: document.getElementById('theme-toggle').checked ? 'dark' : 'light',
+                topic: document.getElementById('topic-select').value,
+                activeFilter
+            };
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const state = JSON.parse(raw);
+                if (state.assessments) assessments = state.assessments;
+                if (state.theme === 'dark') {
+                    document.getElementById('theme-toggle').checked = true;
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+                if (state.topic) {
+                    document.getElementById('topic-select').value = state.topic;
+                    filterByTopic(false);
+                }
+                if (state.activeFilter) {
+                    activeFilter = state.activeFilter;
+                    applyAssessmentFilter();
+                }
+                if (typeof state.currentCardIndex === 'number' && state.currentCardIndex < filteredFlashcards.length) {
+                    currentCardIndex = state.currentCardIndex;
+                }
+            } catch(e) {}
+        }
+
+        // ═══ ASSESSMENT ═══
+        function assessCard(level) {
+            if (filteredFlashcards.length === 0) return;
+            const card = filteredFlashcards[cardOrder[currentCardIndex]];
+            const id = cardId(card);
+            assessments[id] = level;
+            updateAssessmentButtons(level);
+            updateScoreDisplay();
+            saveState();
+            // auto-advance after a short delay
+            setTimeout(() => {
+                if (currentCardIndex < filteredFlashcards.length - 1) {
+                    nextCard();
+                }
+            }, 400);
+        }
+
+        function updateAssessmentButtons(level) {
+            document.querySelectorAll('.assess-btn').forEach(btn => btn.classList.remove('selected'));
+            if (level) {
+                const btn = document.querySelector(`.assess-btn.${level}`);
+                if (btn) btn.classList.add('selected');
+            }
+        }
+
+        function showAssessmentPanel(show) {
+            const panel = document.getElementById('assessment-panel');
+            if (show) {
+                panel.classList.add('visible');
+            } else {
+                panel.classList.remove('visible');
+            }
+        }
+
+        // ═══ SCORE DISPLAY ═══
+        function updateScoreDisplay() {
+            let know = 0, review = 0, dunno = 0;
+            allFlashcards.forEach(c => {
+                const status = assessments[cardId(c)];
+                if (status === 'know') know++;
+                else if (status === 'review') review++;
+                else if (status === 'dunno') dunno++;
+            });
+            const total = allFlashcards.length;
+            const pct = total > 0 ? Math.round((know / total) * 100) : 0;
+            document.getElementById('score-know').textContent = know;
+            document.getElementById('score-review').textContent = review;
+            document.getElementById('score-dunno').textContent = dunno;
+            document.getElementById('score-percent').textContent = `${know}/${total} (%${pct})`;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+        }
+
+        // ═══ FILTER ═══
+        function setFilter(filter) {
+            activeFilter = filter;
+            applyAssessmentFilter();
+            saveState();
+        }
+
+        function applyAssessmentFilter() {
+            // update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            const labels = { all: '📋 Tümü', review: '🔄 Tekrar Göz At', dunno: '❌ Bilmiyorum', unanswered: '⬜ Değerlendirilmemiş' };
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.textContent.trim() === labels[activeFilter]) btn.classList.add('active');
+            });
+
+            const selectedTopic = document.getElementById('topic-select').value;
+            let base = selectedTopic === 'hepsi' ? [...allFlashcards] : allFlashcards.filter(c => c.subject === selectedTopic);
+
+            if (activeFilter === 'review') {
+                filteredFlashcards = base.filter(c => assessments[cardId(c)] === 'review');
+            } else if (activeFilter === 'dunno') {
+                filteredFlashcards = base.filter(c => assessments[cardId(c)] === 'dunno');
+            } else if (activeFilter === 'unanswered') {
+                filteredFlashcards = base.filter(c => !assessments[cardId(c)]);
+            } else {
+                filteredFlashcards = base;
+            }
+
+            cardOrder = [...Array(filteredFlashcards.length).keys()];
+            currentCardIndex = 0;
+            document.getElementById('jump-input').setAttribute('max', filteredFlashcards.length);
+            if (filteredFlashcards.length > 0) {
+                displayCard();
+            } else {
+                document.getElementById('question-text').textContent = 'Bu kategoride kart yok.';
+                document.getElementById('answer-text').innerHTML = '';
+                document.getElementById('card-counter').textContent = '0 / 0';
+                document.getElementById('subject-badge-nav').textContent = '-';
+                document.getElementById('subject-display-front').textContent = '';
+                showAssessmentPanel(false);
+            }
+            updateScoreDisplay();
+        }
+
+        function resetProgress() {
+            if (!confirm('Tüm ilerlemeniz sıfırlanacak. Emin misiniz?')) return;
+            assessments = {};
+            activeFilter = 'all';
+            applyAssessmentFilter();
+            updateScoreDisplay();
+            saveState();
+        }
+
+        // ═══ TOPIC FILTER ═══
+        function filterByTopic(resetFilter = true) {
+            if (resetFilter) {
+                activeFilter = 'all';
+            }
+            applyAssessmentFilter();
+        }
+
+        // ═══ DISPLAY ═══
+        function displayCard() {
+            if (filteredFlashcards.length === 0) return;
+            const card = filteredFlashcards[cardOrder[currentCardIndex]];
+            document.getElementById('question-text').textContent = card.q;
+            document.getElementById('answer-text').innerHTML = card.a;
+            document.getElementById('card-counter').textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+            document.getElementById('subject-display-front').textContent = card.subject;
+            document.getElementById('subject-badge-nav').textContent = card.subject;
+
+            document.getElementById('prev-btn').disabled = currentCardIndex === 0;
+            document.getElementById('next-btn').disabled = currentCardIndex === filteredFlashcards.length - 1;
+
+            // reset flip
+            if (isFlipped) {
+                document.getElementById('flashcard').classList.remove('flipped');
+                isFlipped = false;
+            }
+            // hide assessment panel when showing front
+            showAssessmentPanel(false);
+            // highlight current assessment if any
+            const currentAssessment = assessments[cardId(card)];
+            updateAssessmentButtons(currentAssessment || null);
+
+            saveState();
+        }
+
+        // ═══ FLIP ═══
+        function flipCard() {
+            const card = document.getElementById('flashcard');
+            card.classList.toggle('flipped');
+            isFlipped = !isFlipped;
+            showAssessmentPanel(isFlipped);
+        }
+
+        // ═══ NAVIGATION ═══
+        function previousCard() {
+            if (currentCardIndex > 0) {
+                currentCardIndex--;
+                displayCard();
+            }
+        }
+
+        function nextCard() {
+            if (currentCardIndex < filteredFlashcards.length - 1) {
+                currentCardIndex++;
+                displayCard();
+            }
+        }
+
+        function jumpToCard() {
+            const input = document.getElementById('jump-input');
+            const cardNum = parseInt(input.value);
+            if (cardNum >= 1 && cardNum <= filteredFlashcards.length) {
+                currentCardIndex = cardNum - 1;
+                displayCard();
+                input.value = '';
+            } else {
+                alert(`Lütfen 1 ile ${filteredFlashcards.length} arasında bir sayı girin.`);
+            }
+        }
+
+        document.getElementById('jump-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') jumpToCard();
+        });
+
+        // ═══ THEME ═══
+        function toggleTheme() {
+            const isDark = document.getElementById('theme-toggle').checked;
+            if (isDark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+            saveState();
+        }
+
+        // ═══ SHUFFLE ═══
+        function shuffleCards() {
+            if (filteredFlashcards.length === 0) return;
+            for (let i = cardOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cardOrder[i], cardOrder[j]] = [cardOrder[j], cardOrder[i]];
+            }
+            currentCardIndex = 0;
+            displayCard();
+        }
+
+        // ═══ EXPORT ═══
+        function exportCards() {
+            const dataStr = JSON.stringify(flashcards, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'kan-transfuzyonu-flashcards.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ═══ PRINT ═══
+        function printCards() {
+            const statusIcons = { know: '✅', review: '🔄', dunno: '❌' };
+            let cardsHtml = '';
+            allFlashcards.forEach((card, i) => {
+                const status = assessments[cardId(card)];
+                const badge = status ? `<span style="float:right;font-size:18px">${statusIcons[status]}</span>` : '';
+                cardsHtml += `
+                <div style="page-break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:20px 24px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-weight:700; color:#218085; font-size:14px;">Kart ${i+1} — ${card.subject}</span>
+                        ${badge}
+                    </div>
+                    <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#134252; white-space: pre-line;">${card.q}</div>
+                    <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px; white-space: pre-line;">${card.a}</div>
+                </div>`;
+            });
+
+            let know = 0, review = 0, dunno = 0;
+            allFlashcards.forEach(c => {
+                const s = assessments[cardId(c)];
+                if (s === 'know') know++;
+                else if (s === 'review') review++;
+                else if (s === 'dunno') dunno++;
+            });
+            const total = allFlashcards.length;
+            const pct = total > 0 ? Math.round((know / total) * 100) : 0;
+
+            const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+            <title>Kan Transfüzyonu Flashcards — Yazdır</title>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width:800px; margin:0 auto; padding:30px 20px; color:#134252; }
+                h1 { font-size:22px; margin-bottom:4px; }
+                .summary { font-size:14px; color:#626c71; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #218085; }
+                @media print { body { padding:10px; } }
+            </style></head><body>
+            <h1>Kan Transfüzyonu — Flashcards</h1>
+            <div class="summary">Toplam: ${total} kart &nbsp;|&nbsp; ✅ ${know} &nbsp; 🔄 ${review} &nbsp; ❌ ${dunno} &nbsp;|&nbsp; Tamamlanma: %${pct}</div>
+            ${cardsHtml}
+            </body></html>`;
+
+            const w = window.open('', '_blank');
+            w.document.write(html);
+            w.document.close();
+            w.onload = () => w.print();
+        }
+
+        // ═══ KEYBOARD ═══
+        document.addEventListener('keydown', function(e) {
+            // skip if typing in input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (e.key === 'ArrowLeft') {
+                previousCard();
+            } else if (e.key === 'ArrowRight') {
+                nextCard();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                flipCard();
+            } else if (e.key === '1' && isFlipped) {
+                assessCard('know');
+            } else if (e.key === '2' && isFlipped) {
+                assessCard('review');
+            } else if (e.key === '3' && isFlipped) {
+                assessCard('dunno');
+            } else if (e.key === 'ArrowDown' && isFlipped) {
+                e.preventDefault();
+                document.querySelector('.card-back').scrollTop += 50;
+            } else if (e.key === 'ArrowUp' && isFlipped) {
+                e.preventDefault();
+                document.querySelector('.card-back').scrollTop -= 50;
+            }
+        });
+
+        // ═══ INIT ═══
+        function populateTopicFilter() {
+            const select = document.getElementById('topic-select');
+            const subjects = [...new Set(flashcards.map(c => c.subject))];
+            select.innerHTML = '<option value="hepsi">Tüm Başlıklar</option>';
+            subjects.forEach(subject => {
+                const option = document.createElement('option');
+                option.value = subject;
+                option.textContent = subject;
+                select.appendChild(option);
+            });
+        }
+
+        document.getElementById('jump-input').setAttribute('max', filteredFlashcards.length);
+        populateTopicFilter();
+        loadState();
+        displayCard();
+        updateScoreDisplay();
+    </script>
+</body>
+</html>
