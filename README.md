@@ -84,3 +84,4 @@ Kullanılan anahtar: `flashcards_state_v6`
 ## Uyarı
 
 Bu araç eğitim amaçlıdır. Klinik kararlar için güncel kılavuzlar ve uzman hekim değerlendirmesi esas alınmalıdır.
+signed by AsklepiosZealot
