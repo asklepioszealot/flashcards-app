@@ -1,5 +1,5 @@
 [README.md](https://github.com/user-attachments/files/25779771/README.md)
-# Pediatri Flashcards
+# Flashcards App
 
 Tek dosyalık (`HTML + CSS + JavaScript`) bir pediatri çalışma uygulaması.  
 Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve ilerlemenizi takip edebilirsiniz.
