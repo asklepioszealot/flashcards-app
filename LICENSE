@@ -1,0 +1,202 @@
+Özel Kaynak Mevcut Lisans (Custom Source-Available License)
+Telif Hakkı (Copyright) © 2026 asklepioszealot
+
+Tüm hakları saklıdır.
+
+Bu yazılım, 5846 sayılı Fikir ve Sanat Eserleri Kanunu (FSEK) kapsamında eser niteliği taşımakta
+olup, söz konusu kanunun sağladığı tüm korumalardan yararlanmaktadır.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. TANIMLAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Yazılım": Bu depoda (asklepioszealot/flashcards-app) yer alan tüm kaynak kodu,
+dosyalar ve varlıkları ifade eder.
+
+"Yazar": asklepioszealot kullanıcısını (ahmetkara.kysr.38@gmail.com) ifade eder.
+
+"Siz": Yazılıma erişen, kullanan, kopyalayan veya değiştiren herhangi bir gerçek
+veya tüzel kişiyi ifade eder.
+
+"Ticari Kullanım": Yazılımın doğrudan veya dolaylı olarak ticari kazanç ya da
+parasal tazminat amacıyla kullanılmasını ifade eder. Buna; satış, lisanslama,
+ücretli hizmet olarak sunma (SaaS), ticari ürüne entegrasyon ve benzeri kullanımlar dahildir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. İZİN VERİLEN KULLANIMLAR (TİCARİ OLMAYAN)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Aşağıdaki kullanımlar serbesttir:
+
+  a) Kaynak kodunu incelemek ve çalışmak.
+  b) Kaynak kodu kişisel, ticari olmayan amaçlarla değiştirmek.
+  c) Yazılımı veya değiştirilmiş sürümlerini dağıtmak; ancak bu durumda:
+       - Bu lisansın tam ve değiştirilmemiş haliyle korunması,
+       - Özgün Yazara açıkça atıfta bulunulması (bkz. Madde 4),
+       - Dağıtımın ticari amaç taşımaması
+     şartlarına uyulması zorunludur.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. TİCARİ KULLANIM KISITLAMASI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bu Yazılımın ticari amaçlarla kullanımı; Yazarın önceden yazılı izni alınmadan
+kesinlikle yasaktır. İzinsiz ticari kullanım, 5846 sayılı FSEK'in ilgili hükümleri
+kapsamında hukuki ve cezai yaptırımlara konu olabilir.
+
+Ticari kullanım izni talep etmek için Yazar ile aşağıdaki e-posta adresi üzerinden iletişime geçiniz:
+
+  📧 ahmetkara.kysr.38@gmail.com
+
+Başvurunuzda aşağıdaki bilgilerin yer alması gerekmektedir:
+  - Ad / Soyad veya kuruluş adı
+  - Kullanım amacı
+  - Tahmini kapsam ve kullanım süresi
+
+Yazar, ticari lisans taleplerini kabul etme veya reddetme konusunda
+münhasır takdir yetkisine sahiptir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ATIF ZORUNLULUĞU
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Yazılımın izin verilen her türlü kullanımında, dağıtımında veya değiştirilmesinde;
+aşağıdaki atfın görünür bir konumda (README, alt bilgi, krediler sayfası veya
+kaynak dosya başlığı gibi) yer alması zorunludur:
+
+  "asklepioszealot'un çalışmasına dayalıdır (https://github.com/asklepioszealot)"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. GARANTİ REDDİ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BU YAZILIM, AÇIK VEYA ZIMNİ HERHANGİ BİR GARANTİ VERİLMEMEKSİZİN "OLDUĞU GİBİ"
+SUNULMAKTADIR. TİCARİ ELVERİŞLİLİK, BELİRLİ BİR AMACA UYGUNLUK VE İHLAL
+ETMEME DAHİL ANCAK BUNLARLA SINIRLI OLMAMAK ÜZERE HİÇBİR GARANTİ VERİLMEMEKTEDİR.
+
+YAZAR, BU LİSANSTAN VEYA YAZILIMIN KULLANIMINDAN YA DA KULLANILAMAZ HALE
+GELMESİNDEN KAYNAKLANAN; DOĞRUDAN, DOLAYLI, ÖZEL, ARIZİ VEYA SONUÇ OLARAK
+ORTAYA ÇIKAN HİÇBIR ZARAR İÇİN SORUMLU TUTULAMAZ.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. UYGULANACAK HUKUK VE YETKİLİ MAHKEME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bu lisans; Türkiye Cumhuriyeti hukukuna, özellikle 5846 sayılı Fikir ve Sanat
+Eserleri Kanunu'na (FSEK) ve Türk Borçlar Kanunu'na tabi olup bu hükümler
+çerçevesinde yorumlanacaktır.
+
+Bu lisanstan doğacak her türlü uyuşmazlıkta İSTANBUL MAHKEMELERİ münhasıran
+yetkili olup, İstanbul icra daireleri de yetkilidir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. LİSANSIN SONA ERMESİ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Bu lisans kapsamındaki haklarınız, herhangi bir şartına uyulmaması halinde
+otomatik olarak sona erer. Lisansın sona ermesi durumunda Yazılımı kullanmayı
+yani dağıtmayı derhal durdurmanız zorunludur.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sorular ve izin talepleri için: ahmetkara.kysr.38@gmail.com
+
+---
+
+Custom Source-Available License (English)
+Copyright © 2026 asklepioszealot
+
+All rights reserved.
+
+This software is protected under Turkish Law No. 5846 on Intellectual and Artistic Works (FSEK)
+and all protections afforded by said law apply.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. DEFINITIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Software" refers to all source code, files, and assets in this repository
+(asklepioszealot/flashcards-app).
+
+"Author" refers to asklepioszealot (ahmetkara.kysr.38@gmail.com).
+
+"You" refers to any individual or legal entity accessing, using, copying,
+or modifying the Software.
+
+"Commercial Use" means any use of the Software intended for or resulting in
+commercial advantage or monetary compensation, including selling, licensing,
+offering as a paid service (SaaS), or integrating into a commercial product.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. PERMITTED USE (NON-COMMERCIAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You are free to:
+
+  a) View and study the source code.
+  b) Modify the source code for personal, non-commercial purposes.
+  c) Distribute the Software or modified versions, provided that:
+       - This license is retained in full and unmodified.
+       - Clear attribution to the original Author is included (see Section 4).
+       - The distribution is non-commercial.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. COMMERCIAL USE RESTRICTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Commercial use of this Software is strictly prohibited without prior written
+permission from the Author. Unauthorized commercial use may be subject to
+civil and criminal penalties under Turkish Law No. 5846 (FSEK).
+
+To request commercial use permission, contact:
+
+  📧 ahmetkara.kysr.38@gmail.com
+
+Please include in your request:
+  - Your name / organization name
+  - Intended use case
+  - Estimated scope and duration of use
+
+The Author reserves the right to grant or deny commercial licenses at their
+sole discretion.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. ATTRIBUTION REQUIREMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Any permitted use, distribution, or modification of the Software must include
+the following attribution in a visible location (e.g., README, footer, credits
+page, or source file header):
+
+  "Based on work by asklepioszealot (https://github.com/asklepioszealot)"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. DISCLAIMER OF WARRANTY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. THE AUTHOR SHALL NOT
+BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE
+OR INABILITY TO USE THE SOFTWARE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. GOVERNING LAW AND JURISDICTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This license is governed by the laws of the Republic of Turkey, in particular
+Turkish Law No. 5846 on Intellectual and Artistic Works (FSEK) and the Turkish
+Code of Obligations. Any disputes arising under this license shall be subject
+to the EXCLUSIVE JURISDICTION OF THE COURTS OF ISTANBUL, TURKEY.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. TERMINATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your rights under this license terminate automatically if you fail to comply
+with any of its terms. Upon termination, you must immediately cease all use
+and distribution of the Software.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For questions or permissions: ahmetkara.kysr.38@gmail.com
