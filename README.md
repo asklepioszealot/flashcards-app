@@ -47,6 +47,12 @@ Aşağıdaki komutu chatbot'a kopyalayın:
 ```text
 [KONU İSMİ] hakkında kapsamlı flashcard soruları oluştur.
 
+**Persona ve Kaynaklar:**
+- Yazarken pediatri uzmanı bir hoca gibi düşün ve bir tıp öğrencisine bu konudan neleri sorardın, hangi cevapları beklerdin bunları kurgula.
+- Kartları hazırlarken kaynak olarak Nelson Pediatrics 22th Ed, PubMed, AAP, Cochrane gibi güncel kılavuz ve textbook'ları esas alabilirsin.
+- Soru sayısı tüm detayları kapsayacak kadar çok olmalı. Açıklamalar doyurucu ve öğretici olmalı.
+
+**Format Talimatı:**
 Aşağıdaki Markdown formatını birebir kullan:
 
 Vurgu Hiyerarşisi (Cevap kısmında kullan):
