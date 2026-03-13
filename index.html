@@ -759,8 +759,8 @@
       </div>
 
       <div class="set-actions">
-        <label class="btn btn-secondary" style="cursor: pointer;" for="file-picker">📂 JSON Dosyası Yükle</label>
-        <input type="file" id="file-picker" accept=".json" multiple hidden onchange="handleFileSelect(event)" />
+        <label class="btn btn-secondary" style="cursor: pointer;" for="file-picker">📂 Kart Seti Yükle (.json, .md)</label>
+        <input type="file" id="file-picker" accept=".json, .txt, .md" multiple hidden onchange="handleFileSelect(event)" />
         <button class="btn" id="start-btn" onclick="startStudy()" disabled>
           ▶ Başla
         </button>
@@ -990,6 +990,78 @@
         filterByTopic(false);
       }
 
+      function parseMarkdownToFlashcards(content, fileName) {
+        const lines = content.split(/\r?\n/);
+        
+        let setName = "";
+        let currentSubject = "";
+        const cards = [];
+        
+        let currentCard = null;
+        let answerLines = [];
+
+        function finalizeCurrentCard() {
+          if (currentCard) {
+            let answerHtml = answerLines.join('\n').trim();
+            
+            // ==metin== -> <strong class='highlight-critical'>metin</strong>
+            answerHtml = answerHtml.replace(/==([^=]+)==/g, "<strong class='highlight-critical'>$1</strong>");
+            
+            // **metin** -> <strong>metin</strong>
+            answerHtml = answerHtml.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+            
+            // > ⚠️ metin -> <span class='highlight-important'>⚠️ metin</span>
+            answerHtml = answerHtml.replace(/^(?:> )?⚠️(.*)$/gm, "<span class='highlight-important'>⚠️$1</span>");
+            
+            // Empty lines -> <br><br>
+            answerHtml = answerHtml.replace(/\n\s*\n/g, "<br><br>\n");
+            
+            currentCard.a = answerHtml;
+            cards.push(currentCard);
+            
+            currentCard = null;
+            answerLines = [];
+          }
+        }
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          
+          if (line.trim() === '---') continue;
+          
+          const h2Match = line.match(/^##\s+(.+)$/);
+          if (h2Match) {
+            finalizeCurrentCard();
+            const title = h2Match[1].trim();
+            currentSubject = title;
+            if (!setName) setName = title;
+            continue;
+          }
+          
+          const h3Match = line.match(/^###\s+(.+)$/);
+          if (h3Match) {
+            finalizeCurrentCard();
+            currentCard = {
+              q: h3Match[1].trim(),
+              a: "",
+              subject: currentSubject || setName || "Genel"
+            };
+            continue;
+          }
+          
+          if (currentCard) {
+            answerLines.push(line);
+          }
+        }
+        
+        finalizeCurrentCard();
+        
+        return {
+          setName: setName || fileName.replace(/\.[^/.]+$/, ""),
+          cards
+        };
+      }
+
       async function handleFileSelect(event) {
         const files = event.target.files;
         if (!files.length) return;
@@ -997,8 +1069,15 @@
         for (const file of files) {
           try {
             const text = await file.text();
-            const data = JSON.parse(text);
-            const setId = file.name.replace('.json', '');
+            let data;
+            
+            if (file.name.endsWith('.md') || file.name.endsWith('.txt')) {
+                data = parseMarkdownToFlashcards(text, file.name);
+            } else {
+                data = JSON.parse(text);
+            }
+            
+            const setId = file.name.replace(/\.[^/.]+$/, "");
             
             loadedSets[setId] = {
               setName: data.setName || setId,
