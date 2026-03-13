@@ -49,31 +49,27 @@ Aşağıdaki komutu chatbot'a kopyalayın:
 
 Aşağıdaki Markdown formatını birebir kullan:
 
+Vurgu Hiyerarşisi (Cevap kısmında kullan):
+- Seviye 1 (Kritik): ==metin== (Çift eşittir)
+- Seviye 2 (Önemli): > ⚠️ metin (Satır başı uyarı)
+- Seviye 3 (Normal): **metin** (Kalın)
+
 ## [Konu Adı]
 
 ### Soru metni buraya?
 
-Cevap metni buraya. Birden fazla paragraf olabilir.
-
-Kurallar:
-- Her soru bir ### başlığı olmalı
-- Cevap, bir sonraki ### başlığına kadar olan tüm metin
-- En kritik bilgileri (sayısal değerler, tanımlar, temel kavramlar) ==çift eşittir== içine al
-- Normal vurgular için **kalın** kullan
-- Uyarı veya dikkat notu için > ⚠️ ile başlayan satır kullan
-- İlk ## başlığı konu adıdır, tüm kartların subject'i bu olur
-- Farklı bir alt konu varsa yeni bir ## başlığı aç
+Cevap metni buraya. Birden fazla paragraf olabilir. Vurguları yukarıdaki hiyerarşiye göre yap.
 ```
 
-### 2. Çıktıyı JSON'a Dönüştürme
+### 2. Oluşturulan Dosyayı Yükleme
+
+Uygulama artık `.md` veya `.txt` uzantılı düz metin dosyalarını da doğrudan destekliyor!
 
 1. Chatbot'tan aldığınız cevabı bir `.md` (örneğin `data/yeni_konu.md`) dosyasına kaydedin.
-2. Terminalde proje dizinine gidin ve Node.js aracıyla dönüştürün:
-   ```bash
-   node tools/md2json.js data/yeni_konu.md
-   ```
-3. Araç, aynı dizinde `data/yeni_konu.json` dosyasını oluşturacaktır.
-4. `index.html` üzerinden JSON dosyasını uygulamaya ekleyebilirsiniz.
+2. `index.html` sayfasındaki **📂 Kart Seti Yükle** butonuna tıklayarak bu `.md` dosyasını doğrudan seçebilirsiniz.
+3. Uygulama metni arka planda JSON formatına dönüştürüp listeleyecektir.
+
+*(Not: Terminal üzerinden çeviri yapmak isterseniz eski `node tools/md2json.js data/yeni_konu.md` komutuyla JSON çıktısı da almaya devam edebilirsiniz.)*
 
 ## Uyarı
 
