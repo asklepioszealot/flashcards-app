@@ -1,0 +1,10 @@
+{
+  "setName": "Smoke Flashcard Set",
+  "cards": [
+    {
+      "q": "Ateş ölçümünde normal aralık nedir?",
+      "a": "Yaklaşık 36.5°C - 37.5°C arası kabul edilir.",
+      "subject": "Genel"
+    }
+  ]
+}
