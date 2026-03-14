@@ -710,6 +710,8 @@
       .set-actions {
         display: flex;
         gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
       }
 
       .btn-delete-set {
@@ -726,6 +728,80 @@
       .btn-delete-set:hover {
         background: #dc2626;
         color: white;
+      }
+
+      .set-list-tools {
+        width: 100%;
+        max-width: 600px;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+      }
+
+      .mode-hint {
+        width: 100%;
+        text-align: center;
+        color: var(--color-text-secondary);
+        font-size: 13px;
+      }
+
+      .btn-danger {
+        background: #c2392f;
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #a72f26;
+      }
+
+      .btn-delete-circle {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        border: 2px solid #dc2626;
+        color: #dc2626;
+        background: transparent;
+        font-size: 18px;
+        font-weight: 700;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-delete-circle:hover {
+        background: rgba(220, 38, 38, 0.12);
+        transform: scale(1.05);
+      }
+
+      .undo-toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border);
+        border-left: 4px solid var(--color-accent);
+        border-radius: 10px;
+        padding: 12px 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        display: none;
+        align-items: center;
+        gap: 12px;
+        z-index: 1500;
+      }
+
+      .undo-toast button {
+        border: none;
+        background: var(--color-accent);
+        color: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
       }
 
       .btn-back-to-sets {
@@ -758,6 +834,22 @@
         <div class="set-item empty">Henüz set yüklenmedi.</div>
       </div>
 
+      <div class="set-list-tools" id="set-list-tools" style="display: none;">
+        <button class="btn btn-small btn-secondary" id="delete-mode-btn" onclick="toggleDeleteMode()">
+          Silme Modu: Kapalı
+        </button>
+        <button class="btn btn-small btn-secondary" id="select-all-btn" onclick="selectAllSets()">
+          Tümünü Seç
+        </button>
+        <button class="btn btn-small btn-secondary" id="clear-selection-btn" onclick="clearSetSelection()">
+          Seçimi Kaldır
+        </button>
+        <button class="btn btn-small btn-danger" id="remove-selected-btn" onclick="removeSelectedSets()" disabled>
+          Seçilileri Kaldır
+        </button>
+        <div class="mode-hint" id="mode-hint">Mod: Derse dahil edilecek setleri seçiyorsun.</div>
+      </div>
+
       <div class="set-actions">
         <label class="btn btn-secondary" style="cursor: pointer;" for="file-picker">📂 Kart Seti Yükle (.json, .md)</label>
         <input type="file" id="file-picker" accept=".json, .txt, .md" multiple hidden onchange="handleFileSelect(event)" />
@@ -774,6 +866,11 @@
         </label>
         <span>🌙</span>
       </div>
+    </div>
+
+    <div id="undo-toast" class="undo-toast">
+      <span id="undo-message">Set kaldırıldı.</span>
+      <button onclick="undoLastRemoval()">Geri Al</button>
     </div>
 
     <!-- MAIN APP CONTAINER -->
@@ -933,6 +1030,10 @@
       
       let loadedSets = {};
       let selectedSets = new Set();
+      let removeCandidateSets = new Set();
+      let deleteMode = false;
+      let lastRemovedSets = [];
+      let undoTimeoutId = null;
       
       let currentCardIndex = 0;
       let isFlipped = false;
@@ -992,43 +1093,91 @@
 
       function parseMarkdownToFlashcards(content, fileName) {
         const lines = content.split(/\r?\n/);
-        
+
         let setName = "";
         let currentSubject = "";
         const cards = [];
-        
+
         let currentCard = null;
-        let answerLines = [];
+        let freeAnswerLines = [];
+        let explanationLines = [];
+        let awaitingQuestionText = false;
+        let collectingExplanation = false;
+
+        function processFormatting(text) {
+          return text
+            .replace(/==([^=]+)==/g, "<strong class='highlight-critical'>$1</strong>")
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/^(?:> )?⚠️(.*)$/gm, "<span class='highlight-important'>⚠️$1</span>");
+        }
 
         function finalizeCurrentCard() {
-          if (currentCard) {
-            let answerHtml = answerLines.join('\n').trim();
-            
-            // ==metin== -> <strong class='highlight-critical'>metin</strong>
-            answerHtml = answerHtml.replace(/==([^=]+)==/g, "<strong class='highlight-critical'>$1</strong>");
-            
-            // **metin** -> <strong>metin</strong>
-            answerHtml = answerHtml.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-            
-            // > ⚠️ metin -> <span class='highlight-important'>⚠️ metin</span>
-            answerHtml = answerHtml.replace(/^(?:> )?⚠️(.*)$/gm, "<span class='highlight-important'>⚠️$1</span>");
-            
-            // Empty lines -> <br><br>
-            answerHtml = answerHtml.replace(/\n\s*\n/g, "<br><br>\n");
-            
-            currentCard.a = answerHtml;
-            cards.push(currentCard);
-            
-            currentCard = null;
-            answerLines = [];
+          if (!currentCard) return;
+
+          const freeAnswer = freeAnswerLines.join("\n").trim();
+          const explanation = explanationLines.join("\n").trim();
+
+          let answerRaw = "";
+          if (currentCard.correctChar || currentCard.options.length > 0 || explanation) {
+            const parts = [];
+
+            if (currentCard.correctChar) {
+              const idx = currentCard.correctChar.charCodeAt(0) - 65;
+              const correctOption = idx >= 0 && idx < currentCard.options.length
+                ? currentCard.options[idx]
+                : "";
+              const correctLine = correctOption
+                ? `Doğru Cevap: ${currentCard.correctChar}) ${correctOption}`
+                : `Doğru Cevap: ${currentCard.correctChar}`;
+              parts.push(`**${correctLine}**`);
+            }
+
+            if (explanation) {
+              parts.push(explanation);
+            }
+
+            answerRaw = parts.join("\n\n").trim();
+            if (!answerRaw && freeAnswer) {
+              answerRaw = freeAnswer;
+            }
+          } else {
+            answerRaw = freeAnswer;
           }
+
+          if (!answerRaw) {
+            answerRaw = "Açıklama bulunamadı.";
+          }
+
+          let answerHtml = processFormatting(answerRaw);
+          answerHtml = answerHtml.replace(/\n\s*\n/g, "<br><br>\n");
+
+          currentCard.a = answerHtml;
+          cards.push({
+            q: (currentCard.q || "").trim(),
+            a: currentCard.a,
+            subject: currentCard.subject || currentSubject || setName || "Genel",
+          });
+
+          currentCard = null;
+          freeAnswerLines = [];
+          explanationLines = [];
+          awaitingQuestionText = false;
+          collectingExplanation = false;
         }
 
         for (let i = 0; i < lines.length; i++) {
           const line = lines[i];
-          
-          if (line.trim() === '---') continue;
-          
+          const trimmed = line.trim();
+          const normalized = trimmed.replace(/^\*\*(.*?)\*\*$/, "$1").trim();
+
+          if (/^[-*_]{3,}$/.test(trimmed)) continue;
+
+          const h1Match = normalized.match(/^#\s+(.+)$/);
+          if (h1Match) {
+            if (!setName) setName = h1Match[1].trim();
+            continue;
+          }
+
           const h2Match = line.match(/^##\s+(.+)$/);
           if (h2Match) {
             finalizeCurrentCard();
@@ -1037,25 +1186,87 @@
             if (!setName) setName = title;
             continue;
           }
-          
-          const h3Match = line.match(/^###\s+(.+)$/);
-          if (h3Match) {
-            finalizeCurrentCard();
-            currentCard = {
-              q: h3Match[1].trim(),
-              a: "",
-              subject: currentSubject || setName || "Genel"
-            };
+
+          const konuMatch = normalized.match(/^#{0,3}\s*Konu:\s*(.+)$/i);
+          if (konuMatch) {
+            currentSubject = konuMatch[1].trim();
+            if (!setName) setName = currentSubject;
             continue;
           }
-          
+
+          const h3Match = line.match(/^###\s+(.+)$/);
+          const soruInlineMatch = normalized.match(/^Soru:\s*(.+)$/i);
+          const soruNumberedMatch = normalized.match(
+            /^Soru\s+\d+[.)]?\s*(?::\s*(.*))?$/i,
+          );
+
+          const isQuestionStart = h3Match || soruInlineMatch || soruNumberedMatch;
+          if (isQuestionStart) {
+            finalizeCurrentCard();
+            const qText = (
+              h3Match
+                ? h3Match[1]
+                : soruInlineMatch
+                  ? soruInlineMatch[1]
+                  : soruNumberedMatch[1] || ""
+            ).trim();
+            currentCard = {
+              q: qText,
+              a: "",
+              subject: currentSubject || setName || "Genel",
+              options: [],
+              correctChar: "",
+            };
+            freeAnswerLines = [];
+            explanationLines = [];
+            collectingExplanation = false;
+            awaitingQuestionText = qText.length === 0;
+            continue;
+          }
+
+          if (awaitingQuestionText && currentCard && normalized) {
+            currentCard.q = normalized;
+            awaitingQuestionText = false;
+            continue;
+          }
+
+          const optionMatch = normalized.match(/^([A-Ea-e])[).]\s+(.+)$/);
+          if (optionMatch && currentCard && !collectingExplanation) {
+            currentCard.options.push(optionMatch[2].trim());
+            continue;
+          }
+
+          const correctMatch = normalized.match(/^Doğru\s*Cevap:\s*([A-Ea-e])\b/i);
+          if (correctMatch && currentCard) {
+            currentCard.correctChar = correctMatch[1].toUpperCase();
+            continue;
+          }
+
+          const explanationStartMatch = normalized.match(/^Açıklama:\s*(.*)$/i);
+          if (explanationStartMatch && currentCard) {
+            collectingExplanation = true;
+            explanationLines.push(explanationStartMatch[1]);
+            continue;
+          }
+
+          const blockquoteMatch = line.match(/^>\s?(.*)$/);
+          if (blockquoteMatch && currentCard && (currentCard.correctChar || currentCard.options.length > 0 || collectingExplanation)) {
+            collectingExplanation = true;
+            explanationLines.push(blockquoteMatch[1]);
+            continue;
+          }
+
           if (currentCard) {
-            answerLines.push(line);
+            if (collectingExplanation) {
+              explanationLines.push(line);
+            } else {
+              freeAnswerLines.push(line);
+            }
           }
         }
-        
+
         finalizeCurrentCard();
-        
+
         return {
           setName: setName || fileName.replace(/\.[^/.]+$/, ""),
           cards
@@ -1065,12 +1276,12 @@
       async function handleFileSelect(event) {
         const files = event.target.files;
         if (!files.length) return;
-        
+
         for (const file of files) {
           try {
             const text = await file.text();
             let data;
-            
+
             if (file.name.endsWith('.md') || file.name.endsWith('.txt')) {
                 data = parseMarkdownToFlashcards(text, file.name);
             } else {
@@ -1078,16 +1289,16 @@
                 const cleanText = text.replace(/,\s*([\]}])/g, "$1");
                 data = JSON.parse(cleanText);
             }
-            
+
             const setId = file.name.replace(/\.[^/.]+$/, "");
-            
+
             loadedSets[setId] = {
               setName: data.setName || setId,
               cards: data.cards || [],
               fileName: file.name
             };
             selectedSets.add(setId);
-            
+
             localStorage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
           } catch (e) {
             alert(file.name + " yüklenirken hata oluştu. Geçerli bir JSON dosyası seçtiğinizden emin olun.");
@@ -1096,6 +1307,19 @@
         saveSetsList();
         renderSetList();
         event.target.value = ""; // reset
+      }
+
+      function toggleSetCheck(setId) {
+        if (deleteMode) {
+          if (removeCandidateSets.has(setId)) {
+            removeCandidateSets.delete(setId);
+          } else {
+            removeCandidateSets.add(setId);
+          }
+          renderSetList();
+          return;
+        }
+        toggleSetSelection(setId);
       }
 
       function toggleSetSelection(setId) {
@@ -1109,11 +1333,102 @@
       }
 
       function deleteSet(setId) {
-        if (!confirm("Bu seti listeden kaldırmak istediğinize emin misiniz? (Değerlendirme verileriniz silinmez)")) return;
-        
-        delete loadedSets[setId];
-        selectedSets.delete(setId);
-        localStorage.removeItem("fc_set_" + setId);
+        removeSets([setId]);
+      }
+
+      function removeSets(idsToRemove) {
+        const removed = [];
+        idsToRemove.forEach((setId) => {
+          if (!loadedSets[setId]) return;
+          removed.push({
+            setId: setId,
+            setData: loadedSets[setId],
+            wasSelected: selectedSets.has(setId),
+          });
+          delete loadedSets[setId];
+          selectedSets.delete(setId);
+          removeCandidateSets.delete(setId);
+          localStorage.removeItem("fc_set_" + setId);
+        });
+
+        if (removed.length === 0) return;
+        lastRemovedSets = removed;
+        showUndoToast(
+          removed.length === 1
+            ? "Set kaldırıldı."
+            : `${removed.length} set kaldırıldı.`,
+        );
+        saveSetsList();
+        renderSetList();
+      }
+
+      function selectAllSets() {
+        if (deleteMode) {
+          removeCandidateSets = new Set(Object.keys(loadedSets));
+          renderSetList();
+          return;
+        }
+        selectedSets = new Set(Object.keys(loadedSets));
+        saveSetsList();
+        renderSetList();
+      }
+
+      function clearSetSelection() {
+        if (deleteMode) {
+          removeCandidateSets.clear();
+          renderSetList();
+          return;
+        }
+        selectedSets.clear();
+        saveSetsList();
+        renderSetList();
+      }
+
+      function removeSelectedSets() {
+        if (!deleteMode || removeCandidateSets.size === 0) return;
+        removeSets([...removeCandidateSets]);
+      }
+
+      function toggleDeleteMode() {
+        deleteMode = !deleteMode;
+        if (!deleteMode) {
+          removeCandidateSets.clear();
+        }
+        renderSetList();
+      }
+
+      function showUndoToast(message) {
+        const toast = document.getElementById("undo-toast");
+        const msgEl = document.getElementById("undo-message");
+        if (!toast || !msgEl) return;
+        msgEl.textContent = message;
+        toast.style.display = "flex";
+        if (undoTimeoutId) {
+          clearTimeout(undoTimeoutId);
+        }
+        undoTimeoutId = setTimeout(() => {
+          toast.style.display = "none";
+          lastRemovedSets = [];
+        }, 7000);
+      }
+
+      function undoLastRemoval() {
+        if (!lastRemovedSets || lastRemovedSets.length === 0) return;
+        lastRemovedSets.forEach((entry) => {
+          loadedSets[entry.setId] = entry.setData;
+          localStorage.setItem("fc_set_" + entry.setId, JSON.stringify(entry.setData));
+          if (entry.wasSelected) {
+            selectedSets.add(entry.setId);
+          }
+        });
+        const toast = document.getElementById("undo-toast");
+        if (toast) toast.style.display = "none";
+        if (undoTimeoutId) {
+          clearTimeout(undoTimeoutId);
+          undoTimeoutId = null;
+        }
+        removeCandidateSets.clear();
+        lastRemovedSets = [];
         saveSetsList();
         renderSetList();
       }
@@ -1127,13 +1442,51 @@
       function renderSetList() {
         const listEl = document.getElementById("set-list");
         const setIds = Object.keys(loadedSets);
-        
+        const setToolsEl = document.getElementById("set-list-tools");
+        const startBtn = document.getElementById("start-btn");
+        const removeSelectedBtn = document.getElementById("remove-selected-btn");
+        const deleteModeBtn = document.getElementById("delete-mode-btn");
+        const selectAllBtn = document.getElementById("select-all-btn");
+        const clearSelectionBtn = document.getElementById("clear-selection-btn");
+        const modeHint = document.getElementById("mode-hint");
+
         if (setIds.length === 0) {
           listEl.innerHTML = '<div class="set-item empty">Henüz set yüklenmedi.</div>';
-          document.getElementById("start-btn").disabled = true;
+          if (setToolsEl) setToolsEl.style.display = "none";
+          if (startBtn) startBtn.disabled = true;
+          if (removeSelectedBtn) removeSelectedBtn.disabled = true;
           return;
         }
-        
+
+        if (setToolsEl) setToolsEl.style.display = "flex";
+        if (startBtn) startBtn.disabled = selectedSets.size === 0;
+
+        if (deleteModeBtn) {
+          deleteModeBtn.textContent = deleteMode ? "Silme Modu: Açık" : "Silme Modu: Kapalı";
+          deleteModeBtn.className = deleteMode
+            ? "btn btn-small btn-danger"
+            : "btn btn-small btn-secondary";
+        }
+        if (selectAllBtn) {
+          selectAllBtn.textContent = deleteMode
+            ? "Silineceklerin Tümünü Seç"
+            : "Tümünü Derse Dahil Et";
+        }
+        if (clearSelectionBtn) {
+          clearSelectionBtn.textContent = deleteMode
+            ? "Silme Seçimini Temizle"
+            : "Ders Seçimini Temizle";
+        }
+        if (modeHint) {
+          modeHint.textContent = deleteMode
+            ? "Mod: Sileceğin setleri işaretliyorsun."
+            : "Mod: Derse dahil edilecek setleri seçiyorsun.";
+        }
+        if (removeSelectedBtn) {
+          removeSelectedBtn.disabled = !deleteMode || removeCandidateSets.size === 0;
+          removeSelectedBtn.textContent = `Seçilileri Kaldır (${removeCandidateSets.size})`;
+        }
+
         listEl.innerHTML = "";
         setIds.forEach(setId => {
           const set = loadedSets[setId];
@@ -1141,27 +1494,27 @@
           set.cards.forEach(c => {
             if (assessments[cardId(c)] === 'know') know++;
           });
-          
-          const isSelected = selectedSets.has(setId);
-          
+
+          const isSelected = deleteMode
+            ? removeCandidateSets.has(setId)
+            : selectedSets.has(setId);
+
           const div = document.createElement("div");
           div.className = "set-item";
           div.innerHTML = `
-            <div class="set-info">
-              <input type="checkbox" ${isSelected ? "checked" : ""} onchange="toggleSetSelection('${setId}')">
+            <div class="set-info" onclick="toggleSetCheck('${setId}')">
+              <input type="checkbox" ${isSelected ? "checked" : ""} onclick="event.stopPropagation(); toggleSetCheck('${setId}')">
               <div class="set-details">
                 <div class="set-title">${set.setName}</div>
                 <div class="set-stats">${total} kart — ${know}/${total} (%${total?Math.round((know/total)*100):0}) tamam</div>
               </div>
             </div>
             <div class="set-actions-row">
-              <button class="btn-delete-set" onclick="deleteSet('${setId}')">SİL</button>
+              <button class="btn-delete-circle" title="Seti kaldır" onclick="deleteSet('${setId}')">-</button>
             </div>
           `;
           listEl.appendChild(div);
         });
-        
-        document.getElementById("start-btn").disabled = selectedSets.size === 0;
       }
 
       // ═══ LOCAL STORAGE ═══
