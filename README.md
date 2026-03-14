@@ -29,6 +29,27 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 2. "📂 JSON Dosyası Yükle" butonuna tıklayarak `data/` klasöründeki veya oluşturduğunuz JSON dosyalarını seçin.
 3. Çalışmak istediğiniz setleri işaretleyip "Başla" diyin.
 
+## Desktop Release Alma (Otomatik)
+
+Tek komutla her seferinde güncel ve tutarlı build almak için:
+
+```powershell
+npm run release
+```
+
+Bu komut sırasıyla:
+
+1. `index.html` -> `dist/index.html` güncellemesini yapar
+2. `npx tauri build --bundles nsis` ile kurulum dosyasını üretir
+3. Portable (`app.exe`) + kurulum (`*-setup.exe`) çıktısını `release/` altında versiyon+commit isimleriyle saklar
+4. İsterseniz eski kök dosya adlarını da (`Pediatri_Flashcards_Portable.exe`, `Pediatri_Flashcards_Kurulum.exe`) otomatik günceller
+
+Kökteki eski isimleri güncellemeden sadece `release/` üretmek için:
+
+```powershell
+npm run release:no-legacy
+```
+
 ## Kullanım
 
 - Kartı çevirmek için karta tıklayın veya `Space` tuşuna basın.

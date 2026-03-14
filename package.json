@@ -4,6 +4,10 @@
   "description": "Modüler, JSON-tabanlı ve dinamik set yönetimli pediatri çalışma uygulaması.   Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz.",
   "main": "index.js",
   "scripts": {
+    "build:dist": "node build.mjs",
+    "build:desktop": "npx tauri build --bundles nsis",
+    "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1",
+    "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
