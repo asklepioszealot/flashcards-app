@@ -1117,7 +1117,9 @@
             if (file.name.endsWith('.md') || file.name.endsWith('.txt')) {
                 data = parseMarkdownToFlashcards(text, file.name);
             } else {
-                data = JSON.parse(text);
+                // JSON'daki sondaki virgülleri (trailing commas) temizle
+                const cleanText = text.replace(/,\s*([\]}])/g, "$1");
+                data = JSON.parse(cleanText);
             }
             
             const setId = file.name.replace(/\.[^/.]+$/, "");
