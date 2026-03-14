@@ -20,13 +20,12 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 ## Dosya Yapısı
 
 - `index.html`: Uygulamanın tamamı (arayüz, dosya okuyucu, iş mantığı)
-- `data/`: JSON formatındaki örnek flashcard soru setleri
 - `tools/md2json.js`: Markdown formatındaki soruları JSON'a dönüştüren yardımcı CLI aracı
 
 ## Çalıştırma
 
 1. `index.html` dosyasını tarayıcıda açın.
-2. "📂 JSON Dosyası Yükle" butonuna tıklayarak `data/` klasöründeki veya oluşturduğunuz JSON dosyalarını seçin.
+2. "📂 JSON Dosyası Yükle" butonuna tıklayarak oluşturduğunuz JSON dosyalarını seçin.
 3. Çalışmak istediğiniz setleri işaretleyip "Başla" diyin.
 
 ## Desktop Release Alma (Otomatik)
@@ -92,11 +91,11 @@ Cevap metni buraya. Birden fazla paragraf olabilir. Vurguları yukarıdaki hiyer
 
 Uygulama artık `.md` veya `.txt` uzantılı düz metin dosyalarını da doğrudan destekliyor!
 
-1. Chatbot'tan aldığınız cevabı bir `.md` (örneğin `data/yeni_konu.md`) dosyasına kaydedin.
+1. Chatbot'tan aldığınız cevabı bir `.md` (örneğin `yeni_konu.md`) dosyasına kaydedin.
 2. `index.html` sayfasındaki **📂 Kart Seti Yükle** butonuna tıklayarak bu `.md` dosyasını doğrudan seçebilirsiniz.
 3. Uygulama metni arka planda JSON formatına dönüştürüp listeleyecektir.
 
-*(Not: Terminal üzerinden çeviri yapmak isterseniz eski `node tools/md2json.js data/yeni_konu.md` komutuyla JSON çıktısı da almaya devam edebilirsiniz.)*
+*(Not: Terminal üzerinden çeviri yapmak isterseniz `node tools/md2json.js yeni_konu.md` komutuyla JSON çıktısı alabilirsiniz.)*
 
 ## Uyarı
 
