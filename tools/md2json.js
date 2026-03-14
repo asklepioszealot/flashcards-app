@@ -189,10 +189,16 @@ try {
     setName: setName || path.basename(inputPath, '.md'),
     cards
   };
+
+  const outputDir = path.dirname(path.resolve(outputPath));
+  if (outputDir && !fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
   
   fs.writeFileSync(outputPath, JSON.stringify(result, null, 2), 'utf8');
   console.log(`✅ Dönüştürme başarılı: ${outputPath} (${cards.length} kart)`);
   
 } catch (e) {
   console.error("Hata oluştu:", e);
+  process.exit(1);
 }
