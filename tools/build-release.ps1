@@ -5,17 +5,67 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+function Resolve-SignToolPath {
+  if (-not [string]::IsNullOrWhiteSpace($env:SIGNTOOL_PATH)) {
+    if (-not (Test-Path $env:SIGNTOOL_PATH)) {
+      throw "SIGNTOOL_PATH does not exist: $($env:SIGNTOOL_PATH)"
+    }
+    return $env:SIGNTOOL_PATH
+  }
+
+  $signToolCmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+  if ($signToolCmd) {
+    return $signToolCmd.Source
+  }
+
+  return $null
+}
+
+function Sign-Artifact {
+  param(
+    [Parameter(Mandatory = $true)][string]$SignTool,
+    [Parameter(Mandatory = $true)][string]$FilePath,
+    [Parameter(Mandatory = $true)][string]$TimestampUrl,
+    [string]$PfxPath,
+    [string]$PfxPassword,
+    [string]$CertThumbprint
+  )
+
+  if (-not (Test-Path $FilePath)) {
+    throw "Signing target not found: $FilePath"
+  }
+
+  $args = @("sign", "/fd", "SHA256", "/td", "SHA256", "/tr", $TimestampUrl)
+
+  if (-not [string]::IsNullOrWhiteSpace($PfxPath)) {
+    $args += @("/f", $PfxPath)
+    if (-not [string]::IsNullOrWhiteSpace($PfxPassword)) {
+      $args += @("/p", $PfxPassword)
+    }
+  } elseif (-not [string]::IsNullOrWhiteSpace($CertThumbprint)) {
+    $args += @("/sha1", $CertThumbprint)
+  } else {
+    $args += "/a"
+  }
+
+  $args += $FilePath
+  & $SignTool @args
+  if ($LASTEXITCODE -ne 0) {
+    throw "signtool failed for $FilePath with exit code $LASTEXITCODE"
+  }
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 Push-Location $repoRoot
 try {
-  Write-Host "[1/5] Building dist from index.html..."
+  Write-Host "[1/6] Building dist from index.html..."
   node build.mjs
   if ($LASTEXITCODE -ne 0) {
     throw "node build.mjs failed with exit code $LASTEXITCODE"
   }
 
-  Write-Host "[2/5] Building desktop app (NSIS)..."
+  Write-Host "[2/6] Building desktop app (NSIS)..."
   npx tauri build --bundles nsis
   if ($LASTEXITCODE -ne 0) {
     throw "npx tauri build --bundles nsis failed with exit code $LASTEXITCODE"
@@ -55,16 +105,56 @@ try {
   $portableTarget = Join-Path $releaseDir $portableName
   $setupTarget = Join-Path $releaseDir $setupName
 
-  Write-Host "[3/5] Copying artifacts to release folder..."
+  Write-Host "[3/6] Copying artifacts to release folder..."
   Copy-Item -Path $portableSource -Destination $portableTarget -Force
   Copy-Item -Path $setupSource.FullName -Destination $setupTarget -Force
 
+  $legacyPortablePath = Join-Path $repoRoot "Pediatri_Flashcards_Portable.exe"
+  $legacySetupPath = Join-Path $repoRoot "Pediatri_Flashcards_Kurulum.exe"
+
   if (-not $NoLegacyCopy) {
-    Write-Host "[4/5] Syncing legacy root file names..."
-    Copy-Item -Path $portableSource -Destination (Join-Path $repoRoot "Pediatri_Flashcards_Portable.exe") -Force
-    Copy-Item -Path $setupSource.FullName -Destination (Join-Path $repoRoot "Pediatri_Flashcards_Kurulum.exe") -Force
+    Write-Host "[4/6] Syncing legacy root file names..."
+    Copy-Item -Path $portableSource -Destination $legacyPortablePath -Force
+    Copy-Item -Path $setupSource.FullName -Destination $legacySetupPath -Force
   } else {
-    Write-Host "[4/5] Skipping legacy root file names (-NoLegacyCopy)."
+    Write-Host "[4/6] Skipping legacy root file names (-NoLegacyCopy)."
+  }
+
+  $signEnable = $env:SIGN_ENABLE
+  $signPfxPath = $env:SIGN_PFX_PATH
+  $signPfxPassword = $env:SIGN_PFX_PASSWORD
+  $signCertThumbprint = $env:SIGN_CERT_SHA1
+  $timestampUrl = if (-not [string]::IsNullOrWhiteSpace($env:SIGN_TIMESTAMP_URL)) {
+    $env:SIGN_TIMESTAMP_URL
+  } else {
+    "http://timestamp.digicert.com"
+  }
+
+  $signingRequested =
+    $signEnable -eq "1" -or
+    -not [string]::IsNullOrWhiteSpace($signPfxPath) -or
+    -not [string]::IsNullOrWhiteSpace($signCertThumbprint)
+
+  if ($signingRequested) {
+    Write-Host "[5/6] Signing artifacts..."
+    if (-not [string]::IsNullOrWhiteSpace($signPfxPath) -and -not (Test-Path $signPfxPath)) {
+      throw "SIGN_PFX_PATH not found: $signPfxPath"
+    }
+
+    $signToolPath = Resolve-SignToolPath
+    if (-not $signToolPath) {
+      throw "signtool.exe was not found. Add it to PATH or set SIGNTOOL_PATH."
+    }
+
+    Sign-Artifact -SignTool $signToolPath -FilePath $portableTarget -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+    Sign-Artifact -SignTool $signToolPath -FilePath $setupTarget -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+
+    if (-not $NoLegacyCopy) {
+      Sign-Artifact -SignTool $signToolPath -FilePath $legacyPortablePath -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+      Sign-Artifact -SignTool $signToolPath -FilePath $legacySetupPath -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+    }
+  } else {
+    Write-Host "[5/6] Skipping signing (set SIGN_ENABLE=1, SIGN_PFX_PATH or SIGN_CERT_SHA1)."
   }
 
   $infoPath = Join-Path $releaseDir "release-info.txt"
@@ -79,7 +169,7 @@ try {
   $portableHash = (Get-FileHash -Path $portableTarget -Algorithm SHA256).Hash
   $setupHash = (Get-FileHash -Path $setupTarget -Algorithm SHA256).Hash
 
-  Write-Host "[5/5] Done."
+  Write-Host "[6/6] Done."
   Write-Host ""
   Write-Host "Release folder: $releaseDir"
   Write-Host "Portable: $portableTarget"

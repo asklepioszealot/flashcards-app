@@ -8,7 +8,10 @@
     "build:desktop": "npx tauri build --bundles nsis",
     "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1",
     "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test:smoke": "npx playwright test",
+    "test:smoke:headed": "npx playwright test --headed",
+    "test:smoke:install": "npx playwright install chromium",
+    "test": "npm run test:smoke"
   },
   "repository": {
     "type": "git",
@@ -23,6 +26,7 @@
   },
   "homepage": "https://github.com/asklepioszealot/flashcards-app#readme",
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.10.1"
   }
 }
