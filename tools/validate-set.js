@@ -171,10 +171,10 @@ function validateMcqJson(setJson, filePath, errors) {
     }
 
     if (
-      question.explanation !== undefined &&
-      typeof question.explanation !== "string"
+      typeof question.explanation !== "string" ||
+      !question.explanation.trim()
     ) {
-      errors.push(`${label}.explanation metin olmalı.`);
+      errors.push(`${label}.explanation zorunlu ve boş olmayan metin olmalı.`);
     }
 
     if (question.subject !== undefined && typeof question.subject !== "string") {

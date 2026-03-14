@@ -212,13 +212,13 @@
             continue;
           }
 
-          const correctMatch = normalized.match(/^Doğru\s*Cevap:\s*([A-Ea-e])\b/i);
+          const correctMatch = normalized.match(/^Do(?:ğ|g)ru\s*Cevap:\s*([A-Ea-e])\b/i);
           if (correctMatch && currentCard) {
             currentCard.correctChar = correctMatch[1].toUpperCase();
             continue;
           }
 
-          const explanationStartMatch = normalized.match(/^Açıklama:\s*(.*)$/i);
+          const explanationStartMatch = normalized.match(/^(?:Açıklama|Aciklama):\s*(.*)$/i);
           if (explanationStartMatch && currentCard) {
             collectingExplanation = true;
             explanationLines.push(explanationStartMatch[1]);
