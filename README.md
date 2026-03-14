@@ -101,3 +101,25 @@ Uygulama artık `.md` veya `.txt` uzantılı düz metin dosyalarını da doğrud
 
 Bu araç eğitim amaçlıdır. Klinik kararlar için güncel kılavuzlar ve uzman hekim değerlendirmesi esas alınmalıdır.
 signed by AsklepiosZealot
+
+## Smoke Test (Playwright)
+
+Temel duman testlerini calistirmak icin:
+
+```powershell
+npm run test:smoke
+```
+
+Ilk kurulumda tarayici binary'si lazimsa:
+
+```powershell
+npm run test:smoke:install
+```
+
+## Buyume Icin Klasor Standarti
+
+- `src/`: modulerlesme icin hedef kaynak klasoru
+- `tests/smoke/`: kritik akis smoke testleri
+- `docs/RELEASE_CHECKLIST.md`: release adimlari
+- `docs/MODULARIZATION_PLAN.md`: index.html -> moduler yapi gecis plani
+- `CHANGELOG.md`: degisiklik kaydi

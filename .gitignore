@@ -11,3 +11,7 @@ node_modules/
 # Custom build directories
 dist/
 release/
+
+# Playwright artifacts
+playwright-report/
+test-results/
