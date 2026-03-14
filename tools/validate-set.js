@@ -29,17 +29,22 @@ function parseCliArgs(rawArgs) {
 
   return {
     requireFiles,
+    usedDefaultTarget: inputTargets.length === 0,
     inputTargets:
       inputTargets.length > 0 ? inputTargets : [path.resolve("data")],
   };
 }
 
-function collectSetFiles(inputPaths) {
+function collectSetFiles(inputPaths, options = {}) {
   const resolvedFiles = [];
   const seen = new Set();
+  const allowMissingPaths = options.allowMissingPaths || new Set();
 
   function walk(targetPath) {
     if (!fs.existsSync(targetPath)) {
+      if (allowMissingPaths.has(path.resolve(targetPath))) {
+        return;
+      }
       throw new Error(`Path not found: ${targetPath}`);
     }
 
@@ -273,7 +278,11 @@ function main() {
 
   let files = [];
   try {
-    files = collectSetFiles(cliConfig.inputTargets);
+    const allowMissingPaths =
+      !cliConfig.requireFiles && cliConfig.usedDefaultTarget
+        ? new Set([path.resolve("data")])
+        : new Set();
+    files = collectSetFiles(cliConfig.inputTargets, { allowMissingPaths });
   } catch (error) {
     console.error(`❌ ${error.message}`);
     process.exit(1);
