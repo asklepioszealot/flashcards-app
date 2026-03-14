@@ -1,0 +1,12 @@
+# Node modules
+node_modules/
+
+# Mac OS
+.DS_Store
+
+# Tauri build outputs (if copied to root)
+*.msi
+*.exe
+
+# Custom build directories
+dist/
