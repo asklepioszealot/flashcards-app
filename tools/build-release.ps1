@@ -55,6 +55,21 @@ function Sign-Artifact {
   }
 }
 
+function Assert-AuthenticodeSignature {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath
+  )
+
+  if (-not (Test-Path $FilePath)) {
+    throw "Signature verification target not found: $FilePath"
+  }
+
+  $signature = Get-AuthenticodeSignature -FilePath $FilePath
+  if ($signature.Status -ne "Valid") {
+    throw "Authenticode verification failed for $FilePath. Status: $($signature.Status)"
+  }
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 Push-Location $repoRoot
@@ -120,7 +135,9 @@ try {
     Write-Host "[4/6] Skipping legacy root file names (-NoLegacyCopy)."
   }
 
-  $signEnable = $env:SIGN_ENABLE
+  $signEnable = [string]$env:SIGN_ENABLE
+  $signEnableNormalized = $signEnable.Trim()
+  $signingRequired = $signEnableNormalized -eq "1"
   $signPfxPath = $env:SIGN_PFX_PATH
   $signPfxPassword = $env:SIGN_PFX_PASSWORD
   $signCertThumbprint = $env:SIGN_CERT_SHA1
@@ -131,7 +148,7 @@ try {
   }
 
   $signingRequested =
-    $signEnable -eq "1" -or
+    $signingRequired -or
     -not [string]::IsNullOrWhiteSpace($signPfxPath) -or
     -not [string]::IsNullOrWhiteSpace($signCertThumbprint)
 
@@ -146,14 +163,19 @@ try {
       throw "signtool.exe was not found. Add it to PATH or set SIGNTOOL_PATH."
     }
 
-    Sign-Artifact -SignTool $signToolPath -FilePath $portableTarget -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
-    Sign-Artifact -SignTool $signToolPath -FilePath $setupTarget -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
-
+    $artifactsToSign = @($portableTarget, $setupTarget)
     if (-not $NoLegacyCopy) {
-      Sign-Artifact -SignTool $signToolPath -FilePath $legacyPortablePath -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
-      Sign-Artifact -SignTool $signToolPath -FilePath $legacySetupPath -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+      $artifactsToSign += @($legacyPortablePath, $legacySetupPath)
+    }
+
+    foreach ($artifact in $artifactsToSign) {
+      Sign-Artifact -SignTool $signToolPath -FilePath $artifact -TimestampUrl $timestampUrl -PfxPath $signPfxPath -PfxPassword $signPfxPassword -CertThumbprint $signCertThumbprint
+      Assert-AuthenticodeSignature -FilePath $artifact
     }
   } else {
+    if ($signingRequired) {
+      throw "SIGN_ENABLE=1 set edildi ancak imzalama adımı çalıştırılamadı."
+    }
     Write-Host "[5/6] Skipping signing (set SIGN_ENABLE=1, SIGN_PFX_PATH or SIGN_CERT_SHA1)."
   }
 

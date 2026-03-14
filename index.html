@@ -1022,11 +1022,14 @@
       </div>
     </div>
 
+    <script src="./src/core/storage.js"></script>
+    <script src="./src/ui/theme.js"></script>
     <script>
       // ═══ STATE ═══
       const SESSION_KEY = "fc_session";
       const SETS_KEY = "fc_loaded_sets";
       const ASSESSMENTS_KEY = "fc_assessments";
+      const storage = window.AppStorage;
       
       let loadedSets = {};
       let selectedSets = new Set();
@@ -1079,7 +1082,7 @@
         
         populateTopicFilter();
         
-        const sessRaw = localStorage.getItem(SESSION_KEY);
+        const sessRaw = storage.getItem(SESSION_KEY);
         if (sessRaw) {
           const session = JSON.parse(sessRaw);
           if (session.topic) document.getElementById("topic-select").value = session.topic;
@@ -1299,7 +1302,7 @@
             };
             selectedSets.add(setId);
 
-            localStorage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
+            storage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
           } catch (e) {
             alert(file.name + " yüklenirken hata oluştu. Geçerli bir JSON dosyası seçtiğinizden emin olun.");
           }
@@ -1348,7 +1351,7 @@
           delete loadedSets[setId];
           selectedSets.delete(setId);
           removeCandidateSets.delete(setId);
-          localStorage.removeItem("fc_set_" + setId);
+          storage.removeItem("fc_set_" + setId);
         });
 
         if (removed.length === 0) return;
@@ -1416,7 +1419,7 @@
         if (!lastRemovedSets || lastRemovedSets.length === 0) return;
         lastRemovedSets.forEach((entry) => {
           loadedSets[entry.setId] = entry.setData;
-          localStorage.setItem("fc_set_" + entry.setId, JSON.stringify(entry.setData));
+          storage.setItem("fc_set_" + entry.setId, JSON.stringify(entry.setData));
           if (entry.wasSelected) {
             selectedSets.add(entry.setId);
           }
@@ -1434,9 +1437,9 @@
       }
 
       function saveSetsList() {
-        localStorage.setItem(SETS_KEY, JSON.stringify(Object.keys(loadedSets)));
+        storage.setItem(SETS_KEY, JSON.stringify(Object.keys(loadedSets)));
         const selectedArr = Array.from(selectedSets);
-        localStorage.setItem("fc_selected_sets", JSON.stringify(selectedArr));
+        storage.setItem("fc_selected_sets", JSON.stringify(selectedArr));
       }
 
       function renderSetList() {
@@ -1519,7 +1522,7 @@
 
       // ═══ LOCAL STORAGE ═══
       function saveState() {
-        localStorage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
+        storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
         
         const session = {
           currentCardIndex,
@@ -1527,36 +1530,36 @@
           topic: document.getElementById("topic-select").value,
           activeFilter
         };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        storage.setItem(SESSION_KEY, JSON.stringify(session));
       }
 
       function loadState() {
         try {
           // Backward compatibility migration from legacy state
-          const legacyStateRaw = localStorage.getItem("flashcards_state_v6");
+          const legacyStateRaw = storage.getItem("flashcards_state_v6");
           if (legacyStateRaw) {
             const legacyState = JSON.parse(legacyStateRaw);
             if (legacyState.assessments && Object.keys(assessments).length === 0) {
               assessments = legacyState.assessments;
-              localStorage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
+              storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
             }
           }
 
-          const assRaw = localStorage.getItem(ASSESSMENTS_KEY);
+          const assRaw = storage.getItem(ASSESSMENTS_KEY);
           if (assRaw) assessments = JSON.parse(assRaw);
 
-          const setsRaw = localStorage.getItem(SETS_KEY);
+          const setsRaw = storage.getItem(SETS_KEY);
           if (setsRaw) {
             const setIds = JSON.parse(setsRaw);
             setIds.forEach(id => {
-              const setRaw = localStorage.getItem("fc_set_" + id);
+              const setRaw = storage.getItem("fc_set_" + id);
               if (setRaw) {
                 loadedSets[id] = JSON.parse(setRaw);
               }
             });
           }
           
-          const selRaw = localStorage.getItem("fc_selected_sets");
+          const selRaw = storage.getItem("fc_selected_sets");
           if (selRaw) {
             const selIds = JSON.parse(selRaw);
             selIds.forEach(id => { if (loadedSets[id]) selectedSets.add(id); });
@@ -1565,13 +1568,14 @@
             Object.keys(loadedSets).forEach(id => selectedSets.add(id));
           }
 
-          const sessRaw = localStorage.getItem(SESSION_KEY);
+          const sessRaw = storage.getItem(SESSION_KEY);
           if (sessRaw) {
             const session = JSON.parse(sessRaw);
             if (session.theme === "dark") {
-              if(document.getElementById("theme-toggle")) document.getElementById("theme-toggle").checked = true;
-              if(document.getElementById("theme-toggle-manager")) document.getElementById("theme-toggle-manager").checked = true;
-              document.documentElement.setAttribute("data-theme", "dark");
+              window.ThemeManager.setThemeState(true, {
+                primaryToggleId: "theme-toggle",
+                managerToggleId: "theme-toggle-manager",
+              });
             }
             if (session.activeFilter) activeFilter = session.activeFilter;
           }
@@ -1791,22 +1795,12 @@
 
       // ═══ THEME ═══
       function toggleTheme(isChecked) {
-        let isDark;
-        if (typeof isChecked === 'boolean') {
-           isDark = isChecked;
-           if(document.getElementById("theme-toggle")) document.getElementById("theme-toggle").checked = isDark;
-           if(document.getElementById("theme-toggle-manager")) document.getElementById("theme-toggle-manager").checked = isDark;
-        } else {
-           isDark = document.getElementById("theme-toggle").checked;
-           if(document.getElementById("theme-toggle-manager")) document.getElementById("theme-toggle-manager").checked = isDark;
-        }
-        
-        if (isDark) {
-          document.documentElement.setAttribute("data-theme", "dark");
-        } else {
-          document.documentElement.removeAttribute("data-theme");
-        }
-        saveState();
+        window.ThemeManager.toggleTheme({
+          isChecked: isChecked,
+          primaryToggleId: "theme-toggle",
+          managerToggleId: "theme-toggle-manager",
+          onAfterToggle: () => saveState(),
+        });
       }
 
       // ═══ SHUFFLE ═══
@@ -1932,3 +1926,4 @@
 
   </body>
 </html>
+
