@@ -1,0 +1,24 @@
+{
+  "name": "flashcards-app",
+  "version": "1.0.0",
+  "description": "Modüler, JSON-tabanlı ve dinamik set yönetimli pediatri çalışma uygulaması.   Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asklepioszealot/flashcards-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/asklepioszealot/flashcards-app/issues"
+  },
+  "homepage": "https://github.com/asklepioszealot/flashcards-app#readme",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
+  }
+}
