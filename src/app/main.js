@@ -669,7 +669,6 @@
             "Bu kategoride kart yok.";
           document.getElementById("answer-text").innerHTML = "";
           document.getElementById("card-counter").textContent = "0 / 0";
-          document.getElementById("subject-badge-nav").textContent = "-";
           document.getElementById("subject-display-front").textContent = "";
           showAssessmentPanel(false);
         }
@@ -703,7 +702,6 @@
           `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
         document.getElementById("subject-display-front").textContent =
           card.subject;
-        document.getElementById("subject-badge-nav").textContent = card.subject;
 
         document.getElementById("prev-btn").disabled = currentCardIndex === 0;
         document.getElementById("next-btn").disabled =
@@ -785,20 +783,6 @@
         }
         currentCardIndex = 0;
         displayCard();
-      }
-
-      // ═══ EXPORT ═══
-      function exportCards() {
-        // We can export either all loaded sets or just the selected ones.
-        // Let's export allFlashcards for simplicity as a combined set.
-        const dataStr = JSON.stringify(allFlashcards, null, 2);
-        const dataBlob = new Blob([dataStr], { type: "application/json" });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "kan-transfuzyonu-flashcards.json";
-        link.click();
-        URL.revokeObjectURL(url);
       }
 
       // ═══ PRINT ═══
