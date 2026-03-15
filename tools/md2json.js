@@ -109,6 +109,7 @@ try {
 
     const konuMatch = normalized.match(/^#{0,3}\s*Konu:\s*(.+)$/i);
     if (konuMatch) {
+      if (currentCard) currentCard.subject = konuMatch[1].trim();
       continue;
     }
 
