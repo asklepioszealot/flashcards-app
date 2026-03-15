@@ -797,10 +797,10 @@
           cardsHtml += `
                 <div style="page-break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:20px 24px; margin-bottom:16px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:700; color:#218085; font-size:14px;">Kart ${i + 1} — ${card.subject}</span>
+                        <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${i + 1} — ${card.subject}</span>
                         ${badge}
                     </div>
-                    <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#134252; white-space: pre-line;">${card.q}</div>
+                    <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a; white-space: pre-line;">${card.q}</div>
                     <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px; white-space: pre-line;">${card.a}</div>
                 </div>`;
         });
@@ -820,9 +820,9 @@
         const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
             <title>Kan Transfüzyonu Flashcards — Yazdır</title>
             <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width:800px; margin:0 auto; padding:30px 20px; color:#134252; }
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width:800px; margin:0 auto; padding:30px 20px; color:#21302a; }
                 h1 { font-size:22px; margin-bottom:4px; }
-                .summary { font-size:14px; color:#626c71; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #218085; }
+                .summary { font-size:14px; color:#5f6d66; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #2f7a56; }
                 @media print { body { padding:10px; } }
             </style></head><body>
             <h1>Kan Transfüzyonu — Flashcards</h1>
