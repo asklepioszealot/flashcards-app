@@ -12,9 +12,10 @@ const outputPath = process.argv[3] || inputPath.replace(/\.md$/, '.json');
 try {
   const content = fs.readFileSync(inputPath, 'utf8');
   const lines = content.split(/\r?\n/);
+  const fileStem = path.parse(inputPath).name;
   
   let setName = "";
-  let currentSubject = "";
+  let canonicalSubject = fileStem;
   const cards = [];
   
   let currentCard = null;
@@ -73,7 +74,7 @@ try {
     cards.push({
       q: (currentCard.q || "").trim(),
       a: answerHtml,
-      subject: currentCard.subject || currentSubject || setName || "Genel",
+      subject: currentCard.subject || canonicalSubject,
     });
 
     currentCard = null;
@@ -93,7 +94,9 @@ try {
 
     const h1Match = normalized.match(/^#\s+(.+)$/);
     if (h1Match) {
-      if (!setName) setName = h1Match[1].trim();
+      const h1Title = h1Match[1].trim();
+      if (!setName) setName = h1Title;
+      if (canonicalSubject === fileStem) canonicalSubject = h1Title;
       continue;
     }
 
@@ -101,16 +104,11 @@ try {
     const h2Match = line.match(/^##\s+(.+)$/);
     if (h2Match) {
       finalizeCurrentCard();
-      const title = h2Match[1].trim();
-      currentSubject = title;
-      if (!setName) setName = title;
       continue;
     }
 
     const konuMatch = normalized.match(/^#{0,3}\s*Konu:\s*(.+)$/i);
     if (konuMatch) {
-      currentSubject = konuMatch[1].trim();
-      if (!setName) setName = currentSubject;
       continue;
     }
 
@@ -131,7 +129,7 @@ try {
       currentCard = {
         q: qText,
         a: "",
-        subject: currentSubject || setName || "Genel",
+        subject: canonicalSubject,
         options: [],
         correctChar: "",
       };
@@ -186,7 +184,7 @@ try {
   finalizeCurrentCard();
   
   const result = {
-    setName: setName || path.basename(inputPath, '.md'),
+    setName: setName || fileStem,
     cards
   };
 
