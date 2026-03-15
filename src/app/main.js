@@ -69,9 +69,10 @@
 
       function parseMarkdownToFlashcards(content, fileName) {
         const lines = content.split(/\r?\n/);
+        const fileStem = (fileName || "set").replace(/\.[^/.]+$/, "");
 
         let setName = "";
-        let currentSubject = "";
+        let canonicalSubject = fileStem;
         const cards = [];
 
         let currentCard = null;
@@ -131,7 +132,7 @@
           cards.push({
             q: (currentCard.q || "").trim(),
             a: currentCard.a,
-            subject: currentCard.subject || currentSubject || setName || "Genel",
+            subject: currentCard.subject || canonicalSubject,
           });
 
           currentCard = null;
@@ -150,23 +151,20 @@
 
           const h1Match = normalized.match(/^#\s+(.+)$/);
           if (h1Match) {
-            if (!setName) setName = h1Match[1].trim();
+            const h1Title = h1Match[1].trim();
+            if (!setName) setName = h1Title;
+            if (canonicalSubject === fileStem) canonicalSubject = h1Title;
             continue;
           }
 
           const h2Match = line.match(/^##\s+(.+)$/);
           if (h2Match) {
             finalizeCurrentCard();
-            const title = h2Match[1].trim();
-            currentSubject = title;
-            if (!setName) setName = title;
             continue;
           }
 
           const konuMatch = normalized.match(/^#{0,3}\s*Konu:\s*(.+)$/i);
           if (konuMatch) {
-            currentSubject = konuMatch[1].trim();
-            if (!setName) setName = currentSubject;
             continue;
           }
 
@@ -189,7 +187,7 @@
             currentCard = {
               q: qText,
               a: "",
-              subject: currentSubject || setName || "Genel",
+              subject: canonicalSubject,
               options: [],
               correctChar: "",
             };
@@ -244,7 +242,7 @@
         finalizeCurrentCard();
 
         return {
-          setName: setName || fileName.replace(/\.[^/.]+$/, ""),
+          setName: setName || fileStem,
           cards
         };
       }
