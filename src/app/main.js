@@ -816,14 +816,14 @@
         const pct = total > 0 ? Math.round((know / total) * 100) : 0;
 
         const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
-            <title>Kan Transfüzyonu Flashcards — Yazdır</title>
+            <title>Flashcards — Yazdır</title>
             <style>
                 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width:800px; margin:0 auto; padding:30px 20px; color:#21302a; }
                 h1 { font-size:22px; margin-bottom:4px; }
                 .summary { font-size:14px; color:#5f6d66; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #2f7a56; }
                 @media print { body { padding:10px; } }
             </style></head><body>
-            <h1>Kan Transfüzyonu — Flashcards</h1>
+            <h1>Flashcards</h1>
             <div class="summary">Toplam: ${total} kart &nbsp;|&nbsp; ✅ ${know} &nbsp; 🔄 ${review} &nbsp; ❌ ${dunno} &nbsp;|&nbsp; Tamamlanma: %${pct}</div>
             ${cardsHtml}
             </body></html>`;
