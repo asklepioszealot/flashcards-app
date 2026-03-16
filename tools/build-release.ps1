@@ -70,6 +70,18 @@ function Assert-AuthenticodeSignature {
   }
 }
 
+function Get-HashOrMissing {
+  param(
+    [Parameter(Mandatory = $true)][string]$FilePath
+  )
+
+  if (-not (Test-Path $FilePath)) {
+    return "missing"
+  }
+
+  return (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 Push-Location $repoRoot
@@ -79,6 +91,22 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "node build.mjs failed with exit code $LASTEXITCODE"
   }
+
+  $sourceIndexPath = Join-Path $repoRoot "index.html"
+  $sourceMainPath = Join-Path $repoRoot "src\app\main.js"
+  $distIndexPath = Join-Path $repoRoot "dist\index.html"
+  $distMainPath = Join-Path $repoRoot "dist\src\app\main.js"
+  $buildIdPath = Join-Path $repoRoot "dist\build-id.txt"
+  $buildMetadataPath = Join-Path $repoRoot "dist\build-metadata.json"
+  $buildId = if (Test-Path $buildIdPath) {
+    (Get-Content -Path $buildIdPath -Raw).Trim()
+  } else {
+    "unknown"
+  }
+  $sourceIndexHash = Get-HashOrMissing -FilePath $sourceIndexPath
+  $sourceMainHash = Get-HashOrMissing -FilePath $sourceMainPath
+  $distIndexHash = Get-HashOrMissing -FilePath $distIndexPath
+  $distMainHash = Get-HashOrMissing -FilePath $distMainPath
 
   Write-Host "[2/6] Building desktop app (NSIS)..."
   npx tauri build --bundles nsis
@@ -133,7 +161,28 @@ try {
     Copy-Item -Path $setupSource.FullName -Destination $legacySetupPath -Force
   } else {
     Write-Host "[4/6] Skipping legacy root file names (-NoLegacyCopy)."
+    if ((Test-Path $legacyPortablePath) -or (Test-Path $legacySetupPath)) {
+      Write-Warning "Legacy root EXE files exist and may be stale. Use the timestamped release folder artifact."
+    }
   }
+
+  $openPortableInfoPath = Join-Path $releaseDir "OPEN_THIS_PORTABLE.txt"
+  @(
+    "Bu release icin test edilecek dogru portable EXE:",
+    $portableTarget,
+    "",
+    "setup_exe=$setupTarget",
+    "build_id=$buildId"
+  ) | Set-Content -Path $openPortableInfoPath -Encoding UTF8
+
+  $latestPointerPath = Join-Path $repoRoot "LATEST_RELEASE_POINTER.txt"
+  @(
+    "latest_release_dir=$releaseDir"
+    "portable_exe=$portableTarget"
+    "setup_exe=$setupTarget"
+    "build_id=$buildId"
+    "legacy_copy=$(-not $NoLegacyCopy)"
+  ) | Set-Content -Path $latestPointerPath -Encoding UTF8
 
   $signEnable = [string]$env:SIGN_ENABLE
   $signEnableNormalized = $signEnable.Trim()
@@ -184,8 +233,16 @@ try {
     "version=$version"
     "commit=$commit"
     "timestamp=$timestamp"
+    "build_id=$buildId"
     "portable_source=$portableSource"
     "setup_source=$($setupSource.FullName)"
+    "legacy_copy=$(-not $NoLegacyCopy)"
+    "source_index_sha256=$sourceIndexHash"
+    "source_main_sha256=$sourceMainHash"
+    "dist_index_sha256=$distIndexHash"
+    "dist_main_sha256=$distMainHash"
+    "dist_build_metadata=$buildMetadataPath"
+    "pointer_file=$latestPointerPath"
   ) | Set-Content -Path $infoPath -Encoding UTF8
 
   $portableHash = (Get-FileHash -Path $portableTarget -Algorithm SHA256).Hash
@@ -198,6 +255,9 @@ try {
   Write-Host "Portable SHA256: $portableHash"
   Write-Host "Setup: $setupTarget"
   Write-Host "Setup SHA256: $setupHash"
+  Write-Host "Build ID: $buildId"
+  Write-Host "Open-this marker: $openPortableInfoPath"
+  Write-Host "Latest pointer: $latestPointerPath"
 } finally {
   Pop-Location
 }

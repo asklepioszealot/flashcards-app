@@ -529,6 +529,26 @@
         margin-top: 10px;
       }
 
+      .build-meta-banner {
+        position: fixed;
+        right: 12px;
+        bottom: 10px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid var(--color-border);
+        background: rgba(255, 255, 255, 0.75);
+        color: var(--color-text-secondary);
+        font-size: 11px;
+        line-height: 1.4;
+        max-width: min(75vw, 520px);
+        text-align: right;
+        backdrop-filter: blur(3px);
+      }
+
+      [data-theme="dark"] .build-meta-banner {
+        background: rgba(35, 40, 38, 0.8);
+      }
+
       .kbd-hint kbd {
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
@@ -973,6 +993,9 @@
       </div>
     </div>
 
+    <div class="build-meta-banner" id="build-meta"></div>
+
+    <script src="./src/generated/build-info.js"></script>
     <script src="./src/core/storage.js"></script>
     <script src="./src/ui/theme.js"></script>
     <script src="./src/app/main.js"></script>

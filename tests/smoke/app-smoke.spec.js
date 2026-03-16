@@ -3,11 +3,25 @@ const { pathToFileURL } = require("url");
 const { test, expect } = require("playwright/test");
 
 function appUrl() {
-  const indexPath = path.resolve(process.cwd(), "index.html");
+  const indexPath = path.resolve(process.cwd(), "dist", "index.html");
   return pathToFileURL(indexPath).toString();
 }
 
 test.describe("Flashcards smoke", () => {
+  async function loadFixtureAndStart(page) {
+    const fixturePath = path.resolve(
+      process.cwd(),
+      "tests",
+      "fixtures",
+      "smoke-set.json",
+    );
+
+    await page.addInitScript(() => localStorage.clear());
+    await page.goto(appUrl());
+    await page.setInputFiles("#file-picker", fixturePath);
+    await page.locator("#start-btn").click();
+  }
+
   test("set manager flow works from upload to start", async ({ page }) => {
     const fixturePath = path.resolve(
       process.cwd(),
@@ -44,5 +58,18 @@ test.describe("Flashcards smoke", () => {
     await startButton.click();
     await expect(appContainer).toBeVisible();
     await expect(setManager).toBeHidden();
+  });
+
+  test("subject label is only under the card, not next to the counter", async ({ page }) => {
+    await loadFixtureAndStart(page);
+
+    const navInfo = page.locator(".navigation .card-info");
+    await expect(navInfo.locator("#card-counter")).toBeVisible();
+    await expect(navInfo.locator(".subject-display, .subject-badge, #subject-display-front")).toHaveCount(0);
+    await expect(navInfo).not.toContainText("Genel");
+
+    await expect(page.locator("#subject-display-front")).toBeVisible();
+    await expect(page.locator("#subject-display-front")).toHaveText("Genel");
+    await expect(page.locator("#card-counter")).toHaveText("1 / 1");
   });
 });

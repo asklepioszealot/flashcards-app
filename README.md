@@ -41,12 +41,20 @@ Bu komut sırasıyla:
 1. `index.html` -> `dist/index.html` güncellemesini yapar
 2. `npx tauri build --bundles nsis` ile kurulum dosyasını üretir
 3. Portable (`app.exe`) + kurulum (`*-setup.exe`) çıktısını `release/` altında versiyon+commit isimleriyle saklar
-4. İsterseniz eski kök dosya adlarını da (`Pediatri_Flashcards_Portable.exe`, `Pediatri_Flashcards_Kurulum.exe`) otomatik günceller
+4. `LATEST_RELEASE_POINTER.txt` ve `release/.../OPEN_THIS_PORTABLE.txt` dosyalarını yazarak testte açılması gereken EXE yolunu netleştirir
+
+`npm run release` varsayılan olarak kökteki legacy EXE adlarını güncellemez.
 
 Kökteki eski isimleri güncellemeden sadece `release/` üretmek için:
 
 ```powershell
 npm run release:no-legacy
+```
+
+Legacy kök dosya adlarını bilerek güncellemek için:
+
+```powershell
+npm run release:with-legacy
 ```
 
 ## Kullanım
@@ -109,6 +117,8 @@ Temel duman testlerini calistirmak icin:
 ```powershell
 npm run test:smoke
 ```
+
+Bu komut önce `dist/` snapshot'ını yeniden üretir ve testleri `dist/index.html` üstünden çalıştırır.
 
 Ilk kurulumda tarayici binary'si lazimsa:
 

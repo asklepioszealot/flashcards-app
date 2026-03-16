@@ -6,12 +6,13 @@
   "scripts": {
     "build:dist": "node build.mjs",
     "build:desktop": "npx tauri build --bundles nsis",
-    "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1",
+    "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
+    "release:with-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1",
     "validate:set": "node ./tools/validate-set.js",
     "validate:set:strict": "node ./tools/validate-set.js --require-files",
-    "test:smoke": "npx playwright test",
-    "test:smoke:headed": "npx playwright test --headed",
+    "test:smoke": "npm run build:dist && npx playwright test",
+    "test:smoke:headed": "npm run build:dist && npx playwright test --headed",
     "test:smoke:install": "npx playwright install chromium",
     "test": "npm run test:smoke"
   },

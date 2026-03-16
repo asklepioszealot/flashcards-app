@@ -1,0 +1,5 @@
+latest_release_dir=D:\Git Projelerim\flashcards-app\release\20260316-003914_v0.1.0_be77efd
+portable_exe=D:\Git Projelerim\flashcards-app\release\20260316-003914_v0.1.0_be77efd\Pediatri_Flashcards_Portable_v0.1.0_be77efd.exe
+setup_exe=D:\Git Projelerim\flashcards-app\release\20260316-003914_v0.1.0_be77efd\Pediatri_Flashcards_Kurulum_v0.1.0_be77efd.exe
+build_id=0.1.0-be77efd-20260315213801
+legacy_copy=False

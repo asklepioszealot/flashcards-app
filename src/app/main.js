@@ -861,6 +861,33 @@
         }
       });
 
+      function formatBuildDate(isoDate) {
+        if (!isoDate) return "tarih-bilinmiyor";
+        const parsed = new Date(isoDate);
+        if (Number.isNaN(parsed.getTime())) return isoDate;
+        return parsed.toLocaleString("tr-TR", { hour12: false });
+      }
+
+      function renderBuildMeta() {
+        const metaEl = document.getElementById("build-meta");
+        if (!metaEl) return;
+
+        const buildInfo = window.__BUILD_INFO__;
+        if (!buildInfo || typeof buildInfo !== "object") {
+          metaEl.textContent = "";
+          return;
+        }
+
+        const version = buildInfo.version || "unknown";
+        const commit = buildInfo.commit || "nogit";
+        const buildId = buildInfo.buildId || `${version}-${commit}`;
+        const source = buildInfo.source || "unknown";
+        const builtAt = formatBuildDate(buildInfo.builtAt);
+
+        metaEl.textContent =
+          `Build ${version} (${commit}) | ${builtAt} | ${source} | ${buildId}`;
+      }
+
       // ═══ INIT ═══
       function populateTopicFilter() {
         const select = document.getElementById("topic-select");
@@ -875,5 +902,6 @@
       }
 
       // Initialization routine
+      renderBuildMeta();
       loadState();
       showSetManager();

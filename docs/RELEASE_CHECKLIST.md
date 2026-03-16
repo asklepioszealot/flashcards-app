@@ -13,8 +13,10 @@
 
 ## Build
 
-- `npm run release` (veya `npm run release:no-legacy`) calistir.
+- `npm run release` (varsayilan: legacy kok EXE kopyalamaz) calistir.
 - `release/` altindaki yeni klasorun olustugunu dogrula.
+- `LATEST_RELEASE_POINTER.txt` ve `release/.../OPEN_THIS_PORTABLE.txt` dosyalarindaki portable yolunun ayni oldugunu kontrol et.
+- Test icin her zaman pointer dosyasinda yazan portable EXE'yi ac.
 - SHA256 hash degerlerini not et.
 
 ## Signing
