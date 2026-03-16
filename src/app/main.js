@@ -868,13 +868,28 @@
         return parsed.toLocaleString("tr-TR", { hour12: false });
       }
 
+      function shouldShowBuildMeta() {
+        const params = new URLSearchParams(window.location.search);
+        return (
+          params.get("buildMeta") === "1" ||
+          localStorage.getItem("show-build-meta") === "1"
+        );
+      }
+
       function renderBuildMeta() {
         const metaEl = document.getElementById("build-meta");
         if (!metaEl) return;
 
+        if (!shouldShowBuildMeta()) {
+          metaEl.textContent = "";
+          metaEl.style.display = "none";
+          return;
+        }
+
         const buildInfo = window.__BUILD_INFO__;
         if (!buildInfo || typeof buildInfo !== "object") {
           metaEl.textContent = "";
+          metaEl.style.display = "none";
           return;
         }
 
@@ -886,6 +901,7 @@
 
         metaEl.textContent =
           `Build ${version} (${commit}) | ${builtAt} | ${source} | ${buildId}`;
+        metaEl.style.display = "block";
       }
 
       // ═══ INIT ═══
