@@ -36,8 +36,11 @@ test.describe("Flashcards smoke", () => {
     const setManager = page.locator("#set-manager");
     const appContainer = page.locator("#app-container");
     const startButton = page.locator("#start-btn");
+    const setManagerHint = setManager.locator(".kbd-hint");
 
     await expect(setManager).toBeVisible();
+    await expect(setManagerHint).toBeVisible();
+    await expect(setManagerHint).toContainText("Space");
     const themeToggleSwitch = page.locator("#set-manager .toggle-switch").first();
     await expect(themeToggleSwitch).toBeVisible();
 
@@ -58,6 +61,7 @@ test.describe("Flashcards smoke", () => {
     await startButton.click();
     await expect(appContainer).toBeVisible();
     await expect(setManager).toBeHidden();
+    await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
   });
 
   test("subject label is only under the card, not next to the counter", async ({ page }) => {

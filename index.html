@@ -4,35 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flashcards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --color-bg-primary: #fcfcf9;
+        --color-bg-primary: #f8fafc; /* Slate 50 */
         --color-bg-secondary: #ffffff;
-        --color-text-primary: #21302a;
-        --color-text-secondary: #5f6d66;
-        --color-accent: #2f7a56;
-        --color-accent-hover: #245f43;
-        --color-accent-soft: rgba(47, 122, 86, 0.12);
-        --color-emphasis: #1f6647;
-        --color-emphasis-strong: #155038;
-        --color-border: rgba(79, 95, 88, 0.25);
+        --color-header-bg: rgba(255, 255, 255, 0.85);
+        --color-text-primary: #0f172a; /* Slate 900 */
+        --color-text-secondary: #475569; /* Slate 600 */
+        --color-accent: #10b981; /* Emerald 500 */
+        --color-accent-hover: #059669; /* Emerald 600 */
+        --color-accent-soft: rgba(16, 185, 129, 0.12);
+        --color-emphasis: #047857; /* Emerald 700 */
+        --color-emphasis-strong: #064e3b; /* Emerald 900 */
+        --color-border: rgba(15, 23, 42, 0.1);
         --color-card-front: #ffffff;
-        --color-card-back: #f8f9fa;
+        --color-card-back: #f1f5f9; /* Slate 100 */
       }
 
       [data-theme="dark"] {
-        --color-bg-primary: #1b1f1d;
-        --color-bg-secondary: #232826;
-        --color-text-primary: #f2f6f3;
-        --color-text-secondary: #a4b0a9;
-        --color-accent: #56c49a;
-        --color-accent-hover: #45ae86;
-        --color-accent-soft: rgba(86, 196, 154, 0.2);
-        --color-emphasis: #84e6c0;
-        --color-emphasis-strong: #9cf0ce;
-        --color-border: rgba(122, 138, 129, 0.34);
-        --color-card-front: #2a302d;
-        --color-card-back: #313936;
+        --color-bg-primary: #0f172a; /* Slate 900 */
+        --color-bg-secondary: #1e293b; /* Slate 800 */
+        --color-header-bg: rgba(30, 41, 59, 0.85);
+        --color-text-primary: #f8fafc; /* Slate 50 */
+        --color-text-secondary: #94a3b8; /* Slate 400 */
+        --color-accent: #34d399; /* Emerald 400 */
+        --color-accent-hover: #10b981; /* Emerald 500 */
+        --color-accent-soft: rgba(52, 211, 153, 0.15);
+        --color-emphasis: #6ee7b7; /* Emerald 300 */
+        --color-emphasis-strong: #a7f3d0; /* Emerald 200 */
+        --color-border: rgba(255, 255, 255, 0.1);
+        --color-card-front: #1e293b; /* Slate 800 */
+        --color-card-back: #334155; /* Slate 700 */
       }
 
       * {
@@ -42,7 +47,7 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: var(--color-bg-primary);
         color: var(--color-text-primary);
         line-height: 1.6;
@@ -66,6 +71,15 @@
         padding: 20px;
         flex-wrap: nowrap;
         gap: 20px;
+        background: var(--color-header-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--color-border);
+        border-radius: 16px;
+        position: sticky;
+        top: 20px;
+        z-index: 100;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
       }
 
       .header-left {
@@ -189,13 +203,13 @@
 
       .card {
         background: var(--color-bg-secondary);
-        border-radius: 16px;
+        border-radius: 20px;
         padding: 40px;
         min-height: 456px;
         max-width: none;
         width: 100%;
         margin: 0;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
         border: 1px solid var(--color-border);
         cursor: pointer;
         position: relative;
@@ -474,7 +488,7 @@
       }
       .assess-btn.know:hover {
         background: #15803d;
-        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
       }
       .assess-btn.review {
         background: #ea580c;
@@ -482,7 +496,7 @@
       }
       .assess-btn.review:hover {
         background: #c2410c;
-        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
       }
       .assess-btn.dunno {
         background: #dc2626;
@@ -490,7 +504,7 @@
       }
       .assess-btn.dunno:hover {
         background: #b91c1c;
-        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
       }
 
       .assess-btn.selected {
@@ -1021,14 +1035,16 @@
       </div>
 
       <div class="navigation">
-        <button class="nav-btn" id="prev-btn" onclick="previousCard()">
-          ← Önceki
+        <button class="nav-btn" id="prev-btn" onclick="previousCard()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Önceki
         </button>
         <div class="card-info">
           <div class="card-counter" id="card-counter">1 / 20</div>
         </div>
-        <button class="nav-btn" id="next-btn" onclick="nextCard()">
-          Sonraki →
+        <button class="nav-btn" id="next-btn" onclick="nextCard()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+          Sonraki
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
 
