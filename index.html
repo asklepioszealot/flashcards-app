@@ -69,7 +69,8 @@
       }
 
       .header-left {
-        flex: 0 0 auto;
+        flex: 0 0 260px; /* Mor kutu genişliği kadar uzatıldı */
+        min-width: 200px;
       }
 
       .header-left h1 {
@@ -86,7 +87,7 @@
       .header-controls {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: flex-end; /* İçerik esnediği için sağa dayama korunurken alanı dolduracak */
         gap: 10px;
         flex-wrap: nowrap;
         margin-left: auto;
@@ -121,14 +122,15 @@
       }
 
       .header-controls select {
-        min-width: 220px;
-        max-width: 300px;
+        min-width: 180px;
+        max-width: 260px;
+        flex-grow: 1;
       }
 
       .header-controls input[type="number"] {
-        width: 104px;
-        min-width: 104px;
-        max-width: 104px;
+        width: 100px;
+        min-width: 100px;
+        max-width: 100px;
       }
 
       .btn {
@@ -160,6 +162,23 @@
       .btn-small {
         padding: 7px 14px;
         font-size: 12px;
+      }
+
+      /* Eklenen adaptif büyüme kuralları (sarı kısmı mavi kadar yapma ve butonları ölçekleme) */
+      .header-controls .btn-small.btn-secondary {
+        flex: 1 1 auto;
+        font-size: clamp(10px, 1.2vw, 14px);
+        padding: clamp(6px, 1vw, 10px) clamp(8px, 1.5vw, 16px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+        min-height: 40px;
+      }
+
+      .header-controls .btn-small:not(.btn-secondary) {
+        flex: 0 0 auto; /* Git butonu sabit kalabilir veya hafif büyüyebilir */
       }
 
       .card-container {
@@ -904,6 +923,12 @@
         </label>
         <span>🌙</span>
       </div>
+
+      <div class="kbd-hint" style="margin-top: 20px;">
+        <kbd>Space</kbd> Çevir &nbsp; <kbd>←</kbd><kbd>→</kbd> Gezin &nbsp;
+        <kbd>1</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp;
+        <kbd>3</kbd> Bilmiyorum
+      </div>
     </div>
 
     <div id="undo-toast" class="undo-toast">
@@ -1049,12 +1074,6 @@
         >
           ❌ Bilmiyorum
         </button>
-      </div>
-
-      <div class="kbd-hint">
-        <kbd>Space</kbd> Çevir &nbsp; <kbd>←</kbd><kbd>→</kbd> Gezin &nbsp;
-        <kbd>1</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp;
-        <kbd>3</kbd> Bilmiyorum
       </div>
     </div>
 
