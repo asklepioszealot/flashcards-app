@@ -938,6 +938,19 @@
         <span>🌙</span>
       </div>
 
+      <div class="toggle-container" style="margin-top: 14px; justify-content: flex-start; gap: 12px;">
+        <span id="auto-advance-status">Otomatik sonraki soru: Açık</span>
+        <label class="toggle-switch">
+          <input
+            type="checkbox"
+            id="auto-advance-toggle-manager"
+            onchange="setAutoAdvance(this.checked)"
+            checked
+          />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
       <div class="kbd-hint" style="margin-top: 20px;">
         <kbd>Space</kbd> Çevir &nbsp; <kbd>←</kbd><kbd>→</kbd> Gezin &nbsp;
         <kbd>1</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp;

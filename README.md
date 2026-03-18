@@ -12,8 +12,12 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
   - `Tamam` (`know`)
   - `Tekrar Göz At` (`review`)
   - `Bilmiyorum` (`dunno`)
+- **Kaldığın Yerden Devam**: Son çalıştığınız filtre, konu ve kart konumu otomatik geri yüklenir.
+- **Set-Bazlı Kart Kimliği**: Değerlendirmeler set bazlı anahtarlanır; aynı soru metni farklı setlerde birbirini ezmez.
+- **Otomatik Legacy Migration**: Eski soru-hash (`c...`) değerlendirme kayıtları yeni set-bazlı anahtarlara otomatik taşınır.
 - Değerlendirme bazlı filtreler: Tümü, Tekrar Göz At, Bilmiyorum, Değerlendirilmemiş
 - Karıştırma (shuffle), Açık/Koyu tema, Kart numarasına atlama
+- **Opsiyonel Otomatik Geçiş**: Değerlendirme sonrası bir sonraki karta otomatik geçişi giriş ekranından açıp kapatabilirsiniz (ayar kalıcıdır).
 - Klavye kısayolları
 - `localStorage` ile durum kaydı
 

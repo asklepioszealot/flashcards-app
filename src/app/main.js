@@ -2,6 +2,7 @@
       const SESSION_KEY = "fc_session";
       const SETS_KEY = "fc_loaded_sets";
       const ASSESSMENTS_KEY = "fc_assessments";
+      const AUTO_ADVANCE_KEY = "fc_auto_advance";
       const storage = window.AppStorage;
       
       let loadedSets = {};
@@ -16,20 +17,86 @@
       let allFlashcards = [];
       let filteredFlashcards = [];
       let cardOrder = [];
-      let assessments = {}; // key: card question hash → 'know' | 'review' | 'dunno'
+      let assessments = {}; // key: set-based card key → 'know' | 'review' | 'dunno'
       let activeFilter = "all"; // 'all' | 'review' | 'dunno' | 'unanswered'
+      let autoAdvanceEnabled = true;
 
       // ═══ CARD ID HELPER ═══
-      function cardId(card) {
-        // simple hash from question text
+      function buildCardKey(setId, card, index) {
+        const normalizedSetId = String(setId ?? "unknown");
+        const cardIdValue =
+          card && card.id !== undefined && card.id !== null
+            ? String(card.id).trim()
+            : "";
+        if (cardIdValue.length > 0) {
+          return `set:${normalizedSetId}::id:${cardIdValue}`;
+        }
+        return `set:${normalizedSetId}::idx:${index}`;
+      }
+
+      function legacyCardId(card) {
+        const question = card && typeof card.q === "string" ? card.q : "";
         let h = 0;
-        for (let i = 0; i < card.q.length; i++) {
-          h = ((h << 5) - h + card.q.charCodeAt(i)) | 0;
+        for (let i = 0; i < question.length; i++) {
+          h = ((h << 5) - h + question.charCodeAt(i)) | 0;
         }
         return "c" + Math.abs(h);
       }
 
+      function legacyBackupKey(card) {
+        return `legacy:${legacyCardId(card)}`;
+      }
+
+      function getCardKey(card, fallbackSetId, fallbackIndex) {
+        if (card && typeof card.__cardKey === "string" && card.__cardKey.length > 0) {
+          return card.__cardKey;
+        }
+        if (typeof fallbackSetId === "string" && Number.isInteger(fallbackIndex)) {
+          return buildCardKey(fallbackSetId, card, fallbackIndex);
+        }
+        if (
+          card &&
+          typeof card.__setId === "string" &&
+          Number.isInteger(card.__setIndex)
+        ) {
+          return buildCardKey(card.__setId, card, card.__setIndex);
+        }
+        return null;
+      }
+
+      function getAssessmentLevel(card, fallbackSetId, fallbackIndex) {
+        const cardKey = getCardKey(card, fallbackSetId, fallbackIndex);
+        if (cardKey && assessments[cardKey]) {
+          return assessments[cardKey];
+        }
+        const backupLevel = assessments[legacyBackupKey(card)];
+        if (backupLevel) {
+          return backupLevel;
+        }
+        return assessments[legacyCardId(card)];
+      }
+
       // ═══ SET MANAGEMENT ═══
+      function syncAutoAdvanceToggleUI() {
+        const toggle = document.getElementById("auto-advance-toggle-manager");
+        if (toggle) {
+          toggle.checked = autoAdvanceEnabled;
+        }
+        const status = document.getElementById("auto-advance-status");
+        if (status) {
+          status.textContent = autoAdvanceEnabled
+            ? "Otomatik sonraki soru: Açık"
+            : "Otomatik sonraki soru: Kapalı";
+        }
+      }
+
+      function setAutoAdvance(isEnabled) {
+        autoAdvanceEnabled = Boolean(isEnabled);
+        storage.setItem(AUTO_ADVANCE_KEY, autoAdvanceEnabled ? "1" : "0");
+        syncAutoAdvanceToggleUI();
+        saveState();
+      }
+
       function showSetManager() {
         document.getElementById("set-manager").classList.remove("hidden");
         document.getElementById("app-container").style.display = "none";
@@ -41,9 +108,15 @@
         
         allFlashcards = [];
         for (const setId of selectedSets) {
-          if (loadedSets[setId]) {
-            allFlashcards.push(...loadedSets[setId].cards);
-          }
+          const setData = loadedSets[setId];
+          if (!setData || !Array.isArray(setData.cards)) continue;
+          setData.cards.forEach((card, index) => {
+            const clonedCard = { ...card };
+            clonedCard.__setId = setId;
+            clonedCard.__setIndex = index;
+            clonedCard.__cardKey = buildCardKey(setId, card, index);
+            allFlashcards.push(clonedCard);
+          });
         }
         
         filteredFlashcards = [...allFlashcards];
@@ -55,16 +128,29 @@
         
         populateTopicFilter();
         
+        let session = null;
         const sessRaw = storage.getItem(SESSION_KEY);
         if (sessRaw) {
-          const session = JSON.parse(sessRaw);
-          if (session.topic) document.getElementById("topic-select").value = session.topic;
-          if (typeof session.currentCardIndex === "number" && session.currentCardIndex < filteredFlashcards.length) {
-            currentCardIndex = session.currentCardIndex;
+          try {
+            session = JSON.parse(sessRaw);
+          } catch (error) {
+            session = null;
           }
         }
-        
-        filterByTopic(false);
+        if (session && session.topic) {
+          document.getElementById("topic-select").value = session.topic;
+        }
+
+        filterByTopic(false, {
+          preferredCardKey:
+            session && typeof session.currentCardKey === "string"
+              ? session.currentCardKey
+              : null,
+          fallbackIndex:
+            session && Number.isInteger(session.currentCardIndex)
+              ? session.currentCardIndex
+              : null,
+        });
       }
 
       function parseMarkdownToFlashcards(content, fileName) {
@@ -465,8 +551,8 @@
         setIds.forEach(setId => {
           const set = loadedSets[setId];
           let know = 0, total = set.cards.length;
-          set.cards.forEach(c => {
-            if (assessments[cardId(c)] === 'know') know++;
+          set.cards.forEach((card, index) => {
+            if (getAssessmentLevel(card, setId, index) === "know") know++;
           });
 
           const isSelected = deleteMode
@@ -492,32 +578,133 @@
       }
 
       // ═══ LOCAL STORAGE ═══
+      function isAssessmentLevel(value) {
+        return value === "know" || value === "review" || value === "dunno";
+      }
+
+      function migrateLegacyAssessmentsIfNeeded() {
+        const currentEntries = Object.entries(assessments || {});
+        if (currentEntries.length === 0) return false;
+
+        const modernEntries = {};
+        const legacyEntries = [];
+
+        currentEntries.forEach(([key, value]) => {
+          if (!isAssessmentLevel(value)) return;
+
+          if (key.startsWith("set:")) {
+            modernEntries[key] = value;
+            return;
+          }
+
+          if (/^c\d+$/.test(key)) {
+            legacyEntries.push([key, value]);
+            return;
+          }
+
+          modernEntries[key] = value;
+        });
+
+        const legacyToModernMap = new Map();
+        Object.entries(loadedSets).forEach(([setId, setData]) => {
+          if (!setData || !Array.isArray(setData.cards)) return;
+          setData.cards.forEach((card, index) => {
+            const legacyKey = legacyCardId(card);
+            const modernKey = buildCardKey(setId, card, index);
+            if (!legacyToModernMap.has(legacyKey)) {
+              legacyToModernMap.set(legacyKey, new Set());
+            }
+            legacyToModernMap.get(legacyKey).add(modernKey);
+          });
+        });
+
+        const migrated = { ...modernEntries };
+        let changed = false;
+
+        legacyEntries.forEach(([legacyKey, value]) => {
+          const matches = legacyToModernMap.get(legacyKey);
+          if (!matches || matches.size === 0) {
+            migrated[legacyKey] = value;
+            return;
+          }
+
+          changed = true;
+          matches.forEach((modernKey) => {
+            if (!(modernKey in migrated)) {
+              migrated[modernKey] = value;
+            }
+          });
+        });
+
+        const beforeSnapshot = JSON.stringify(assessments || {});
+        const afterSnapshot = JSON.stringify(migrated);
+        if (beforeSnapshot !== afterSnapshot) {
+          assessments = migrated;
+          changed = true;
+        }
+
+        return changed;
+      }
+
       function saveState() {
         storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
-        
+        storage.setItem(AUTO_ADVANCE_KEY, autoAdvanceEnabled ? "1" : "0");
+
+        const activeCard =
+          filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
+        const currentCardKey = activeCard ? getCardKey(activeCard) : null;
+
         const session = {
           currentCardIndex,
+          currentCardKey: currentCardKey || null,
           theme: document.getElementById("theme-toggle").checked ? "dark" : "light",
           topic: document.getElementById("topic-select").value,
-          activeFilter
+          activeFilter,
+          autoAdvanceEnabled,
         };
         storage.setItem(SESSION_KEY, JSON.stringify(session));
       }
 
       function loadState() {
         try {
-          // Backward compatibility migration from legacy state
-          const legacyStateRaw = storage.getItem("flashcards_state_v6");
-          if (legacyStateRaw) {
-            const legacyState = JSON.parse(legacyStateRaw);
-            if (legacyState.assessments && Object.keys(assessments).length === 0) {
-              assessments = legacyState.assessments;
-              storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
+          let hasExplicitAutoAdvance = false;
+          const autoAdvanceRaw = storage.getItem(AUTO_ADVANCE_KEY);
+          if (autoAdvanceRaw === "0" || autoAdvanceRaw === "1") {
+            autoAdvanceEnabled = autoAdvanceRaw === "1";
+            hasExplicitAutoAdvance = true;
+          }
+
+          let hasModernAssessments = false;
+          const assRaw = storage.getItem(ASSESSMENTS_KEY);
+          if (assRaw) {
+            const parsedAssessments = JSON.parse(assRaw);
+            if (
+              parsedAssessments &&
+              typeof parsedAssessments === "object" &&
+              !Array.isArray(parsedAssessments)
+            ) {
+              assessments = parsedAssessments;
+              hasModernAssessments = true;
             }
           }
 
-          const assRaw = storage.getItem(ASSESSMENTS_KEY);
-          if (assRaw) assessments = JSON.parse(assRaw);
+          // Backward compatibility migration from legacy state:
+          // only use legacy when modern key is missing.
+          if (!hasModernAssessments) {
+            const legacyStateRaw = storage.getItem("flashcards_state_v6");
+            if (legacyStateRaw) {
+              const legacyState = JSON.parse(legacyStateRaw);
+              if (
+                legacyState &&
+                legacyState.assessments &&
+                typeof legacyState.assessments === "object" &&
+                !Array.isArray(legacyState.assessments)
+              ) {
+                assessments = legacyState.assessments;
+                storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
+              }
+            }
+          }
 
           const setsRaw = storage.getItem(SETS_KEY);
           if (setsRaw) {
@@ -539,6 +726,10 @@
             Object.keys(loadedSets).forEach(id => selectedSets.add(id));
           }
 
+          if (migrateLegacyAssessmentsIfNeeded()) {
+            storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
+          }
+
           const sessRaw = storage.getItem(SESSION_KEY);
           if (sessRaw) {
             const session = JSON.parse(sessRaw);
@@ -549,7 +740,14 @@
               });
             }
             if (session.activeFilter) activeFilter = session.activeFilter;
+            if (
+              !hasExplicitAutoAdvance &&
+              typeof session.autoAdvanceEnabled === "boolean"
+            ) {
+              autoAdvanceEnabled = session.autoAdvanceEnabled;
+            }
           }
+          syncAutoAdvanceToggleUI();
         } catch (e) {
           console.error("State loading error:", e);
         }
@@ -559,17 +757,42 @@
       function assessCard(level) {
         if (filteredFlashcards.length === 0) return;
         const card = filteredFlashcards[cardOrder[currentCardIndex]];
-        const id = cardId(card);
-        assessments[id] = level;
+        const currentLevel = getAssessmentLevel(card);
+        const cardKey = getCardKey(card);
+        const legacyKey = legacyCardId(card);
+        const backupKey = legacyBackupKey(card);
+        const isToggleOff = currentLevel === level;
+
+        if (isToggleOff) {
+          if (cardKey) {
+            delete assessments[cardKey];
+          }
+          delete assessments[backupKey];
+          delete assessments[legacyKey];
+          updateAssessmentButtons(null);
+          updateScoreDisplay();
+          saveState();
+          return;
+        }
+
+        if (cardKey) {
+          assessments[cardKey] = level;
+          assessments[backupKey] = level;
+        } else {
+          assessments[backupKey] = level;
+          assessments[legacyKey] = level;
+        }
         updateAssessmentButtons(level);
         updateScoreDisplay();
         saveState();
-        // auto-advance after a short delay
-        setTimeout(() => {
-          if (currentCardIndex < filteredFlashcards.length - 1) {
-            nextCard();
-          }
-        }, 400);
+        if (autoAdvanceEnabled) {
+          // auto-advance after a short delay
+          setTimeout(() => {
+            if (currentCardIndex < filteredFlashcards.length - 1) {
+              nextCard();
+            }
+          }, 400);
+        }
       }
 
       function updateAssessmentButtons(level) {
@@ -597,7 +820,7 @@
           review = 0,
           dunno = 0;
         allFlashcards.forEach((c) => {
-          const status = assessments[cardId(c)];
+          const status = getAssessmentLevel(c);
           if (status === "know") know++;
           else if (status === "review") review++;
           else if (status === "dunno") dunno++;
@@ -619,7 +842,16 @@
         saveState();
       }
 
-      function applyAssessmentFilter() {
+      function applyAssessmentFilter(options = {}) {
+        const preferredCardKey =
+          typeof options.preferredCardKey === "string" &&
+          options.preferredCardKey.length > 0
+            ? options.preferredCardKey
+            : null;
+        const fallbackIndex = Number.isInteger(options.fallbackIndex)
+          ? options.fallbackIndex
+          : null;
+
         // update active button
         document
           .querySelectorAll(".filter-btn")
@@ -643,20 +875,38 @@
 
         if (activeFilter === "review") {
           filteredFlashcards = base.filter(
-            (c) => assessments[cardId(c)] === "review",
+            (c) => getAssessmentLevel(c) === "review",
           );
         } else if (activeFilter === "dunno") {
           filteredFlashcards = base.filter(
-            (c) => assessments[cardId(c)] === "dunno",
+            (c) => getAssessmentLevel(c) === "dunno",
           );
         } else if (activeFilter === "unanswered") {
-          filteredFlashcards = base.filter((c) => !assessments[cardId(c)]);
+          filteredFlashcards = base.filter((c) => !getAssessmentLevel(c));
         } else {
           filteredFlashcards = base;
         }
 
         cardOrder = [...Array(filteredFlashcards.length).keys()];
-        currentCardIndex = 0;
+        let targetIndex = 0;
+        if (filteredFlashcards.length > 0) {
+          let resolvedIndex = -1;
+          if (preferredCardKey) {
+            resolvedIndex = filteredFlashcards.findIndex(
+              (card) => getCardKey(card) === preferredCardKey,
+            );
+          }
+          if (
+            resolvedIndex < 0 &&
+            Number.isInteger(fallbackIndex) &&
+            fallbackIndex >= 0 &&
+            fallbackIndex < filteredFlashcards.length
+          ) {
+            resolvedIndex = fallbackIndex;
+          }
+          targetIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+        }
+        currentCardIndex = targetIndex;
         document
           .getElementById("jump-input")
           .setAttribute("max", filteredFlashcards.length);
@@ -683,11 +933,11 @@
       }
 
       // ═══ TOPIC FILTER ═══
-      function filterByTopic(resetFilter = true) {
+      function filterByTopic(resetFilter = true, options = {}) {
         if (resetFilter) {
           activeFilter = "all";
         }
-        applyAssessmentFilter();
+        applyAssessmentFilter(options);
       }
 
       // ═══ DISPLAY ═══
@@ -713,7 +963,7 @@
         // hide assessment panel when showing front
         showAssessmentPanel(false);
         // highlight current assessment if any
-        const currentAssessment = assessments[cardId(card)];
+        const currentAssessment = getAssessmentLevel(card);
         updateAssessmentButtons(currentAssessment || null);
 
         saveState();
@@ -788,7 +1038,7 @@
         const statusIcons = { know: "✅", review: "🔄", dunno: "❌" };
         let cardsHtml = "";
         allFlashcards.forEach((card, i) => {
-          const status = assessments[cardId(card)];
+          const status = getAssessmentLevel(card);
           const badge = status
             ? `<span style="float:right;font-size:18px">${statusIcons[status]}</span>`
             : "";
@@ -807,7 +1057,7 @@
           review = 0,
           dunno = 0;
         allFlashcards.forEach((c) => {
-          const s = assessments[cardId(c)];
+          const s = getAssessmentLevel(c);
           if (s === "know") know++;
           else if (s === "review") review++;
           else if (s === "dunno") dunno++;
