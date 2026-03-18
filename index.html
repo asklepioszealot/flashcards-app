@@ -554,14 +554,36 @@
         border-radius: 8px;
         overflow: hidden;
         margin-bottom: 20px;
+        display: flex;
       }
 
       .progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, #16a34a, #22c55e);
-        border-radius: 8px;
         transition: width 0.5s ease;
         width: 0%;
+        flex: 0 0 auto;
+      }
+
+      .progress-fill.progress-fill-know {
+        background: linear-gradient(90deg, #16a34a, #22c55e);
+      }
+
+      .progress-fill.progress-fill-review {
+        background: linear-gradient(90deg, #2563eb, #3b82f6);
+      }
+
+      .progress-fill.progress-fill-dunno {
+        background: linear-gradient(90deg, #dc2626, #ef4444);
+      }
+
+      .progress-track .progress-fill:first-child {
+        border-top-left-radius: 8px;
+        border-bottom-left-radius: 8px;
+      }
+
+      .progress-track .progress-fill:last-child {
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 8px;
       }
 
       .filter-bar {
@@ -1030,6 +1052,9 @@
           <button class="filter-btn active" onclick="setFilter('all')">
             📋 Tümü
           </button>
+          <button class="filter-btn" onclick="setFilter('know')">
+            ✅ Biliyorum
+          </button>
           <button class="filter-btn" onclick="setFilter('review')">
             🔄 Tekrar Göz At
           </button>
@@ -1044,7 +1069,9 @@
       </div>
 
       <div class="progress-track">
-        <div class="progress-fill" id="progress-fill"></div>
+        <div class="progress-fill progress-fill-know" id="progress-fill-know"></div>
+        <div class="progress-fill progress-fill-review" id="progress-fill-review"></div>
+        <div class="progress-fill progress-fill-dunno" id="progress-fill-dunno"></div>
       </div>
 
       <div class="navigation">

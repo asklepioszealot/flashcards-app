@@ -18,7 +18,7 @@
       let filteredFlashcards = [];
       let cardOrder = [];
       let assessments = {}; // key: set-based card key → 'know' | 'review' | 'dunno'
-      let activeFilter = "all"; // 'all' | 'review' | 'dunno' | 'unanswered'
+      let activeFilter = "all"; // 'all' | 'know' | 'review' | 'dunno' | 'unanswered'
       let autoAdvanceEnabled = true;
 
       // ═══ CARD ID HELPER ═══
@@ -550,10 +550,17 @@
         listEl.innerHTML = "";
         setIds.forEach(setId => {
           const set = loadedSets[setId];
-          let know = 0, total = set.cards.length;
+          let know = 0,
+            review = 0,
+            dunno = 0,
+            total = set.cards.length;
           set.cards.forEach((card, index) => {
-            if (getAssessmentLevel(card, setId, index) === "know") know++;
+            const status = getAssessmentLevel(card, setId, index);
+            if (status === "know") know++;
+            else if (status === "review") review++;
+            else if (status === "dunno") dunno++;
           });
+          const assessed = know + review + dunno;
 
           const isSelected = deleteMode
             ? removeCandidateSets.has(setId)
@@ -566,7 +573,7 @@
               <input type="checkbox" ${isSelected ? "checked" : ""} onclick="event.stopPropagation(); toggleSetCheck('${setId}')">
               <div class="set-details">
                 <div class="set-title">${set.setName}</div>
-                <div class="set-stats">${total} kart — ${know}/${total} (%${total?Math.round((know/total)*100):0}) tamam</div>
+                <div class="set-stats">${total} kart — ${assessed}/${total} (%${total ? Math.round((assessed / total) * 100) : 0}) tamam</div>
               </div>
             </div>
             <div class="set-actions-row">
@@ -826,19 +833,38 @@
           else if (status === "dunno") dunno++;
         });
         const total = allFlashcards.length;
-        const pct = total > 0 ? Math.round((know / total) * 100) : 0;
+        const assessed = know + review + dunno;
+        const pct = total > 0 ? Math.round((assessed / total) * 100) : 0;
         document.getElementById("score-know").textContent = know;
         document.getElementById("score-review").textContent = review;
         document.getElementById("score-dunno").textContent = dunno;
         document.getElementById("score-percent").textContent =
-          `${know}/${total} (%${pct})`;
-        document.getElementById("progress-fill").style.width = `${pct}%`;
+          `${assessed}/${total} (%${pct})`;
+
+        const knowPct = total > 0 ? (know / total) * 100 : 0;
+        const reviewPct = total > 0 ? (review / total) * 100 : 0;
+        const dunnoPct = total > 0 ? (dunno / total) * 100 : 0;
+
+        const knowFill = document.getElementById("progress-fill-know");
+        const reviewFill = document.getElementById("progress-fill-review");
+        const dunnoFill = document.getElementById("progress-fill-dunno");
+
+        if (knowFill) knowFill.style.width = `${knowPct}%`;
+        if (reviewFill) reviewFill.style.width = `${reviewPct}%`;
+        if (dunnoFill) dunnoFill.style.width = `${dunnoPct}%`;
       }
 
       // ═══ FILTER ═══
       function setFilter(filter) {
+        const currentCard =
+          filteredFlashcards.length > 0
+            ? filteredFlashcards[cardOrder[currentCardIndex]]
+            : null;
+        const preferredCardKey = currentCard ? getCardKey(currentCard) : null;
+        const fallbackIndex = currentCardIndex;
+
         activeFilter = filter;
-        applyAssessmentFilter();
+        applyAssessmentFilter({ preferredCardKey, fallbackIndex });
         saveState();
       }
 
@@ -858,6 +884,7 @@
           .forEach((btn) => btn.classList.remove("active"));
         const labels = {
           all: "📋 Tümü",
+          know: "✅ Biliyorum",
           review: "🔄 Tekrar Göz At",
           dunno: "❌ Bilmiyorum",
           unanswered: "⬜ Değerlendirilmemiş",
@@ -873,7 +900,9 @@
             ? [...allFlashcards]
             : allFlashcards.filter((c) => c.subject === selectedTopic);
 
-        if (activeFilter === "review") {
+        if (activeFilter === "know") {
+          filteredFlashcards = base.filter((c) => getAssessmentLevel(c) === "know");
+        } else if (activeFilter === "review") {
           filteredFlashcards = base.filter(
             (c) => getAssessmentLevel(c) === "review",
           );
@@ -1063,7 +1092,8 @@
           else if (s === "dunno") dunno++;
         });
         const total = allFlashcards.length;
-        const pct = total > 0 ? Math.round((know / total) * 100) : 0;
+        const assessed = know + review + dunno;
+        const pct = total > 0 ? Math.round((assessed / total) * 100) : 0;
 
         const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
             <title>Flashcards — Yazdır</title>
@@ -1074,7 +1104,7 @@
                 @media print { body { padding:10px; } }
             </style></head><body>
             <h1>Flashcards</h1>
-            <div class="summary">Toplam: ${total} kart &nbsp;|&nbsp; ✅ ${know} &nbsp; 🔄 ${review} &nbsp; ❌ ${dunno} &nbsp;|&nbsp; Tamamlanma: %${pct}</div>
+            <div class="summary">Toplam: ${total} kart &nbsp;|&nbsp; ✅ ${know} &nbsp; 🔄 ${review} &nbsp; ❌ ${dunno} &nbsp;|&nbsp; İlerleme: %${pct}</div>
             ${cardsHtml}
             </body></html>`;
 
