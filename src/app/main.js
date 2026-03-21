@@ -815,10 +815,13 @@
 
       function showAssessmentPanel(show) {
         const panel = document.getElementById("assessment-panel");
+        const fsPanel = document.querySelector(".fullscreen-assessment-panel");
         if (show) {
           panel.classList.add("visible");
+          if (fsPanel) fsPanel.style.display = "flex";
         } else {
           panel.classList.remove("visible");
+          if (fsPanel) fsPanel.style.display = "none";
         }
       }
 
@@ -1021,6 +1024,9 @@
           document.getElementById('fullscreen-toggle-btn').title = 'Tam ekran (F)';
         }
         updateFullscreenCounter();
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
       }
 
       function updateFullscreenCounter() {
@@ -1169,10 +1175,13 @@
           e.preventDefault();
           flipCard();
         } else if (e.key === "1" && isFlipped) {
+          e.preventDefault();
           assessCard("know");
         } else if (e.key === "2" && isFlipped) {
+          e.preventDefault();
           assessCard("review");
         } else if (e.key === "3" && isFlipped) {
+          e.preventDefault();
           assessCard("dunno");
         } else if (e.key === "ArrowDown" && isFlipped) {
           e.preventDefault();
