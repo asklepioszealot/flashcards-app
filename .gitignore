@@ -12,6 +12,12 @@ node_modules/
 dist/
 release/
 
+# Python cache
+__pycache__/
+
+# Local build pointer
+LATEST_RELEASE_POINTER.txt
+
 # Playwright artifacts
 playwright-report/
 test-results/
