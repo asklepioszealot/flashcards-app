@@ -79,7 +79,7 @@ async function assessCurrentCard(page, level) {
   if (!isFlipped) {
     await flashcard.click();
   }
-  await page.locator(`button.assess-btn.${level}`).click();
+  await page.locator(`#assessment-panel button.assess-btn.${level}`).click();
   await page.waitForTimeout(550);
 }
 
@@ -216,16 +216,16 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#start-btn").click();
 
     await jumpToCard(page, 1);
-    await expect(page.locator("button.assess-btn.know")).toHaveClass(/selected/);
-    await expect(page.locator("button.assess-btn.review")).not.toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
+    await expect(page.locator("#assessment-panel button.assess-btn.review")).not.toHaveClass(
       /selected/,
     );
 
     await jumpToCard(page, 2);
-    await expect(page.locator("button.assess-btn.review")).toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.review")).toHaveClass(
       /selected/,
     );
-    await expect(page.locator("button.assess-btn.know")).not.toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).not.toHaveClass(
       /selected/,
     );
 
@@ -265,7 +265,7 @@ test.describe("Flashcards smoke", () => {
     await assessCurrentCard(page, "know");
 
     await expect(page.locator("#card-counter")).toHaveText("1 / 2");
-    await expect(page.locator("button.assess-btn.know")).not.toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).not.toHaveClass(
       /selected/,
     );
 
@@ -350,10 +350,10 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#start-btn").click();
 
     await jumpToCard(page, 1);
-    await expect(page.locator("button.assess-btn.know")).toHaveClass(/selected/);
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
 
     await jumpToCard(page, 2);
-    await expect(page.locator("button.assess-btn.dunno")).toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.dunno")).toHaveClass(
       /selected/,
     );
 
@@ -395,7 +395,7 @@ test.describe("Flashcards smoke", () => {
     });
 
     await page.locator("#start-btn").click();
-    await expect(page.locator("button.assess-btn.review")).toHaveClass(
+    await expect(page.locator("#assessment-panel button.assess-btn.review")).toHaveClass(
       /selected/,
     );
 
@@ -429,11 +429,34 @@ test.describe("Flashcards smoke", () => {
 
     await page.reload();
     await page.locator("#start-btn").click();
-    await expect(page.locator("button.assess-btn.know")).toHaveClass(/selected/);
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
 
     const snapshot = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
     );
     expect(snapshot["set:stable::idx:0"]).toBe("know");
+  });
+test("fullscreen toggle works and card navigation remains functional", async ({ page }) => {
+    await loadFixtureAndStart(page);
+
+    const container = page.locator('.card-container');
+    const fullscreenBtn = page.locator('#fullscreen-toggle-btn');
+
+    await expect(fullscreenBtn).toBeVisible();
+
+    await fullscreenBtn.click();
+    await expect(container).toHaveClass(/fullscreen-active/);
+
+    await page.locator('#flashcard').click();
+    await expect(page.locator('#flashcard')).toHaveClass(/flipped/);
+
+    await page.keyboard.press('Escape');
+    await expect(container).not.toHaveClass(/fullscreen-active/);
+
+    await page.keyboard.press('f');
+    await expect(container).toHaveClass(/fullscreen-active/);
+
+    await page.keyboard.press('f');
+    await expect(container).not.toHaveClass(/fullscreen-active/);
   });
 });

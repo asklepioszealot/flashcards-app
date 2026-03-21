@@ -18,7 +18,8 @@
       let filteredFlashcards = [];
       let cardOrder = [];
       let assessments = {}; // key: set-based card key → 'know' | 'review' | 'dunno'
-      let activeFilter = "all"; // 'all' | 'know' | 'review' | 'dunno' | 'unanswered'
+      let activeFilter = "all";
+      let isFullscreen = false; // 'all' | 'know' | 'review' | 'dunno' | 'unanswered'
       let autoAdvanceEnabled = true;
 
       // ═══ CARD ID HELPER ═══
@@ -98,6 +99,7 @@
       }
 
       function showSetManager() {
+        if (isFullscreen) toggleFullscreen();
         document.getElementById("set-manager").classList.remove("hidden");
         document.getElementById("app-container").style.display = "none";
         renderSetList();
@@ -807,8 +809,7 @@
           .querySelectorAll(".assess-btn")
           .forEach((btn) => btn.classList.remove("selected"));
         if (level) {
-          const btn = document.querySelector(`.assess-btn.${level}`);
-          if (btn) btn.classList.add("selected");
+          document.querySelectorAll(`.assess-btn.${level}`).forEach(btn => btn.classList.add("selected"));
         }
       }
 
@@ -953,8 +954,13 @@
       }
 
       function resetProgress() {
-        if (!confirm("Tüm ilerlemeniz sıfırlanacak. Emin misiniz?")) return;
-        assessments = {};
+        if (!confirm("Seçili set(ler)deki tüm ilerlemeniz sıfırlanacak. Emin misiniz?")) return;
+        
+        allFlashcards.forEach(card => {
+          const key = getCardKey(card);
+          delete assessments[key];
+        });
+        
         activeFilter = "all";
         applyAssessmentFilter();
         updateScoreDisplay();
@@ -975,8 +981,8 @@
         const card = filteredFlashcards[cardOrder[currentCardIndex]];
         document.getElementById("question-text").textContent = card.q;
         document.getElementById("answer-text").innerHTML = card.a;
-        document.getElementById("card-counter").textContent =
-          `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+        document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+        updateFullscreenCounter();
         document.getElementById("subject-display-front").textContent =
           card.subject;
 
@@ -999,6 +1005,31 @@
       }
 
       // ═══ FLIP ═══
+      
+      function toggleFullscreen() {
+        isFullscreen = !isFullscreen;
+        const container = document.querySelector('.card-container');
+        if (isFullscreen) {
+          container.classList.add('fullscreen-active');
+          document.body.style.overflow = 'hidden';
+          document.getElementById('fullscreen-toggle-btn').textContent = '✕';
+          document.getElementById('fullscreen-toggle-btn').title = 'Tam ekrandan çık (ESC / F)';
+        } else {
+          container.classList.remove('fullscreen-active');
+          document.body.style.overflow = 'auto';
+          document.getElementById('fullscreen-toggle-btn').textContent = '⛶';
+          document.getElementById('fullscreen-toggle-btn').title = 'Tam ekran (F)';
+        }
+        updateFullscreenCounter();
+      }
+
+      function updateFullscreenCounter() {
+        const fsCounter = document.getElementById("fullscreen-card-counter");
+        if (fsCounter) {
+          fsCounter.textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+        }
+      }
+
       function flipCard() {
         const card = document.getElementById("flashcard");
         card.classList.toggle("flipped");
@@ -1119,6 +1150,17 @@
         // skip if typing in input
         if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
           return;
+                if (e.key === 'f' || e.key === 'F') {
+          if (document.getElementById("app-container").style.display !== 'none') {
+            e.preventDefault();
+            toggleFullscreen();
+            return;
+          }
+        }
+        if (e.key === 'Escape' && isFullscreen) {
+            toggleFullscreen();
+            return;
+        }
         if (e.key === "ArrowLeft") {
           previousCard();
         } else if (e.key === "ArrowRight") {
@@ -1185,6 +1227,104 @@
       }
 
       // ═══ INIT ═══
+      
+      // ═══ GOOGLE DRIVE INTEGRATION ═══
+      const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
+      const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
+      const DRIVE_APP_ID = "102976125468";
+      const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+
+      let tokenClient;
+      let driveAccessToken = null;
+      let pickerApiLoaded = false;
+
+      function initGoogleDrive() {
+        if (!window.google || !window.google.accounts || !window.gapi) {
+          setTimeout(initGoogleDrive, 500);
+          return;
+        }
+        
+        gapi.load('picker', () => {
+          pickerApiLoaded = true;
+        });
+
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: DRIVE_CLIENT_ID,
+          scope: DRIVE_SCOPES,
+          callback: (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              driveAccessToken = tokenResponse.access_token;
+              launchDrivePicker();
+            }
+          },
+        });
+      }
+
+      function authGoogleDrive() {
+        if (!tokenClient || !pickerApiLoaded) {
+          alert("Google hesap servisleri henüz yüklenmedi veya bağlantı hatası var.");
+          return;
+        }
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+
+      function launchDrivePicker() {
+        if (window.__TAURI__) {
+             alert("Tauri (masaüstü) versiyonunda Google Picker penceresi desteklenmiyor.");
+             return;
+        }
+        const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+          .setMimeTypes('application/json,text/markdown,text/plain');
+        const picker = new google.picker.PickerBuilder()
+          .addView(view)
+          .setOAuthToken(driveAccessToken)
+          .setDeveloperKey(DRIVE_API_KEY)
+          .setAppId(DRIVE_APP_ID)
+          .setCallback(pickerCallback)
+          .setTitle('Uygulamaya eklenecek seti seçin (.json, .md)')
+          .build();
+        picker.setVisible(true);
+      }
+
+      function pickerCallback(data) {
+        if (data.action === google.picker.Action.PICKED) {
+          const file = data.docs[0];
+          downloadAndLoadDriveFile(file.id, file.name);
+        }
+      }
+
+      async function downloadAndLoadDriveFile(fileId, fileName) {
+        try {
+          const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`, {
+            headers: {
+              'Authorization': `Bearer ${driveAccessToken}`
+            }
+          });
+          if (!response.ok) throw new Error("İndirme Hatası: " + response.statusText);
+          const text = await response.text();
+          let data;
+          if (fileName.endsWith('.md') || fileName.endsWith('.txt')) {
+            data = parseMarkdownToFlashcards(text, fileName);
+          } else {
+            const cleanText = text.replace(/,\s*([\}\]])/g, "$1");
+            data = JSON.parse(cleanText);
+          }
+          const setId = fileName.replace(/\.[^/.]+$/, "");
+          loadedSets[setId] = {
+            setName: data.setName || setId,
+            cards: data.cards || [],
+            fileName: fileName
+          };
+          selectedSets.add(setId);
+          storage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
+          saveSetsList();
+          renderSetList();
+          showUndoToast(`"${fileName}" yüklendi!`);
+        } catch (e) {
+          console.error(e);
+          alert("İndirme hatası: " + e.message);
+        }
+      }
       function populateTopicFilter() {
         const select = document.getElementById("topic-select");
         const subjects = [...new Set(allFlashcards.map((c) => c.subject))];
@@ -1201,3 +1341,4 @@
       renderBuildMeta();
       loadState();
       showSetManager();
+      initGoogleDrive();
