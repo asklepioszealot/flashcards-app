@@ -1297,25 +1297,8 @@ function renderEditorFormControls(draft) {
   const currentCardNumber = totalCards ? draft.activeCardIndex + 1 : 0;
   const canMovePrevious = totalCards > 0 && draft.activeCardIndex > 0;
   const canMoveNext = totalCards > 0 && draft.activeCardIndex < totalCards - 1;
-
-  return `
-    <div class="editor-form-controls">
-      <div class="editor-layout-toggle" role="tablist" aria-label="Form görünümü">
-        <button
-          type="button"
-          class="editor-layout-btn ${draft.formLayoutMode === "list" ? "active" : ""}"
-          id="editor-layout-list-btn"
-          data-editor-layout="list"
-          aria-pressed="${draft.formLayoutMode === "list"}"
-        >Liste</button>
-        <button
-          type="button"
-          class="editor-layout-btn ${draft.formLayoutMode === "single" ? "active" : ""}"
-          id="editor-layout-single-btn"
-          data-editor-layout="single"
-          aria-pressed="${draft.formLayoutMode === "single"}"
-        >Tek Kart</button>
-      </div>
+  const navigationMarkup = draft.formLayoutMode === "single"
+    ? `
       <div class="editor-nav-controls">
         <div class="editor-nav-buttons">
           <button type="button" class="btn btn-small btn-secondary" id="editor-prev-btn" ${canMovePrevious ? "" : "disabled"}>Önceki</button>
@@ -1336,7 +1319,28 @@ function renderEditorFormControls(draft) {
           />
           <button type="button" class="btn btn-small btn-secondary" id="editor-jump-btn" ${totalCards ? "" : "disabled"}>Git</button>
         </div>
+      </div>`
+    : "";
+
+  return `
+    <div class="editor-form-controls">
+      <div class="editor-layout-toggle" role="tablist" aria-label="Form görünümü">
+        <button
+          type="button"
+          class="editor-layout-btn ${draft.formLayoutMode === "list" ? "active" : ""}"
+          id="editor-layout-list-btn"
+          data-editor-layout="list"
+          aria-pressed="${draft.formLayoutMode === "list"}"
+        >Liste</button>
+        <button
+          type="button"
+          class="editor-layout-btn ${draft.formLayoutMode === "single" ? "active" : ""}"
+          id="editor-layout-single-btn"
+          data-editor-layout="single"
+          aria-pressed="${draft.formLayoutMode === "single"}"
+        >Tek Kart</button>
       </div>
+      ${navigationMarkup}
     </div>`;
 }
 
@@ -1344,12 +1348,9 @@ function renderEditorCardSection(draft, card, index, { interactive } = { interac
   const isActiveCard = draft.activeCardIndex === index;
   const isExpanded = interactive ? draft.expandedCardId === card.id : true;
   const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
-  const questionPreview = card.question?.trim() || "Soru eklenmedi.";
   const headerContent = `
     <div class="editor-card-head-main">
       <div class="editor-card-title">Kart ${index + 1}</div>
-      <div class="editor-card-question" data-editor-question-preview="${card.id}">${escapeMarkup(questionPreview)}</div>
-      <div class="editor-card-summary" data-editor-summary-preview="${card.id}">${escapeMarkup(summarizeMarkdownText(card.explanationMarkdown))}</div>
     </div>`;
   const toggleControl = interactive
     ? `<button

@@ -361,26 +361,33 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#editor-screen")).toBeVisible();
 
     await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
+    await expect(page.locator("#editor-prev-btn")).toHaveCount(0);
+    await expect(page.locator("#editor-jump-input")).toHaveCount(0);
     await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
-    await expect(page.locator("#editor-card-counter")).toHaveText("1 / 4");
+    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeHidden();
     await expect(page.locator("#editor-screen")).not.toContainText("Aşağı çekerek büyüt");
+    await expect(page.locator('[data-editor-card-root="card-1"] .editor-card-toggle')).toHaveText(
+      "Kart 1",
+    );
 
     await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
     await expect(page.locator('[data-editor-card-root="card-1"]')).toHaveClass(/is-open/);
-    await expect(page.locator("#editor-card-counter")).toHaveText("1 / 4");
+    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
 
     await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
     await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
+    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeHidden();
 
     await page.locator('[data-editor-card-root="card-3"] .editor-card-expand-btn').click();
     await expect(page.locator('[data-editor-card-root="card-3"]')).toHaveClass(/is-open/);
-    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
 
     const thirdQuestion = page.locator('[data-editor-field="question"][data-card-id="card-3"]');
     await thirdQuestion.fill("Üçüncü soru güncel");
     await page.locator("#editor-layout-single-btn").click();
 
     await expect(page.locator("#editor-layout-single-btn")).toHaveClass(/active/);
+    await expect(page.locator("#editor-prev-btn")).toBeVisible();
+    await expect(page.locator("#editor-jump-input")).toBeVisible();
     await expect(page.locator(".editor-card")).toHaveCount(1);
     await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
     await expect(page.locator('[data-editor-field="question"][data-card-id="card-3"]')).toHaveValue(
@@ -408,6 +415,7 @@ test.describe("Flashcards smoke", () => {
 
     await page.locator("#editor-layout-list-btn").click();
     await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
+    await expect(page.locator("#editor-prev-btn")).toHaveCount(0);
     await expect(page.locator('[data-editor-card-root="card-2"]')).toHaveClass(/is-open/);
     await expect(page.locator('[data-editor-card-root="card-3"]')).not.toHaveClass(/is-open/);
   });
