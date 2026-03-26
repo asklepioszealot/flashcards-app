@@ -2,7 +2,28 @@ import fs from "fs";
 import path from "path";
 
 const DIST_DIR = "dist";
+const CNAME_PATH = "CNAME";
+const DIST_NOJEKYLL_PATH = path.join(DIST_DIR, ".nojekyll");
 const DIST_BUILD_INFO_PATH = path.join(DIST_DIR, "src", "generated", "build-info.js");
+const DIST_RUNTIME_CONFIG_PATH = path.join(DIST_DIR, "src", "generated", "runtime-config.js");
+const LOCAL_RUNTIME_CONFIG_PATH = "runtime-config.local.json";
+const SUPABASE_UMD_SOURCE = path.join(
+  "node_modules",
+  "@supabase",
+  "supabase-js",
+  "dist",
+  "umd",
+  "supabase.js",
+);
+const SUPABASE_UMD_DIST = path.join(
+  DIST_DIR,
+  "node_modules",
+  "@supabase",
+  "supabase-js",
+  "dist",
+  "umd",
+  "supabase.js",
+);
 
 function readAppVersion() {
   const tauriConfigPath = path.join("src-tauri", "tauri.conf.json");
@@ -100,12 +121,50 @@ function makeBuildInfo() {
   };
 }
 
+function readLocalRuntimeConfig() {
+  if (!fs.existsSync(LOCAL_RUNTIME_CONFIG_PATH)) {
+    return {};
+  }
+
+  try {
+    const raw = fs.readFileSync(LOCAL_RUNTIME_CONFIG_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    console.warn(`Local runtime config okunamadı: ${error.message}`);
+    return {};
+  }
+}
+
+function makeRuntimeConfig() {
+  const localRuntimeConfig = readLocalRuntimeConfig();
+  const supabaseUrl = process.env.SUPABASE_URL || localRuntimeConfig.supabaseUrl || "";
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || localRuntimeConfig.supabaseAnonKey || "";
+  const authMode = supabaseUrl && supabaseAnonKey ? "supabase" : "mock";
+  const enableDemoAuth =
+    process.env.ENABLE_DEMO_AUTH != null
+      ? process.env.ENABLE_DEMO_AUTH !== "0"
+      : localRuntimeConfig.enableDemoAuth !== false;
+
+  return {
+    supabaseUrl,
+    supabaseAnonKey,
+    authMode,
+    enableDemoAuth,
+  };
+}
+
 if (fs.existsSync(DIST_DIR)) {
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
 }
 
 fs.mkdirSync(DIST_DIR);
 fs.copyFileSync("index.html", path.join(DIST_DIR, "index.html"));
+fs.writeFileSync(DIST_NOJEKYLL_PATH, "", "utf8");
+
+if (fs.existsSync(CNAME_PATH)) {
+  fs.copyFileSync(CNAME_PATH, path.join(DIST_DIR, "CNAME"));
+}
 
 if (fs.existsSync("src")) {
   fs.cpSync("src", path.join(DIST_DIR, "src"), { recursive: true });
@@ -122,5 +181,15 @@ fs.mkdirSync(path.dirname(DIST_BUILD_INFO_PATH), { recursive: true });
 fs.writeFileSync(DIST_BUILD_INFO_PATH, buildInfoScript, "utf8");
 fs.writeFileSync(path.join(DIST_DIR, "build-metadata.json"), `${JSON.stringify(buildInfo, null, 2)}\n`, "utf8");
 fs.writeFileSync(path.join(DIST_DIR, "build-id.txt"), `${buildInfo.buildId}\n`, "utf8");
+
+const runtimeConfig = makeRuntimeConfig();
+const runtimeConfigScript = `window.__APP_CONFIG__ = Object.freeze(${JSON.stringify(runtimeConfig, null, 2)});\n`;
+fs.mkdirSync(path.dirname(DIST_RUNTIME_CONFIG_PATH), { recursive: true });
+fs.writeFileSync(DIST_RUNTIME_CONFIG_PATH, runtimeConfigScript, "utf8");
+
+if (fs.existsSync(SUPABASE_UMD_SOURCE)) {
+  fs.mkdirSync(path.dirname(SUPABASE_UMD_DIST), { recursive: true });
+  fs.copyFileSync(SUPABASE_UMD_SOURCE, SUPABASE_UMD_DIST);
+}
 
 console.log(`Build complete. Build ID: ${buildInfo.buildId}`);
