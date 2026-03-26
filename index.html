@@ -986,6 +986,9 @@
         display: grid;
         gap: 18px;
         align-content: start;
+        --editor-drawer-top: 220px;
+        --editor-drawer-left: 20px;
+        --editor-drawer-width: min(320px, calc(100vw - 40px));
       }
 
       .editor-shell {
@@ -1059,32 +1062,25 @@
       }
 
       .editor-workspace {
-        display: grid;
-        grid-template-columns: var(--editor-list-width, 0px) minmax(0, 1fr);
-        gap: 24px;
-        align-items: start;
+        display: block;
         max-width: none;
         margin: 12px 0 0;
         overflow: visible;
-      }
-
-      .editor-workspace.is-list-open {
-        --editor-list-width: 300px;
-      }
-
-      .editor-workspace.is-list-closed {
-        --editor-list-width: 0px;
+        min-height: 70vh;
       }
 
       .editor-list-sidebar {
-        position: relative;
+        position: fixed;
+        top: var(--editor-drawer-top);
+        left: var(--editor-drawer-left);
+        width: var(--editor-drawer-width);
         min-width: 0;
         overflow: visible;
+        z-index: 2120;
       }
 
       .editor-list-drawer {
-        width: 300px;
-        max-width: min(300px, calc(100vw - 56px));
+        width: 100%;
         transition: transform 220ms ease, opacity 180ms ease;
         transform: translateX(0);
       }
@@ -1097,7 +1093,7 @@
 
       .editor-list-handle {
         position: absolute;
-        top: 22px;
+        top: 14px;
         left: calc(100% + 12px);
         z-index: 4;
         display: inline-flex;
@@ -1128,6 +1124,10 @@
 
       .editor-list-handle-text {
         font-size: 13px;
+      }
+
+      .editor-workspace.is-list-closed .editor-list-handle {
+        left: 0;
       }
 
       .editor-list-panel {
@@ -1638,39 +1638,13 @@
         }
 
         .editor-workspace {
-          grid-template-columns: 1fr;
-          gap: 0;
           margin-top: 0;
+          min-height: 0;
         }
 
         .editor-list-sidebar {
-          position: sticky;
-          top: 0;
-          z-index: 15;
-        }
-
-        .editor-list-drawer {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: min(320px, calc(100vw - 40px));
-        }
-
-        .editor-workspace.is-list-open,
-        .editor-workspace.is-list-closed {
-          --editor-list-width: 0px;
-        }
-
-        .editor-workspace.is-list-open .editor-list-drawer {
-          transform: translateX(0);
-          opacity: 1;
-          pointer-events: auto;
-        }
-
-        .editor-workspace.is-list-closed .editor-list-drawer {
-          transform: translateX(calc(-100% - 18px));
-          opacity: 0;
-          pointer-events: none;
+          left: 12px;
+          width: min(320px, calc(100vw - 24px));
         }
 
         .editor-list-panel {
@@ -1684,7 +1658,10 @@
 
         .editor-list-handle {
           top: 16px;
-          left: 12px;
+        }
+
+        .editor-workspace.is-list-closed .editor-list-handle {
+          left: 0;
         }
 
         .editor-form-controls,
