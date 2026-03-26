@@ -6,6 +6,7 @@ import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime
 
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
+const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
 
 function nowIso() {
   return new Date().toISOString();
@@ -40,6 +41,78 @@ function createUserFromEmail(email, provider = "mock") {
 
 function localSetStorageKey(userId) {
   return `${APP_NAMESPACE}::user::${userId}::set_records`;
+}
+
+function createAuthSessionStorage(storage) {
+  const localApi = {
+    getItem:
+      typeof storage?.getLocalItem === "function"
+        ? storage.getLocalItem.bind(storage)
+        : storage?.getItem?.bind(storage) || (() => null),
+    setItem:
+      typeof storage?.setLocalItem === "function"
+        ? storage.setLocalItem.bind(storage)
+        : storage?.setItem?.bind(storage) || (() => {}),
+    removeItem:
+      typeof storage?.removeLocalItem === "function"
+        ? storage.removeLocalItem.bind(storage)
+        : storage?.removeItem?.bind(storage) || (() => {}),
+  };
+  const sessionApi = {
+    getItem:
+      typeof storage?.getSessionItem === "function"
+        ? storage.getSessionItem.bind(storage)
+        : localApi.getItem,
+    setItem:
+      typeof storage?.setSessionItem === "function"
+        ? storage.setSessionItem.bind(storage)
+        : localApi.setItem,
+    removeItem:
+      typeof storage?.removeSessionItem === "function"
+        ? storage.removeSessionItem.bind(storage)
+        : localApi.removeItem,
+  };
+
+  function readRememberMePreference() {
+    const storedValue = localApi.getItem(AUTH_REMEMBER_ME_KEY);
+    if (storedValue === "0") return false;
+    if (storedValue === "1") return true;
+    return true;
+  }
+
+  let rememberMePreference = readRememberMePreference();
+
+  return {
+    getRememberMePreference() {
+      return rememberMePreference;
+    },
+
+    setRememberMePreference(nextValue) {
+      rememberMePreference = nextValue !== false;
+      localApi.setItem(AUTH_REMEMBER_ME_KEY, rememberMePreference ? "1" : "0");
+      return rememberMePreference;
+    },
+
+    getItem(key) {
+      const sessionValue = sessionApi.getItem(key);
+      return sessionValue != null ? sessionValue : localApi.getItem(key);
+    },
+
+    setItem(key, value, rememberMeOverride = rememberMePreference) {
+      if (rememberMeOverride) {
+        localApi.setItem(key, value);
+        sessionApi.removeItem(key);
+        return;
+      }
+      sessionApi.setItem(key, value);
+      localApi.removeItem(key);
+    },
+
+    removeItem(key) {
+      sessionApi.removeItem(key);
+      localApi.removeItem(key);
+    },
+  };
 }
 
 function pickNewerRecord(leftRecord, rightRecord) {
@@ -95,7 +168,8 @@ function normalizeSetCollection(records) {
 }
 
 function createMockAdapter(config, storage) {
-  let currentUser = safeJsonParse(storage.getItem(MOCK_SESSION_KEY), null);
+  const authSessionStorage = createAuthSessionStorage(storage);
+  let currentUser = safeJsonParse(authSessionStorage.getItem(MOCK_SESSION_KEY), null);
   const listeners = new Set();
 
   function emit(event = "mock") {
@@ -104,11 +178,11 @@ function createMockAdapter(config, storage) {
     });
   }
 
-  function persistUserSession() {
+  function persistUserSession(rememberMeOverride) {
     if (currentUser) {
-      storage.setItem(MOCK_SESSION_KEY, JSON.stringify(currentUser));
+      authSessionStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(currentUser), rememberMeOverride);
     } else {
-      storage.removeItem(MOCK_SESSION_KEY);
+      authSessionStorage.removeItem(MOCK_SESSION_KEY);
     }
   }
 
@@ -137,31 +211,33 @@ function createMockAdapter(config, storage) {
       return () => listeners.delete(listener);
     },
 
-    async signIn(email, password) {
+    async signIn(email, password, options = {}) {
       if (!normalizeUserEmail(email) || String(password ?? "").trim().length < 1) {
         throw new Error("E-posta ve parola gerekli.");
       }
+      const rememberMe = authSessionStorage.setRememberMePreference(options.rememberMe);
       currentUser = createUserFromEmail(email, "mock");
-      persistUserSession();
+      persistUserSession(rememberMe);
       emit("SIGNED_IN");
       return { ...currentUser };
     },
 
-    async signUp(email, password) {
-      const user = await this.signIn(email, password);
+    async signUp(email, password, options = {}) {
+      const user = await this.signIn(email, password, options);
       return { user, needsConfirmation: false };
     },
 
-    async signInDemo() {
+    async signInDemo(options = {}) {
+      const rememberMe = authSessionStorage.setRememberMePreference(options.rememberMe);
       currentUser = createUserFromEmail("demo@local.flashcards", "demo");
-      persistUserSession();
+      persistUserSession(rememberMe);
       emit("SIGNED_IN");
       return { ...currentUser };
     },
 
     async signOut() {
       currentUser = null;
-      persistUserSession();
+      authSessionStorage.removeItem(MOCK_SESSION_KEY);
       emit("SIGNED_OUT");
     },
 
@@ -209,17 +285,29 @@ function createMockAdapter(config, storage) {
   };
 }
 
-function createSupabaseAdapter(config) {
+function createSupabaseAdapter(config, storage) {
   const createClient = globalThis.supabase?.createClient;
   if (typeof createClient !== "function") {
     throw new Error("Supabase istemcisi yüklenemedi.");
   }
 
+  const authSessionStorage = createAuthSessionStorage(storage);
   const client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      storage: {
+        getItem(key) {
+          return authSessionStorage.getItem(key);
+        },
+        setItem(key, value) {
+          authSessionStorage.setItem(key, value);
+        },
+        removeItem(key) {
+          authSessionStorage.removeItem(key);
+        },
+      },
     },
   });
 
@@ -308,7 +396,8 @@ function createSupabaseAdapter(config) {
       };
     },
 
-    async signIn(email, password) {
+    async signIn(email, password, options = {}) {
+      authSessionStorage.setRememberMePreference(options.rememberMe);
       const { data, error } = await client.auth.signInWithPassword({
         email: normalizeUserEmail(email),
         password,
@@ -318,7 +407,8 @@ function createSupabaseAdapter(config) {
       return currentUser;
     },
 
-    async signUp(email, password) {
+    async signUp(email, password, options = {}) {
+      authSessionStorage.setRememberMePreference(options.rememberMe);
       const { data, error } = await client.auth.signUp({
         email: normalizeUserEmail(email),
         password,
@@ -331,7 +421,7 @@ function createSupabaseAdapter(config) {
       };
     },
 
-    async signInDemo() {
+    async signInDemo(_options = {}) {
       throw new Error("Demo girişi bu yapılandırmada kapalı.");
     },
 
@@ -599,7 +689,7 @@ function createDesktopAdapter(remoteAdapter) {
 export function createPlatformAdapter(storage = globalThis.AppStorage) {
   const config = getRuntimeConfig();
   const remoteAdapter = hasSupabaseConfig()
-    ? createSupabaseAdapter(config)
+    ? createSupabaseAdapter(config, storage)
     : createMockAdapter(config, storage);
 
   if (isDesktopRuntime()) {

@@ -3,6 +3,7 @@ const { test, expect } = require("playwright/test");
 
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
+const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
 const APP_PORT = Number(process.env.FLASHCARDS_TEST_PORT || 4173);
 const DEMO_USER = {
   id: "demo-demo-local-flashcards",
@@ -40,6 +41,16 @@ async function readUserScopedText(page, key, userId = DEMO_USER.id) {
   );
 }
 
+async function readStorageValue(page, storageType, key) {
+  return page.evaluate(
+    ({ storageType, key }) => {
+      const targetStorage = storageType === "session" ? sessionStorage : localStorage;
+      return targetStorage.getItem(key);
+    },
+    { storageType, key },
+  );
+}
+
 function normalizeSetForSeed(setId, setData) {
   const fileName = setData.fileName || `${setId}.json`;
   const sourceFormat =
@@ -65,7 +76,10 @@ function normalizeSetForSeed(setId, setData) {
 
 async function clearStorage(page) {
   await page.goto(appUrl());
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
   await page.reload();
 }
 
@@ -74,6 +88,7 @@ async function seedLocalSets(page, { sets, selectedSetIds, assessments, session 
   await page.evaluate(
     ({ sets, selectedSetIds, assessments, session, demoUser, mockSessionKey, appNamespace }) => {
       localStorage.clear();
+      sessionStorage.clear();
       localStorage.setItem(mockSessionKey, JSON.stringify(demoUser));
       const loadedSetIds = Object.keys(sets);
       localStorage.setItem(
@@ -224,6 +239,41 @@ test.describe("Flashcards smoke", () => {
     await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
   });
 
+  test("remember me defaults to checked and persists mock auth to localStorage", async ({
+    page,
+  }) => {
+    await clearStorage(page);
+
+    await expect(page.locator("#auth-screen")).toBeVisible();
+    await expect(page.locator("#auth-remember-me")).toBeChecked();
+
+    await page.locator("#auth-demo-btn").click();
+    await expect(page.locator("#set-manager")).toBeVisible();
+
+    await expect.poll(async () => readStorageValue(page, "local", AUTH_REMEMBER_ME_KEY)).toBe("1");
+    await expect.poll(async () => readStorageValue(page, "local", MOCK_SESSION_KEY)).not.toBeNull();
+    await expect.poll(async () => readStorageValue(page, "session", MOCK_SESSION_KEY)).toBeNull();
+
+    await page.reload();
+    await expect(page.locator("#set-manager")).toBeVisible();
+  });
+
+  test("remember me off keeps mock auth in sessionStorage only", async ({ page }) => {
+    await clearStorage(page);
+
+    await expect(page.locator("#auth-screen")).toBeVisible();
+    await page.locator("#auth-remember-me").uncheck();
+    await page.locator("#auth-demo-btn").click();
+    await expect(page.locator("#set-manager")).toBeVisible();
+
+    await expect.poll(async () => readStorageValue(page, "local", AUTH_REMEMBER_ME_KEY)).toBe("0");
+    await expect.poll(async () => readStorageValue(page, "local", MOCK_SESSION_KEY)).toBeNull();
+    await expect.poll(async () => readStorageValue(page, "session", MOCK_SESSION_KEY)).not.toBeNull();
+
+    await page.reload();
+    await expect(page.locator("#set-manager")).toBeVisible();
+  });
+
   test("edit mode opens separate editor and saves question text", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
@@ -247,6 +297,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#editor-screen")).toBeVisible();
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
 
+    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
     const questionInput = page.locator('[data-editor-field="question"]').first();
     await questionInput.fill("Düzenlenmiş soru");
     await page.locator("#editor-save-btn").click();
@@ -266,6 +317,99 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#set-manager")).toBeVisible();
     await page.locator("#start-btn").click();
     await expect(page.locator("#question-text")).toHaveText("Düzenlenmiş soru");
+  });
+
+  test("editor supports list and single-card modes with navigation", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        editor: {
+          setName: "Editor Navigation Demo",
+          fileName: "editor-navigation-demo.md",
+          sourceFormat: "markdown",
+          rawSource: [
+            "# Editor Navigation Demo",
+            "",
+            "### İlk soru",
+            "",
+            "İlk cevap",
+            "",
+            "### İkinci soru",
+            "",
+            "İkinci cevap",
+            "",
+            "### Üçüncü soru",
+            "",
+            "Üçüncü cevap",
+            "",
+            "### Dördüncü soru",
+            "",
+            "Dördüncü cevap",
+          ].join("\n"),
+          cards: [
+            { id: "card-1", q: "İlk soru", a: "İlk cevap", subject: "Konu 1" },
+            { id: "card-2", q: "İkinci soru", a: "İkinci cevap", subject: "Konu 2" },
+            { id: "card-3", q: "Üçüncü soru", a: "Üçüncü cevap", subject: "Konu 3" },
+            { id: "card-4", q: "Dördüncü soru", a: "Dördüncü cevap", subject: "Konu 4" },
+          ],
+        },
+      },
+      selectedSetIds: ["editor"],
+    });
+
+    await page.locator("#edit-mode-btn").click();
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
+    await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
+    await expect(page.locator("#editor-card-counter")).toHaveText("1 / 4");
+    await expect(page.locator("#editor-screen")).not.toContainText("Aşağı çekerek büyüt");
+
+    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
+    await expect(page.locator('[data-editor-card-root="card-1"]')).toHaveClass(/is-open/);
+    await expect(page.locator("#editor-card-counter")).toHaveText("1 / 4");
+
+    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
+    await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
+
+    await page.locator('[data-editor-card-root="card-3"] .editor-card-expand-btn').click();
+    await expect(page.locator('[data-editor-card-root="card-3"]')).toHaveClass(/is-open/);
+    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
+
+    const thirdQuestion = page.locator('[data-editor-field="question"][data-card-id="card-3"]');
+    await thirdQuestion.fill("Üçüncü soru güncel");
+    await page.locator("#editor-layout-single-btn").click();
+
+    await expect(page.locator("#editor-layout-single-btn")).toHaveClass(/active/);
+    await expect(page.locator(".editor-card")).toHaveCount(1);
+    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
+    await expect(page.locator('[data-editor-field="question"][data-card-id="card-3"]')).toHaveValue(
+      "Üçüncü soru güncel",
+    );
+
+    await page.locator("#editor-next-btn").click();
+    await expect(page.locator("#editor-card-counter")).toHaveText("4 / 4");
+    await expect(page.locator('[data-editor-field="question"][data-card-id="card-4"]')).toHaveValue(
+      "Dördüncü soru",
+    );
+
+    await page.locator("#editor-prev-btn").click();
+    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
+    await expect(page.locator('[data-editor-field="question"][data-card-id="card-3"]')).toHaveValue(
+      "Üçüncü soru güncel",
+    );
+
+    await page.locator("#editor-jump-input").fill("2");
+    await page.locator("#editor-jump-btn").click();
+    await expect(page.locator("#editor-card-counter")).toHaveText("2 / 4");
+    await expect(page.locator('[data-editor-field="question"][data-card-id="card-2"]')).toHaveValue(
+      "İkinci soru",
+    );
+
+    await page.locator("#editor-layout-list-btn").click();
+    await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
+    await expect(page.locator('[data-editor-card-root="card-2"]')).toHaveClass(/is-open/);
+    await expect(page.locator('[data-editor-card-root="card-3"]')).not.toHaveClass(/is-open/);
   });
 
   test("subject label is only under the card, not next to the counter", async ({
