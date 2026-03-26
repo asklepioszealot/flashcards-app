@@ -5,78 +5,85 @@
     return;
   }
 
-  function setToggleState(toggleId, isDark) {
-    const toggle = document.getElementById(toggleId);
-    if (toggle) {
-      toggle.checked = isDark;
+  const AVAILABLE_THEMES = Object.freeze(["light", "dark", "ember"]);
+
+  function normalizeTheme(themeName) {
+    return AVAILABLE_THEMES.includes(themeName) ? themeName : "light";
+  }
+
+  function listControlIds(options = {}) {
+    const ids = Array.isArray(options.controlIds) ? options.controlIds : [];
+    return ids.filter(Boolean);
+  }
+
+  function setSelectState(controlId, themeName) {
+    const select = document.getElementById(controlId);
+    if (select && select.value !== themeName) {
+      select.value = themeName;
     }
   }
 
-  function syncThemeToggles(primaryToggleId, managerToggleId, isDark) {
-    setToggleState(primaryToggleId, isDark);
-    setToggleState(managerToggleId, isDark);
+  function syncThemeControls(controlIds, themeName) {
+    controlIds.forEach((controlId) => setSelectState(controlId, themeName));
   }
 
-  function applyThemeAttribute(isDark) {
-    if (isDark) {
-      document.documentElement.setAttribute("data-theme", "dark");
-    } else {
+  function applyThemeAttribute(themeName) {
+    if (themeName === "light") {
       document.documentElement.removeAttribute("data-theme");
-    }
-  }
-
-  function setThemeState(isDark, options = {}) {
-    const primaryToggleId = options.primaryToggleId || "theme-toggle";
-    const managerToggleId = options.managerToggleId || "theme-toggle-manager";
-    syncThemeToggles(primaryToggleId, managerToggleId, isDark);
-    applyThemeAttribute(isDark);
-    return isDark;
-  }
-
-  function toggleTheme(options = {}) {
-    const primaryToggleId = options.primaryToggleId || "theme-toggle";
-    const managerToggleId = options.managerToggleId || "theme-toggle-manager";
-
-    let isDark;
-    if (typeof options.isChecked === "boolean") {
-      isDark = options.isChecked;
-      syncThemeToggles(primaryToggleId, managerToggleId, isDark);
-    } else {
-      const primaryToggle = document.getElementById(primaryToggleId);
-      isDark = Boolean(primaryToggle && primaryToggle.checked);
-      setToggleState(managerToggleId, isDark);
+      return;
     }
 
-    applyThemeAttribute(isDark);
+    document.documentElement.setAttribute("data-theme", themeName);
+  }
+
+  function setThemeState(themeName, options = {}) {
+    const normalizedTheme = normalizeTheme(themeName);
+    syncThemeControls(listControlIds(options), normalizedTheme);
+    applyThemeAttribute(normalizedTheme);
+    return normalizedTheme;
+  }
+
+  function setTheme(options = {}) {
+    const controlIds = listControlIds(options);
+    const nextTheme = typeof options.themeName === "string"
+      ? options.themeName
+      : document.getElementById(controlIds[0])?.value;
+    const normalizedTheme = setThemeState(nextTheme, options);
 
     if (options.storageKey) {
       const storageApi = options.storageApi || globalScope.AppStorage;
       if (storageApi && typeof storageApi.setItem === "function") {
-        storageApi.setItem(options.storageKey, isDark ? "dark" : "light");
+        storageApi.setItem(options.storageKey, normalizedTheme);
       }
     }
 
     if (typeof options.onAfterToggle === "function") {
-      options.onAfterToggle(isDark);
+      options.onAfterToggle(normalizedTheme);
     }
 
-    return isDark;
+    return normalizedTheme;
   }
 
   function initThemeFromStorage(options = {}) {
     const storageApi = options.storageApi || globalScope.AppStorage;
-    let isDark = false;
+    let themeName = "light";
 
     if (options.storageKey && storageApi && typeof storageApi.getItem === "function") {
-      isDark = storageApi.getItem(options.storageKey) === "dark";
+      themeName = normalizeTheme(storageApi.getItem(options.storageKey));
     }
 
-    return setThemeState(isDark, options);
+    return setThemeState(themeName, options);
+  }
+
+  function getCurrentTheme() {
+    return normalizeTheme(document.documentElement.getAttribute("data-theme") || "light");
   }
 
   globalScope.ThemeManager = Object.freeze({
-    toggleTheme,
+    AVAILABLE_THEMES,
+    getCurrentTheme,
     initThemeFromStorage,
+    setTheme,
     setThemeState,
   });
 })(window);

@@ -13,6 +13,7 @@ import {
 
 const APP_NAMESPACE = "fc_v2";
 const THEME_KEY = "fc_theme";
+const THEME_CONTROL_IDS = ["theme-select-auth", "theme-select-manager", "theme-select-study", "theme-select-editor"];
 const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
 const LEGACY_KEYS = {
   session: "fc_session",
@@ -201,23 +202,22 @@ function markAppReady() {
   document.body.classList.remove("app-booting");
 }
 
-function syncThemeToggleUI() {
-  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  const themeToggle = document.getElementById("theme-toggle");
-  const managerToggle = document.getElementById("theme-toggle-manager");
-  if (themeToggle) themeToggle.checked = isDark;
-  if (managerToggle) managerToggle.checked = isDark;
+function syncThemeControlsUI() {
+  const themeName = window.ThemeManager.getCurrentTheme();
+  THEME_CONTROL_IDS.forEach((controlId) => {
+    const control = document.getElementById(controlId);
+    if (control) control.value = themeName;
+  });
 }
 
-function toggleTheme(isChecked) {
-  window.ThemeManager.toggleTheme({
-    isChecked,
-    primaryToggleId: "theme-toggle",
-    managerToggleId: "theme-toggle-manager",
+function toggleTheme(themeName) {
+  window.ThemeManager.setTheme({
+    themeName,
+    controlIds: THEME_CONTROL_IDS,
     storageKey: THEME_KEY,
     storageApi: storage,
   });
-  syncThemeToggleUI();
+  syncThemeControlsUI();
 }
 
 function syncAutoAdvanceToggleUI() {
@@ -1351,17 +1351,19 @@ function renderEditorCardDetail(draft, card, index) {
         <div class="editor-split">
           <div>
             <div class="field-group">
-              <label>Açıklama (Markdown)</label>
+              <div class="editor-markdown-head">
+                <label>Açıklama (Markdown)</label>
+                <div class="editor-toolbar-shell" role="toolbar" aria-label="Markdown araçları">
+                  <div class="editor-toolbar editor-toolbar-primary">
+                    ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
+                    <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
+                  </div>
+                  <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
+                    ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
+                  </div>
+                </div>
+              </div>
               <textarea class="editor-input-answer" data-editor-field="answer" data-card-id="${card.id}" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
-            </div>
-            <div class="editor-toolbar-shell">
-              <div class="editor-toolbar editor-toolbar-primary">
-                ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
-                <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
-              </div>
-              <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
-                ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
-              </div>
             </div>
           </div>
           <div>
@@ -1959,10 +1961,9 @@ async function bootstrap() {
   window.ThemeManager.initThemeFromStorage({
     storageKey: THEME_KEY,
     storageApi: storage,
-    primaryToggleId: "theme-toggle",
-    managerToggleId: "theme-toggle-manager",
+    controlIds: THEME_CONTROL_IDS,
   });
-  syncThemeToggleUI();
+  syncThemeControlsUI();
   syncRememberMeUi();
   bindStaticEvents();
   exposeWindowApi();

@@ -6,7 +6,7 @@
     <title>Flashcards</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         --color-bg-primary: #f8fafc; /* Slate 50 */
@@ -22,6 +22,31 @@
         --color-border: rgba(15, 23, 42, 0.1);
         --color-card-front: #ffffff;
         --color-card-back: #f1f5f9; /* Slate 100 */
+        --screen-glow: rgba(16, 185, 129, 0.14);
+        --screen-wash: rgba(255, 255, 255, 0.4);
+        --auth-panel-glow: rgba(16, 185, 129, 0.22);
+        --auth-panel-start: rgba(15, 23, 42, 0.95);
+        --auth-panel-end: rgba(4, 120, 87, 0.85);
+        --shell-shadow: rgba(15, 23, 42, 0.12);
+        --build-meta-bg: rgba(255, 255, 255, 0.75);
+        --editor-sidebar-outline: rgba(96, 165, 250, 0.14);
+        --editor-sidebar-glow: rgba(52, 211, 153, 0.08);
+        --editor-sidebar-base: rgba(15, 23, 42, 0.94);
+        --editor-sidebar-panel-outline: rgba(110, 231, 183, 0.12);
+        --editor-sidebar-panel-base: rgba(15, 23, 42, 0.34);
+        --editor-list-hover-border: rgba(110, 231, 183, 0.34);
+        --editor-list-hover-bg: rgba(255, 255, 255, 0.03);
+        --editor-list-active-border: rgba(52, 211, 153, 0.42);
+        --editor-detail-outline: rgba(96, 165, 250, 0.14);
+        --editor-detail-glow: rgba(96, 165, 250, 0.08);
+        --editor-detail-base: rgba(15, 23, 42, 0.28);
+        --editor-card-open-border: rgba(96, 165, 250, 0.22);
+        --editor-card-active-border: rgba(96, 165, 250, 0.16);
+        --editor-card-head-glow: rgba(110, 231, 183, 0.08);
+        --editor-card-head-glow-hover: rgba(110, 231, 183, 0.12);
+        --markdown-quote-bg: rgba(90, 116, 177, 0.08);
+        --markdown-table-head-bg: rgba(90, 116, 177, 0.12);
+        --markdown-warning-bg: rgba(244, 176, 62, 0.12);
       }
 
       [data-theme="dark"] {
@@ -38,6 +63,54 @@
         --color-border: rgba(255, 255, 255, 0.1);
         --color-card-front: #1e293b; /* Slate 800 */
         --color-card-back: #334155; /* Slate 700 */
+        --screen-glow: rgba(52, 211, 153, 0.16);
+        --screen-wash: rgba(15, 23, 42, 0.4);
+        --auth-panel-glow: rgba(52, 211, 153, 0.18);
+        --auth-panel-start: rgba(15, 23, 42, 0.96);
+        --auth-panel-end: rgba(6, 78, 59, 0.9);
+        --shell-shadow: rgba(2, 6, 23, 0.32);
+        --build-meta-bg: rgba(35, 40, 38, 0.8);
+      }
+
+      [data-theme="ember"] {
+        --color-bg-primary: #191511;
+        --color-bg-secondary: #241d18;
+        --color-header-bg: rgba(36, 29, 24, 0.9);
+        --color-text-primary: #f5ede3;
+        --color-text-secondary: #d2c2b3;
+        --color-accent: #c97a33;
+        --color-accent-hover: #dc8b40;
+        --color-accent-soft: rgba(201, 122, 51, 0.16);
+        --color-emphasis: #e3b069;
+        --color-emphasis-strong: #f1d19f;
+        --color-border: rgba(241, 209, 159, 0.12);
+        --color-card-front: #241d18;
+        --color-card-back: #30261f;
+        --screen-glow: rgba(201, 122, 51, 0.14);
+        --screen-wash: rgba(44, 34, 27, 0.42);
+        --auth-panel-glow: rgba(227, 176, 105, 0.18);
+        --auth-panel-start: rgba(28, 22, 18, 0.98);
+        --auth-panel-end: rgba(117, 67, 26, 0.9);
+        --shell-shadow: rgba(0, 0, 0, 0.3);
+        --build-meta-bg: rgba(52, 40, 31, 0.84);
+        --editor-sidebar-outline: rgba(201, 122, 51, 0.2);
+        --editor-sidebar-glow: rgba(227, 176, 105, 0.08);
+        --editor-sidebar-base: rgba(27, 21, 17, 0.96);
+        --editor-sidebar-panel-outline: rgba(241, 209, 159, 0.14);
+        --editor-sidebar-panel-base: rgba(44, 34, 27, 0.78);
+        --editor-list-hover-border: rgba(227, 176, 105, 0.34);
+        --editor-list-hover-bg: rgba(227, 176, 105, 0.05);
+        --editor-list-active-border: rgba(227, 176, 105, 0.46);
+        --editor-detail-outline: rgba(201, 122, 51, 0.18);
+        --editor-detail-glow: rgba(201, 122, 51, 0.08);
+        --editor-detail-base: rgba(29, 23, 19, 0.8);
+        --editor-card-open-border: rgba(201, 122, 51, 0.24);
+        --editor-card-active-border: rgba(227, 176, 105, 0.18);
+        --editor-card-head-glow: rgba(227, 176, 105, 0.08);
+        --editor-card-head-glow-hover: rgba(227, 176, 105, 0.12);
+        --markdown-quote-bg: rgba(201, 122, 51, 0.12);
+        --markdown-table-head-bg: rgba(201, 122, 51, 0.16);
+        --markdown-warning-bg: rgba(239, 68, 68, 0.12);
       }
 
       * {
@@ -88,6 +161,7 @@
       }
 
       .header-left h1 {
+        font-family: "Lexend", 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 31px;
         margin-bottom: 5px;
         color: var(--color-text-primary);
@@ -176,6 +250,42 @@
       .btn-small {
         padding: 7px 14px;
         font-size: 12px;
+      }
+
+      .theme-control {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .theme-control label {
+        color: var(--color-text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .theme-control select {
+        min-width: 148px;
+        flex: 0 0 auto;
+      }
+
+      .theme-control--stacked {
+        display: grid;
+        gap: 8px;
+      }
+
+      .theme-control--compact {
+        padding: 8px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-primary);
+      }
+
+      .theme-control--compact select {
+        min-width: 132px;
+        padding-block: 8px;
       }
 
       /* Eklenen adaptif büyüme kuralları (sarı kısmı mavi kadar yapma ve butonları ölçekleme) */
@@ -377,7 +487,7 @@
         padding: 0.85em 1em;
         border-left: 4px solid var(--color-accent);
         border-radius: 14px;
-        background: rgba(90, 116, 177, 0.08);
+        background: var(--markdown-quote-bg);
       }
 
       .card-back .card-content blockquote.warning,
@@ -385,7 +495,7 @@
       .card-back .card-content .markdown-callout.warning,
       .editor-preview .markdown-callout.warning {
         border-left-color: var(--color-emphasis);
-        background: rgba(244, 176, 62, 0.12);
+        background: var(--markdown-warning-bg);
       }
 
       .card-back .card-content code,
@@ -437,7 +547,7 @@
 
       .card-back .card-content th,
       .editor-preview th {
-        background: rgba(90, 116, 177, 0.12);
+        background: var(--markdown-table-head-bg);
         color: var(--color-text-primary);
       }
 
@@ -774,17 +884,13 @@
         padding: 4px 8px;
         border-radius: 6px;
         border: 1px solid var(--color-border);
-        background: rgba(255, 255, 255, 0.75);
+        background: var(--build-meta-bg);
         color: var(--color-text-secondary);
         font-size: 11px;
         line-height: 1.4;
         max-width: min(75vw, 520px);
         text-align: right;
         backdrop-filter: blur(3px);
-      }
-
-      [data-theme="dark"] .build-meta-banner {
-        background: rgba(35, 40, 38, 0.8);
       }
 
       .kbd-hint kbd {
@@ -800,19 +906,12 @@
         position: fixed;
         inset: 0;
         background:
-          radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 30%),
-          linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent),
+          radial-gradient(circle at top right, var(--screen-glow), transparent 30%),
+          linear-gradient(180deg, var(--screen-wash), transparent),
           var(--color-bg-primary);
         z-index: 1900;
         padding: 28px 20px;
         overflow-y: auto;
-      }
-
-      [data-theme="dark"] .screen {
-        background:
-          radial-gradient(circle at top right, rgba(52, 211, 153, 0.16), transparent 35%),
-          linear-gradient(180deg, rgba(15, 23, 42, 0.4), transparent),
-          var(--color-bg-primary);
       }
 
       .screen.hidden {
@@ -844,7 +943,7 @@
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
         border-radius: 24px;
-        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+        box-shadow: 0 24px 80px var(--shell-shadow);
       }
 
       .auth-card {
@@ -861,12 +960,13 @@
 
       .auth-panel {
         background:
-          radial-gradient(circle at top left, rgba(16, 185, 129, 0.22), transparent 40%),
-          linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(4, 120, 87, 0.85));
+          radial-gradient(circle at top left, var(--auth-panel-glow), transparent 40%),
+          linear-gradient(135deg, var(--auth-panel-start), var(--auth-panel-end));
         color: #f8fafc;
       }
 
       .auth-panel h1 {
+        font-family: "Lexend", 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 40px;
         line-height: 1.05;
         margin-bottom: 18px;
@@ -1005,6 +1105,7 @@
       }
 
       .editor-header h1 {
+        font-family: "Lexend", 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 32px;
         margin-bottom: 6px;
       }
@@ -1070,7 +1171,7 @@
       }
 
       .editor-workspace.is-list-open {
-        --editor-sidebar-width: 320px;
+        --editor-sidebar-width: 368px;
       }
 
       .editor-workspace.is-list-closed {
@@ -1084,10 +1185,11 @@
         overflow: hidden;
         padding: 16px;
         border-radius: 24px;
-        border: 1px solid rgba(96, 165, 250, 0.14);
+        border: 1px solid var(--editor-sidebar-outline);
         background:
+          radial-gradient(circle at top left, var(--editor-sidebar-glow), transparent 40%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%),
-          rgba(15, 23, 42, 0.94);
+          var(--editor-sidebar-base);
         box-shadow: 0 22px 44px rgba(2, 6, 23, 0.22);
         transition: padding 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
       }
@@ -1117,8 +1219,8 @@
         margin-bottom: 12px;
         padding: 12px 14px;
         border-radius: 16px;
-        border: 1px solid rgba(96, 165, 250, 0.18);
-        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid var(--editor-sidebar-outline);
+        background: var(--editor-sidebar-panel-base);
         color: var(--color-text-primary);
         font: inherit;
         font-weight: 700;
@@ -1129,8 +1231,8 @@
 
       .editor-list-handle:hover {
         transform: translateY(-1px);
-        border-color: rgba(110, 231, 183, 0.34);
-        background: rgba(15, 23, 42, 0.98);
+        border-color: var(--editor-list-hover-border);
+        background: var(--editor-sidebar-base);
       }
 
       .editor-list-handle-icon {
@@ -1161,10 +1263,10 @@
         gap: 14px;
         padding: 20px;
         border-radius: 24px;
-        border: 1px solid rgba(110, 231, 183, 0.12);
+        border: 1px solid var(--editor-sidebar-panel-outline);
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 55%),
-          rgba(15, 23, 42, 0.34);
+          var(--editor-sidebar-panel-base);
         box-shadow: 0 24px 38px rgba(2, 6, 23, 0.24);
         position: sticky;
         top: 18px;
@@ -1217,13 +1319,13 @@
       }
 
       .editor-list-select:hover {
-        border-color: rgba(110, 231, 183, 0.34);
-        background: rgba(255, 255, 255, 0.03);
+        border-color: var(--editor-list-hover-border);
+        background: var(--editor-list-hover-bg);
         transform: translateY(-1px);
       }
 
       .editor-list-select.active {
-        border-color: rgba(52, 211, 153, 0.42);
+        border-color: var(--editor-list-active-border);
         box-shadow: 0 18px 32px rgba(2, 6, 23, 0.18);
       }
 
@@ -1275,11 +1377,11 @@
         min-width: 0;
         padding: 24px;
         border-radius: 28px;
-        border: 1px solid rgba(96, 165, 250, 0.14);
+        border: 1px solid var(--editor-detail-outline);
         background:
-          radial-gradient(circle at top right, rgba(96, 165, 250, 0.08), transparent 26%),
+          radial-gradient(circle at top right, var(--editor-detail-glow), transparent 26%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 60%),
-          rgba(15, 23, 42, 0.28);
+          var(--editor-detail-base);
         box-shadow: 0 28px 48px rgba(2, 6, 23, 0.28);
       }
 
@@ -1369,12 +1471,12 @@
       }
 
       .editor-card.is-open {
-        border-color: rgba(96, 165, 250, 0.22);
+        border-color: var(--editor-card-open-border);
         box-shadow: 0 20px 36px rgba(2, 6, 23, 0.22);
       }
 
       .editor-card.is-active:not(.is-open) {
-        border-color: rgba(96, 165, 250, 0.16);
+        border-color: var(--editor-card-active-border);
       }
 
       .editor-card-head {
@@ -1385,14 +1487,14 @@
         align-items: flex-start;
         padding: 18px;
         background:
-          radial-gradient(circle at top right, rgba(110, 231, 183, 0.08), transparent 34%),
+          radial-gradient(circle at top right, var(--editor-card-head-glow), transparent 34%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
         transition: background 180ms ease;
       }
 
       .editor-card-head:hover {
         background:
-          radial-gradient(circle at top right, rgba(110, 231, 183, 0.12), transparent 36%),
+          radial-gradient(circle at top right, var(--editor-card-head-glow-hover), transparent 36%),
           linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
       }
 
@@ -1508,6 +1610,15 @@
         margin-bottom: 10px;
       }
 
+      .editor-markdown-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+
       .editor-preview strong {
         color: var(--color-emphasis-strong);
       }
@@ -1523,11 +1634,16 @@
       .editor-toolbar-shell {
         display: grid;
         gap: 10px;
-        margin-top: 10px;
-        padding-top: 2px;
+        justify-items: end;
+        margin-top: 0;
+        padding-top: 0;
       }
 
       .editor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
         margin-top: 0;
         align-items: stretch;
       }
@@ -1606,6 +1722,15 @@
           max-width: none;
         }
 
+        .header-controls .theme-control {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .header-controls .theme-control select {
+          flex: 1 1 auto;
+        }
+
         .header-controls input[type="number"] {
           flex: 0 0 110px;
           width: 110px;
@@ -1661,6 +1786,17 @@
         .auth-form-panel,
         .editor-shell {
           padding: 20px;
+        }
+
+        .editor-markdown-head {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .editor-toolbar-shell,
+        .editor-toolbar {
+          justify-items: stretch;
+          justify-content: flex-start;
         }
 
         .editor-workspace {
@@ -2083,6 +2219,15 @@
             </p>
           </div>
 
+          <div class="theme-control theme-control--stacked">
+            <label for="theme-select-auth">Tema</label>
+            <select id="theme-select-auth" onchange="toggleTheme(this.value)">
+              <option value="light">Aydınlık</option>
+              <option value="dark">Koyu</option>
+              <option value="ember">Amber</option>
+            </select>
+          </div>
+
           <div class="field-group">
             <label for="auth-email">E-posta</label>
             <input id="auth-email" name="email" type="email" placeholder="ornek@mail.com" autocomplete="email" autocapitalize="off" spellcheck="false" />
@@ -2155,13 +2300,13 @@
         </button>
       </div>
 
-      <div style="margin-top: 30px; display: flex; gap: 10px; align-items: center;">
-        <span>☀️</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="theme-toggle-manager" onchange="toggleTheme(this.checked)" />
-          <span class="toggle-slider"></span>
-        </label>
-        <span>🌙</span>
+      <div class="theme-control" style="margin-top: 30px;">
+        <label for="theme-select-manager">Tema</label>
+        <select id="theme-select-manager" onchange="toggleTheme(this.value)">
+          <option value="light">Aydınlık</option>
+          <option value="dark">Koyu</option>
+          <option value="ember">Amber</option>
+        </select>
       </div>
 
       <div class="toggle-container" style="margin-top: 14px; justify-content: flex-start; gap: 12px;">
@@ -2192,6 +2337,14 @@
             <p id="editor-subtitle">Seçili setleri markdown formu veya raw code olarak düzenle.</p>
           </div>
           <div class="editor-actions">
+            <div class="theme-control theme-control--compact">
+              <label for="theme-select-editor">Tema</label>
+              <select id="theme-select-editor" onchange="toggleTheme(this.value)">
+                <option value="light">Aydınlık</option>
+                <option value="dark">Koyu</option>
+                <option value="ember">Amber</option>
+              </select>
+            </div>
             <button class="btn btn-secondary" id="editor-back-btn">← Geri Dön</button>
             <button class="btn btn-secondary" id="editor-view-toggle-btn">Raw Code</button>
             <button class="btn btn-secondary" id="editor-export-btn">Dışa Aktar</button>
@@ -2251,17 +2404,13 @@
           />
           <button class="btn btn-small" onclick="jumpToCard()">Git</button>
 
-          <div class="toggle-container">
-            <span>☀️</span>
-            <label class="toggle-switch">
-              <input
-                type="checkbox"
-                id="theme-toggle"
-                onchange="toggleTheme()"
-              />
-              <span class="toggle-slider"></span>
-            </label>
-            <span>🌙</span>
+          <div class="theme-control">
+            <label for="theme-select-study">Tema</label>
+            <select id="theme-select-study" onchange="toggleTheme(this.value)">
+              <option value="light">Aydınlık</option>
+              <option value="dark">Koyu</option>
+              <option value="ember">Amber</option>
+            </select>
           </div>
 
           <button class="btn btn-small btn-secondary" onclick="showSetManager()">
