@@ -568,34 +568,4 @@ test("fullscreen toggle works and card navigation remains functional", async ({ 
     await page.keyboard.press('f');
     await expect(container).not.toHaveClass(/fullscreen-active/);
   });
-
-  test("plus and minus shortcuts map to know and dunno assessments", async ({ page }) => {
-    await seedLocalSets(page, {
-      sets: {
-        keyboard: {
-          setName: "Keyboard Demo",
-          fileName: "keyboard-demo.json",
-          cards: [
-            { q: "Kart 1?", a: "Cevap 1", subject: "S1" },
-            { q: "Kart 2?", a: "Cevap 2", subject: "S2" },
-          ],
-        },
-      },
-      selectedSetIds: ["keyboard"],
-    });
-
-    await setManagerAutoAdvance(page, false);
-    await page.locator("#start-btn").click();
-
-    await page.locator("#flashcard").click();
-    await page.keyboard.press("NumpadAdd");
-    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
-
-    await page.locator("#next-btn").click();
-    await page.locator("#flashcard").click();
-    await page.keyboard.press("NumpadSubtract");
-    await expect(page.locator("#assessment-panel button.assess-btn.dunno")).toHaveClass(
-      /selected/,
-    );
-  });
 });

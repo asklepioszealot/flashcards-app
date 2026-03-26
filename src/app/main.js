@@ -1642,8 +1642,6 @@ function bindStaticEvents() {
   });
   document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
-    const isPlusShortcut = event.key === "+" || event.code === "NumpadAdd" || (event.key === "=" && event.shiftKey);
-    const isMinusShortcut = event.key === "-" || event.code === "NumpadSubtract";
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && editorState.isOpen) {
       event.preventDefault();
       void saveEditorDrafts();
@@ -1671,12 +1669,6 @@ function bindStaticEvents() {
       event.preventDefault();
       assessCard("review");
     } else if (event.key === "3" && isFlipped) {
-      event.preventDefault();
-      assessCard("dunno");
-    } else if (isPlusShortcut && isFlipped) {
-      event.preventDefault();
-      assessCard("know");
-    } else if (isMinusShortcut && isFlipped) {
       event.preventDefault();
       assessCard("dunno");
     } else if (event.key === "ArrowDown" && isFlipped) {
