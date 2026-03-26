@@ -393,8 +393,9 @@ test.describe("Flashcards smoke", () => {
         preview: preview?.clientHeight ?? 0,
       };
     });
-    expect(Math.abs(compactHeights.answer - compactHeights.question)).toBeLessThanOrEqual(6);
-    expect(Math.abs(compactHeights.preview - compactHeights.question)).toBeLessThanOrEqual(6);
+    expect(compactHeights.answer).toBeGreaterThan(compactHeights.question);
+    expect(compactHeights.preview).toBeGreaterThan(compactHeights.question);
+    expect(Math.abs(compactHeights.answer - compactHeights.preview)).toBeLessThanOrEqual(6);
 
     await page.locator('[data-editor-select-card="card-2"]').click();
     await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveClass(/active/);
