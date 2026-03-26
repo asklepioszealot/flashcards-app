@@ -137,6 +137,16 @@ function readLocalRuntimeConfig() {
 }
 
 function makeRuntimeConfig() {
+  const forceMockAuth = process.env.FORCE_MOCK_AUTH === "1";
+  if (forceMockAuth) {
+    return {
+      supabaseUrl: "",
+      supabaseAnonKey: "",
+      authMode: "mock",
+      enableDemoAuth: process.env.ENABLE_DEMO_AUTH !== "0",
+    };
+  }
+
   const localRuntimeConfig = readLocalRuntimeConfig();
   const supabaseUrl = process.env.SUPABASE_URL || localRuntimeConfig.supabaseUrl || "";
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || localRuntimeConfig.supabaseAnonKey || "";
