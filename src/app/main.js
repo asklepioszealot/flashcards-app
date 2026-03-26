@@ -1081,6 +1081,21 @@ function syncDraftFromRaw(draft) {
   ensureEditorDraftUiState(draft);
 }
 
+function resolveEditorDraftRecord(draft) {
+  const previousRecord = loadedSets[draft.setId];
+  const nextRecord = draft.viewMode === "raw"
+    ? parseSetText(
+        draft.rawSource,
+        previousRecord?.fileName || `${draft.setId}.${draft.sourceFormat === "markdown" ? "md" : "json"}`,
+        previousRecord,
+        draft.sourceFormat,
+      )
+    : buildSetFromEditorDraft(draft, previousRecord);
+
+  nextRecord.rawSource = backfillRawSource(nextRecord);
+  return nextRecord;
+}
+
 function renderEditorTabs() {
   const select = document.getElementById("editor-set-select");
   if (!select) return;
@@ -1383,6 +1398,8 @@ function confirmLeaveEditor() {
 function closeEditor(force = false) {
   if (!force && !confirmLeaveEditor()) return;
   editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+  editMode = false;
+  renderSetList();
   showScreen("manager");
 }
 
@@ -1425,15 +1442,7 @@ async function saveEditorDrafts() {
     for (const setId of editorState.draftOrder) {
       const draft = editorState.drafts[setId];
       const previousRecord = loadedSets[setId];
-      const nextRecord = draft.viewMode === "raw"
-        ? parseSetText(
-            draft.rawSource,
-            previousRecord?.fileName || `${setId}.${draft.sourceFormat === "markdown" ? "md" : "json"}`,
-            previousRecord,
-            draft.sourceFormat,
-          )
-        : buildSetFromEditorDraft(draft, previousRecord);
-      nextRecord.rawSource = backfillRawSource(nextRecord);
+      const nextRecord = resolveEditorDraftRecord(draft);
       cleanupAssessmentsForSet(nextRecord, previousRecord);
       const savedRecord = await platformAdapter.saveSet(nextRecord);
       loadedSets[savedRecord.id] = savedRecord;
@@ -1449,6 +1458,34 @@ async function saveEditorDrafts() {
   } catch (error) {
     console.error(error);
     showEditorStatus(error.message || "Kaydetme sırasında hata oluştu.", "error");
+  }
+}
+
+function exportActiveEditorDraft() {
+  const draft = getCurrentEditorDraft();
+  if (!draft) return;
+
+  try {
+    const nextRecord = resolveEditorDraftRecord(draft);
+    const fileName =
+      nextRecord.fileName ||
+      `${slugify(nextRecord.setName)}.${nextRecord.sourceFormat === "markdown" ? "md" : "json"}`;
+    const mimeType =
+      nextRecord.sourceFormat === "markdown"
+        ? "text/markdown;charset=utf-8"
+        : "application/json;charset=utf-8";
+    const downloadUrl = URL.createObjectURL(new Blob([nextRecord.rawSource], { type: mimeType }));
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+    showEditorStatus(`Dosya dışa aktarıldı: ${fileName}`, "success");
+  } catch (error) {
+    console.error(error);
+    showEditorStatus(error.message || "Dosya dışa aktarılamadı.", "error");
   }
 }
 
@@ -1557,6 +1594,7 @@ function bindStaticEvents() {
   document.getElementById("sign-out-btn")?.addEventListener("click", () => void signOut());
   document.getElementById("editor-back-btn")?.addEventListener("click", () => closeEditor());
   document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
+  document.getElementById("editor-export-btn")?.addEventListener("click", () => exportActiveEditorDraft());
   document.getElementById("editor-save-btn")?.addEventListener("click", () => void saveEditorDrafts());
   document.getElementById("jump-input")?.addEventListener("keypress", (event) => {
     if (event.key === "Enter") jumpToCard();

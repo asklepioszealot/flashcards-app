@@ -1,9 +1,9 @@
 const path = require("path");
-const { pathToFileURL } = require("url");
 const { test, expect } = require("playwright/test");
 
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
+const APP_PORT = Number(process.env.FLASHCARDS_TEST_PORT || 4173);
 const DEMO_USER = {
   id: "demo-demo-local-flashcards",
   email: "demo@local.flashcards",
@@ -11,8 +11,7 @@ const DEMO_USER = {
 };
 
 function appUrl() {
-  const indexPath = path.resolve(process.cwd(), "dist", "index.html");
-  return pathToFileURL(indexPath).toString();
+  return `http://127.0.0.1:${APP_PORT}/`;
 }
 
 function legacyCardId(question) {
@@ -25,6 +24,20 @@ function legacyCardId(question) {
 
 function userScopedKey(userId, key) {
   return `${APP_NAMESPACE}::user::${userId}::${key}`;
+}
+
+async function readUserScopedJson(page, key, userId = DEMO_USER.id) {
+  return page.evaluate(
+    ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "{}"),
+    { storageKey: userScopedKey(userId, key) },
+  );
+}
+
+async function readUserScopedText(page, key, userId = DEMO_USER.id) {
+  return page.evaluate(
+    ({ storageKey }) => localStorage.getItem(storageKey),
+    { storageKey: userScopedKey(userId, key) },
+  );
 }
 
 function normalizeSetForSeed(setId, setData) {
@@ -329,9 +342,7 @@ test.describe("Flashcards smoke", () => {
       /selected/,
     );
 
-    const assessmentSnapshot = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
-    );
+    const assessmentSnapshot = await readUserScopedJson(page, "assessments");
     const setScopedEntries = Object.entries(assessmentSnapshot).filter(([key]) =>
       key.startsWith("set:"),
     );
@@ -394,9 +405,7 @@ test.describe("Flashcards smoke", () => {
 
     await setManagerAutoAdvance(page, false);
     await expect(page.locator("#auto-advance-status")).toContainText("Kapalı");
-    await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem("fc_auto_advance")))
-      .toBe("0");
+    await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("0");
 
     await page.locator("#start-btn").click();
     await assessCurrentCard(page, "know");
@@ -415,9 +424,7 @@ test.describe("Flashcards smoke", () => {
       .click();
     await setManagerAutoAdvance(page, true);
     await expect(page.locator("#auto-advance-status")).toContainText("Açık");
-    await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem("fc_auto_advance")))
-      .toBe("1");
+    await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("1");
 
     await page.locator("#start-btn").click();
     await jumpToCard(page, 1);
@@ -457,9 +464,7 @@ test.describe("Flashcards smoke", () => {
       /selected/,
     );
 
-    const assessmentSnapshot = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
-    );
+    const assessmentSnapshot = await readUserScopedJson(page, "assessments");
     const setScopedEntries = Object.entries(assessmentSnapshot).filter(([key]) =>
       key.startsWith("set:"),
     );
@@ -499,9 +504,7 @@ test.describe("Flashcards smoke", () => {
       /selected/,
     );
 
-    const migratedAssessments = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
-    );
+    const migratedAssessments = await readUserScopedJson(page, "assessments");
     expect(migratedAssessments["set:legacy::id:legacy-card-1"]).toBe("review");
   });
 
@@ -531,9 +534,7 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#start-btn").click();
     await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
 
-    const snapshot = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
-    );
+    const snapshot = await readUserScopedJson(page, "assessments");
     expect(snapshot["set:stable::id:stable-card-1"]).toBe("know");
   });
 test("fullscreen toggle works and card navigation remains functional", async ({ page }) => {
