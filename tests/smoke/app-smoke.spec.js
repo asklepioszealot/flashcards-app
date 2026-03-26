@@ -372,6 +372,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#editor-layout-single-btn")).toHaveCount(0);
     await expect(page.locator("#editor-prev-btn")).toHaveCount(0);
     await expect(page.locator("#editor-jump-input")).toHaveCount(0);
+    await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "true");
     await expect(page.locator(".editor-list-row")).toHaveCount(3);
     await expect(page.locator("#editor-screen")).not.toContainText("Aşağı çekerek büyüt");
     await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
@@ -396,6 +397,12 @@ test.describe("Flashcards smoke", () => {
     expect(compactHeights.answer).toBeGreaterThan(compactHeights.question);
     expect(compactHeights.preview).toBeGreaterThan(compactHeights.question);
     expect(Math.abs(compactHeights.answer - compactHeights.preview)).toBeLessThanOrEqual(6);
+
+    await page.locator("[data-editor-toggle-list]").click();
+    await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
+    await page.locator("[data-editor-toggle-list]").click();
+    await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "true");
 
     await page.locator('[data-editor-select-card="card-2"]').click();
     await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveClass(/active/);

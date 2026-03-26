@@ -1080,6 +1080,9 @@ function ensureEditorDraftUiState(draft) {
   if (draft.formLayoutMode !== "single") {
     draft.formLayoutMode = "list";
   }
+  if (typeof draft.listPanelOpen !== "boolean") {
+    draft.listPanelOpen = true;
+  }
   if (!availableCardIds.size) {
     draft.activeCardIndex = 0;
     draft.expandedCardId = null;
@@ -1118,6 +1121,7 @@ function createEditorDraft(setRecord, previousDraft = null) {
     ...baseDraft,
     dirty: false,
     formLayoutMode: previousDraft?.formLayoutMode ?? baseDraft.formLayoutMode ?? "list",
+    listPanelOpen: previousDraft?.listPanelOpen ?? true,
     activeCardIndex: Number.isInteger(previousDraft?.activeCardIndex) ? previousDraft.activeCardIndex : 0,
     expandedCardId: previousDraft ? previousDraft.expandedCardId : baseDraft.expandedCardId ?? null,
     toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? baseDraft.toolbarExpandedCardId ?? null,
@@ -1376,10 +1380,26 @@ function renderEditorCardDetail(draft, card, index) {
 function renderEditorForm(draft) {
   ensureEditorDraftUiState(draft);
   const activeCard = getEditorActiveCard(draft);
+  const isListOpen = draft.listPanelOpen !== false;
 
   return `
-    <div class="editor-workspace">
-      ${renderEditorCardList(draft)}
+    <div class="editor-workspace ${isListOpen ? "is-list-open" : "is-list-closed"}">
+      <div class="editor-list-sidebar">
+        <button
+          type="button"
+          class="editor-list-handle"
+          data-editor-toggle-list
+          aria-expanded="${isListOpen}"
+          aria-label="${isListOpen ? "Kart listesini kapat" : "Kart listesini aç"}"
+          title="${isListOpen ? "Kart listesini kapat" : "Kart listesini aç"}"
+        >
+          <span class="editor-list-handle-icon">${isListOpen ? "←" : "→"}</span>
+          <span class="editor-list-handle-text">Kartlar</span>
+        </button>
+        <div class="editor-list-drawer">
+          ${renderEditorCardList(draft)}
+        </div>
+      </div>
       <div class="editor-detail-panel">
         ${
           activeCard
@@ -1520,6 +1540,12 @@ function applyEditorHistoryAction(draft, action) {
 }
 
 function bindEditorEvents(draft) {
+  document.querySelectorAll("[data-editor-toggle-list]").forEach((button) => {
+    button.addEventListener("click", () => {
+      draft.listPanelOpen = !draft.listPanelOpen;
+      renderEditor();
+    });
+  });
   document.getElementById("editor-add-card-btn")?.addEventListener("click", () => {
     addEditorCard(draft);
     renderEditor();
