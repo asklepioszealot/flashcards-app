@@ -51,6 +51,7 @@ function normalizeSetForSeed(setId, setData) {
     setName: setData.setName || setId,
     fileName,
     sourceFormat,
+    sourcePath: setData.sourcePath || "",
     rawSource: setData.rawSource || "",
     cards: (setData.cards || []).map((card, index) => ({
       id: card.id || `${setId}-card-${index + 1}`,
@@ -229,6 +230,7 @@ test.describe("Flashcards smoke", () => {
         editor: {
           setName: "Editor Demo",
           fileName: "editor-demo.md",
+          sourcePath: "C:/fixtures/editor-demo.md",
           sourceFormat: "markdown",
           rawSource: "# Editor Demo\n\n### İlk soru\n\nAçıklama satırı",
           cards: [{ id: "card-1", q: "İlk soru", a: "Açıklama satırı", subject: "Genel" }],
@@ -249,6 +251,12 @@ test.describe("Flashcards smoke", () => {
     await questionInput.fill("Düzenlenmiş soru");
     await page.locator("#editor-save-btn").click();
     await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    const savedSetRecords = await page.evaluate(
+      ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "[]"),
+      { storageKey: userScopedKey(DEMO_USER.id, "set_records") },
+    );
+    expect(savedSetRecords[0].sourcePath).toBe("C:/fixtures/editor-demo.md");
 
     await page.locator("#editor-back-btn").click();
     await page.locator("#start-btn").click();
@@ -559,5 +567,35 @@ test("fullscreen toggle works and card navigation remains functional", async ({ 
 
     await page.keyboard.press('f');
     await expect(container).not.toHaveClass(/fullscreen-active/);
+  });
+
+  test("plus and minus shortcuts map to know and dunno assessments", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        keyboard: {
+          setName: "Keyboard Demo",
+          fileName: "keyboard-demo.json",
+          cards: [
+            { q: "Kart 1?", a: "Cevap 1", subject: "S1" },
+            { q: "Kart 2?", a: "Cevap 2", subject: "S2" },
+          ],
+        },
+      },
+      selectedSetIds: ["keyboard"],
+    });
+
+    await setManagerAutoAdvance(page, false);
+    await page.locator("#start-btn").click();
+
+    await page.locator("#flashcard").click();
+    await page.keyboard.press("NumpadAdd");
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
+
+    await page.locator("#next-btn").click();
+    await page.locator("#flashcard").click();
+    await page.keyboard.press("NumpadSubtract");
+    await expect(page.locator("#assessment-panel button.assess-btn.dunno")).toHaveClass(
+      /selected/,
+    );
   });
 });

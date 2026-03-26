@@ -1754,7 +1754,7 @@
 
       <div class="set-actions">
         <button class="btn btn-secondary" onclick="authGoogleDrive()" style="margin-right: 10px;">☁️ Drive'dan Yükle</button>
-          <label class="btn btn-secondary" style="cursor: pointer;" for="file-picker">📂 Kart Seti Yükle (.json, .md)</label>
+        <button class="btn btn-secondary" type="button" onclick="triggerSetImport()">📂 Kart Seti Yükle (.json, .md)</button>
         <input type="file" id="file-picker" accept=".json, .txt, .md" multiple hidden onchange="handleFileSelect(event)" />
         <button class="btn" id="start-btn" onclick="startStudy()" disabled>
           ▶ Başla
@@ -1785,8 +1785,8 @@
 
       <div class="kbd-hint" style="margin-top: 20px;">
         <kbd>Space</kbd> Çevir &nbsp; <kbd>←</kbd><kbd>→</kbd> Gezin &nbsp;
-        <kbd>1</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp;
-        <kbd>3</kbd> Bilmiyorum
+        <kbd>1</kbd>/<kbd>+</kbd> Tamam &nbsp; <kbd>2</kbd> Tekrar &nbsp;
+        <kbd>3</kbd>/<kbd>-</kbd> Bilmiyorum
       </div>
     </div>
 
@@ -1968,9 +1968,9 @@
               <div class="card-counter" id="fullscreen-card-counter">1 / 20</div>
             </div>
             <div class="fullscreen-assessment-panel">
-              <button class="assess-btn know" onclick="assessCard('know')" title="Klavye: 1">✅ Tamam</button>
+              <button class="assess-btn know" onclick="assessCard('know')" title="Klavye: 1 / +">✅ Tamam</button>
               <button class="assess-btn review" onclick="assessCard('review')" title="Klavye: 2">🔄 Tekrar Göz At</button>
-              <button class="assess-btn dunno" onclick="assessCard('dunno')" title="Klavye: 3">❌ Bilmiyorum</button>
+              <button class="assess-btn dunno" onclick="assessCard('dunno')" title="Klavye: 3 / -">❌ Bilmiyorum</button>
             </div>
           </div>
           <button class="nav-btn" onclick="nextCard()" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
@@ -1984,7 +1984,7 @@
         <button
           class="assess-btn know"
           onclick="assessCard('know')"
-          title="Klavye: 1"
+          title="Klavye: 1 / +"
         >
           ✅ Tamam
         </button>
@@ -1998,7 +1998,7 @@
         <button
           class="assess-btn dunno"
           onclick="assessCard('dunno')"
-          title="Klavye: 3"
+          title="Klavye: 3 / -"
         >
           ❌ Bilmiyorum
         </button>

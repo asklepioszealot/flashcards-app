@@ -49,13 +49,28 @@ function pickNewerRecord(leftRecord, rightRecord) {
   const leftTime = Date.parse(leftRecord.updatedAt || "");
   const rightTime = Date.parse(rightRecord.updatedAt || "");
 
+  let nextRecord = null;
   if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
-    return leftTime >= rightTime ? leftRecord : rightRecord;
+    nextRecord = leftTime >= rightTime ? leftRecord : rightRecord;
+  } else if (Number.isFinite(leftTime)) {
+    nextRecord = leftRecord;
+  } else if (Number.isFinite(rightTime)) {
+    nextRecord = rightRecord;
+  } else {
+    nextRecord = leftRecord;
   }
 
-  if (Number.isFinite(leftTime)) return leftRecord;
-  if (Number.isFinite(rightTime)) return rightRecord;
-  return leftRecord;
+  if (!nextRecord?.sourcePath) {
+    const preservedSourcePath = String(leftRecord.sourcePath || rightRecord.sourcePath || "").trim();
+    if (preservedSourcePath) {
+      return {
+        ...nextRecord,
+        sourcePath: preservedSourcePath,
+      };
+    }
+  }
+
+  return nextRecord;
 }
 
 function normalizeSetCollection(records) {
@@ -153,6 +168,14 @@ function createMockAdapter(config, storage) {
     async loadSets() {
       if (!currentUser) return [];
       return readUserSets(currentUser.id);
+    },
+
+    async pickNativeSetFiles() {
+      return [];
+    },
+
+    async writeSetSourceFile() {
+      throw new Error("Bu özellik sadece masaüstünde kullanılabilir.");
     },
 
     async saveSet(record) {
@@ -332,6 +355,14 @@ function createSupabaseAdapter(config) {
       return normalizeSetCollection((data || []).map(mapRowToRecord));
     },
 
+    async pickNativeSetFiles() {
+      return [];
+    },
+
+    async writeSetSourceFile() {
+      throw new Error("Bu özellik sadece masaüstünde kullanılabilir.");
+    },
+
     async saveSet(record) {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) {
@@ -385,6 +416,12 @@ function createTauriBridge() {
     },
     async flushSync(userId) {
       return invoke("flush_sync", { userId });
+    },
+    async pickNativeSetFiles() {
+      return invoke("pick_native_set_files", {});
+    },
+    async writeSetSourceFile(sourcePath, rawSource) {
+      return invoke("write_set_source_file", { sourcePath, rawSource });
     },
   };
 }
@@ -516,8 +553,14 @@ function createDesktopAdapter(remoteAdapter) {
 
       try {
         const remoteRecord = await remoteAdapter.saveSet(normalized);
-        await bridge.upsertLocalSet(user.id, remoteRecord);
-        return remoteRecord;
+        const persistedRecord = normalizeSetCollection([
+          {
+            ...remoteRecord,
+            sourcePath: normalized.sourcePath || remoteRecord?.sourcePath || "",
+          },
+        ])[0];
+        await bridge.upsertLocalSet(user.id, persistedRecord);
+        return persistedRecord;
       } catch (error) {
         await bridge.queueSync(user.id, {
           type: "upsert",
@@ -541,6 +584,14 @@ function createDesktopAdapter(remoteAdapter) {
           setIds,
         });
       }
+    },
+
+    async pickNativeSetFiles() {
+      return bridge.pickNativeSetFiles();
+    },
+
+    async writeSetSourceFile(sourcePath, rawSource) {
+      return bridge.writeSetSourceFile(sourcePath, rawSource);
     },
   };
 }
