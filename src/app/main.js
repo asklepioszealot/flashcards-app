@@ -12,6 +12,7 @@ import {
 
 const APP_NAMESPACE = "fc_v2";
 const THEME_KEY = "fc_theme";
+const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
 const LEGACY_KEYS = {
   session: "fc_session",
   sets: "fc_loaded_sets",
@@ -50,7 +51,14 @@ let autoAdvanceEnabled = true;
 let authStateToken = 0;
 let currentScreen = "auth";
 
-let editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+let editorState = {
+  isOpen: false,
+  activeSetId: null,
+  draftOrder: [],
+  drafts: {},
+  focusedField: null,
+  pendingScrollCardId: null,
+};
 
 let tokenClient = null;
 let driveAccessToken = null;
@@ -71,6 +79,10 @@ const getUserJson = (key, fallbackValue) => safeJsonParse(storage.getItem(userSc
 const setUserJson = (key, value) => storage.setItem(userScopedStorageKey(key), JSON.stringify(value));
 const getUserText = (key) => storage.getItem(userScopedStorageKey(key));
 const setUserText = (key, value) => storage.setItem(userScopedStorageKey(key), value);
+const getLocalStorageText = (key) =>
+  typeof storage.getLocalItem === "function" ? storage.getLocalItem(key) : storage.getItem(key);
+const setLocalStorageText = (key, value) =>
+  typeof storage.setLocalItem === "function" ? storage.setLocalItem(key, value) : storage.setItem(key, value);
 const normalizeSetCollection = (records) =>
   (Array.isArray(records) ? records : [])
     .map((record) => {
@@ -141,6 +153,26 @@ function summarizeMarkdownText(value, maxLength = 160) {
     .trim();
   if (!normalized) return "Açıklama eklenmedi.";
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength).trim()}...` : normalized;
+}
+
+function getRememberMePreference() {
+  const storedValue = getLocalStorageText(AUTH_REMEMBER_ME_KEY);
+  if (storedValue === "0") return false;
+  if (storedValue === "1") return true;
+  return true;
+}
+
+function setRememberMePreference(rememberMe) {
+  setLocalStorageText(AUTH_REMEMBER_ME_KEY, rememberMe ? "1" : "0");
+}
+
+function readRememberMeFromForm() {
+  return document.getElementById("auth-remember-me")?.checked !== false;
+}
+
+function syncRememberMeUi() {
+  const checkbox = document.getElementById("auth-remember-me");
+  if (checkbox) checkbox.checked = getRememberMePreference();
 }
 
 const primaryMarkdownActions = [
@@ -372,8 +404,16 @@ async function handleAuthStateChange(user, event = "unknown") {
     selectedSets = new Set();
     removeCandidateSets.clear();
     assessments = {};
-    editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+    editorState = {
+      isOpen: false,
+      activeSetId: null,
+      draftOrder: [],
+      drafts: {},
+      focusedField: null,
+      pendingScrollCardId: null,
+    };
     renderSetList();
+    syncRememberMeUi();
     showScreen("auth");
     markAppReady();
     return;
@@ -410,6 +450,7 @@ async function handleAuthStateChange(user, event = "unknown") {
     console.error(error);
     if (token === authStateToken) {
       showAuthStatus(error.message || "Setler yüklenemedi.", "error");
+      syncRememberMeUi();
       showScreen("auth");
       markAppReady();
     }
@@ -419,16 +460,18 @@ async function handleAuthStateChange(user, event = "unknown") {
 async function attemptAuth(action) {
   const email = document.getElementById("auth-email")?.value || "";
   const password = document.getElementById("auth-password")?.value || "";
+  const rememberMe = readRememberMeFromForm();
+  setRememberMePreference(rememberMe);
   try {
     showAuthStatus(action === "signup" ? "Hesap oluşturuluyor..." : "Giriş yapılıyor...");
     if (action === "signup") {
-      const response = await platformAdapter.signUp(email, password);
+      const response = await platformAdapter.signUp(email, password, { rememberMe });
       if (response?.needsConfirmation) {
         showAuthStatus("Kayıt oluşturuldu. E-posta doğrulaması gerekebilir.", "success");
         return;
       }
     } else {
-      await platformAdapter.signIn(email, password);
+      await platformAdapter.signIn(email, password, { rememberMe });
     }
     showAuthStatus("", "");
   } catch (error) {
@@ -438,9 +481,11 @@ async function attemptAuth(action) {
 }
 
 async function handleDemoAuth() {
+  const rememberMe = readRememberMeFromForm();
+  setRememberMePreference(rememberMe);
   try {
     showAuthStatus("Yerel demo oturumu açılıyor...");
-    await platformAdapter.signInDemo();
+    await platformAdapter.signInDemo({ rememberMe });
     showAuthStatus("", "");
   } catch (error) {
     console.error(error);
@@ -1029,17 +1074,32 @@ function printCards() {
 }
 
 function ensureEditorDraftUiState(draft) {
-  const availableCardIds = new Set((draft?.cards || []).map((card) => card.id));
+  const cards = Array.isArray(draft?.cards) ? draft.cards : [];
+  const availableCardIds = new Set(cards.map((card) => card.id));
+  if (draft.formLayoutMode !== "single") {
+    draft.formLayoutMode = "list";
+  }
   if (!availableCardIds.size) {
+    draft.activeCardIndex = 0;
     draft.expandedCardId = null;
     draft.toolbarExpandedCardId = null;
     draft.expandedPreviewCardId = null;
     return draft;
   }
+  if (!Number.isInteger(draft.activeCardIndex)) {
+    draft.activeCardIndex = 0;
+  }
+  draft.activeCardIndex = Math.min(Math.max(draft.activeCardIndex, 0), cards.length - 1);
   if (draft.expandedCardId === undefined) {
     draft.expandedCardId = null;
   } else if (draft.expandedCardId !== null && !availableCardIds.has(draft.expandedCardId)) {
     draft.expandedCardId = null;
+  }
+  if (draft.expandedCardId !== null) {
+    const expandedCardIndex = cards.findIndex((card) => card.id === draft.expandedCardId);
+    if (expandedCardIndex >= 0) {
+      draft.activeCardIndex = expandedCardIndex;
+    }
   }
   if (draft.toolbarExpandedCardId && !availableCardIds.has(draft.toolbarExpandedCardId)) {
     draft.toolbarExpandedCardId = null;
@@ -1056,10 +1116,87 @@ function createEditorDraft(setRecord, previousDraft = null) {
   return ensureEditorDraftUiState({
     ...baseDraft,
     dirty: false,
-    expandedCardId: previousDraft ? previousDraft.expandedCardId : null,
-    toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? null,
-    expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? null,
+    formLayoutMode: previousDraft?.formLayoutMode ?? baseDraft.formLayoutMode ?? "list",
+    activeCardIndex: Number.isInteger(previousDraft?.activeCardIndex) ? previousDraft.activeCardIndex : 0,
+    expandedCardId: previousDraft ? previousDraft.expandedCardId : baseDraft.expandedCardId ?? null,
+    toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? baseDraft.toolbarExpandedCardId ?? null,
+    expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? baseDraft.expandedPreviewCardId ?? null,
   });
+}
+
+function getEditorActiveCard(draft) {
+  ensureEditorDraftUiState(draft);
+  return draft.cards[draft.activeCardIndex] || null;
+}
+
+function queueEditorCardScroll(cardId) {
+  editorState.pendingScrollCardId = cardId || null;
+}
+
+function openEditorCardAtIndex(draft, index, { scrollIntoView = false } = {}) {
+  ensureEditorDraftUiState(draft);
+  if (!draft.cards.length) return;
+  const safeIndex = Math.min(Math.max(index, 0), draft.cards.length - 1);
+  const targetCard = draft.cards[safeIndex];
+  if (!targetCard) return;
+  draft.activeCardIndex = safeIndex;
+  draft.expandedCardId = targetCard.id;
+  if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== targetCard.id) {
+    draft.toolbarExpandedCardId = null;
+  }
+  if (scrollIntoView) {
+    queueEditorCardScroll(targetCard.id);
+  }
+}
+
+function toggleEditorCardExpansion(draft, cardId) {
+  const targetIndex = draft.cards.findIndex((card) => card.id === cardId);
+  if (targetIndex < 0) return;
+  draft.activeCardIndex = targetIndex;
+  const willClose = draft.expandedCardId === cardId;
+  draft.expandedCardId = willClose ? null : cardId;
+  if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== draft.expandedCardId) {
+    draft.toolbarExpandedCardId = null;
+  }
+  if (!willClose) {
+    queueEditorCardScroll(cardId);
+  }
+}
+
+function setEditorFormLayoutMode(draft, mode) {
+  ensureEditorDraftUiState(draft);
+  if ((mode !== "list" && mode !== "single") || draft.formLayoutMode === mode) return;
+  draft.formLayoutMode = mode;
+  const activeCard = getEditorActiveCard(draft);
+  if (!activeCard) {
+    draft.expandedCardId = null;
+    return;
+  }
+  draft.expandedCardId = activeCard.id;
+  if (mode === "list") {
+    queueEditorCardScroll(activeCard.id);
+  }
+}
+
+function moveEditorCardSelection(draft, delta) {
+  if (!draft.cards.length) return;
+  const nextIndex = Math.min(Math.max(draft.activeCardIndex + delta, 0), draft.cards.length - 1);
+  openEditorCardAtIndex(draft, nextIndex, { scrollIntoView: draft.formLayoutMode === "list" });
+}
+
+function jumpEditorToCard(draft, rawValue) {
+  if (!draft.cards.length) {
+    return { ok: false, message: "Bu sette kart yok." };
+  }
+  const nextValue = Number.parseInt(String(rawValue || "").trim(), 10);
+  if (!Number.isInteger(nextValue)) {
+    return { ok: false, message: "Geçerli bir kart numarası gir." };
+  }
+  if (nextValue < 1 || nextValue > draft.cards.length) {
+    return { ok: false, message: `Kart numarası 1 ile ${draft.cards.length} arasında olmalı.` };
+  }
+  openEditorCardAtIndex(draft, nextValue - 1, { scrollIntoView: draft.formLayoutMode === "list" });
+  return { ok: true };
 }
 
 function refreshEditorPills() {
@@ -1155,28 +1292,97 @@ function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
-function renderEditorForm(draft) {
-  ensureEditorDraftUiState(draft);
-  return `<div class="editor-card-list">${draft.cards.map((card, index) => {
-    const isExpanded = draft.expandedCardId === card.id;
-    const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
-    const questionPreview = card.question?.trim() || "Soru eklenmedi.";
-    return `
-      <section class="editor-card ${isExpanded ? "is-open" : ""}">
-        <button type="button" class="editor-card-toggle" data-editor-toggle="${card.id}" aria-expanded="${isExpanded}">
-          <div class="editor-card-head">
-            <div class="editor-card-head-main">
-              <div class="editor-card-title">Kart ${index + 1}</div>
-              <div class="editor-card-question" data-editor-question-preview="${card.id}">${escapeMarkup(questionPreview)}</div>
-              <div class="editor-card-summary" data-editor-summary-preview="${card.id}">${escapeMarkup(summarizeMarkdownText(card.explanationMarkdown))}</div>
-            </div>
-            <div class="editor-card-head-side">
-              <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
-              <span class="editor-card-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
-            </div>
+function renderEditorFormControls(draft) {
+  const totalCards = draft.cards.length;
+  const currentCardNumber = totalCards ? draft.activeCardIndex + 1 : 0;
+  const canMovePrevious = totalCards > 0 && draft.activeCardIndex > 0;
+  const canMoveNext = totalCards > 0 && draft.activeCardIndex < totalCards - 1;
+
+  return `
+    <div class="editor-form-controls">
+      <div class="editor-layout-toggle" role="tablist" aria-label="Form görünümü">
+        <button
+          type="button"
+          class="editor-layout-btn ${draft.formLayoutMode === "list" ? "active" : ""}"
+          id="editor-layout-list-btn"
+          data-editor-layout="list"
+          aria-pressed="${draft.formLayoutMode === "list"}"
+        >Liste</button>
+        <button
+          type="button"
+          class="editor-layout-btn ${draft.formLayoutMode === "single" ? "active" : ""}"
+          id="editor-layout-single-btn"
+          data-editor-layout="single"
+          aria-pressed="${draft.formLayoutMode === "single"}"
+        >Tek Kart</button>
+      </div>
+      <div class="editor-nav-controls">
+        <div class="editor-nav-buttons">
+          <button type="button" class="btn btn-small btn-secondary" id="editor-prev-btn" ${canMovePrevious ? "" : "disabled"}>Önceki</button>
+          <div class="editor-nav-counter" id="editor-card-counter">${currentCardNumber} / ${totalCards}</div>
+          <button type="button" class="btn btn-small btn-secondary" id="editor-next-btn" ${canMoveNext ? "" : "disabled"}>Sonraki</button>
+        </div>
+        <div class="editor-jump-controls">
+          <input
+            id="editor-jump-input"
+            class="editor-jump-input"
+            type="number"
+            min="1"
+            max="${Math.max(totalCards, 1)}"
+            value="${currentCardNumber || ""}"
+            inputmode="numeric"
+            placeholder="#"
+            ${totalCards ? "" : "disabled"}
+          />
+          <button type="button" class="btn btn-small btn-secondary" id="editor-jump-btn" ${totalCards ? "" : "disabled"}>Git</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderEditorCardSection(draft, card, index, { interactive } = { interactive: true }) {
+  const isActiveCard = draft.activeCardIndex === index;
+  const isExpanded = interactive ? draft.expandedCardId === card.id : true;
+  const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
+  const questionPreview = card.question?.trim() || "Soru eklenmedi.";
+  const headerContent = `
+    <div class="editor-card-head-main">
+      <div class="editor-card-title">Kart ${index + 1}</div>
+      <div class="editor-card-question" data-editor-question-preview="${card.id}">${escapeMarkup(questionPreview)}</div>
+      <div class="editor-card-summary" data-editor-summary-preview="${card.id}">${escapeMarkup(summarizeMarkdownText(card.explanationMarkdown))}</div>
+    </div>`;
+  const toggleControl = interactive
+    ? `<button
+        type="button"
+        class="editor-card-toggle"
+        data-editor-toggle="${card.id}"
+        aria-expanded="${isExpanded}"
+      >${headerContent}</button>`
+    : `<div class="editor-card-toggle-static">${headerContent}</div>`;
+
+  return `
+      <section
+        class="editor-card ${isExpanded ? "is-open" : ""} ${isActiveCard ? "is-active" : ""}"
+        data-editor-card-root="${card.id}"
+      >
+        <div class="editor-card-head">
+          ${toggleControl}
+          <div class="editor-card-head-side">
+            <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
+            ${
+              interactive
+                ? `<button
+                    type="button"
+                    class="editor-card-expand-btn"
+                    data-editor-toggle="${card.id}"
+                    aria-expanded="${isExpanded}"
+                    aria-label="Kart ${index + 1} ${isExpanded ? "daralt" : "genişlet"}"
+                  >${isExpanded ? "−" : "+"}</button>`
+                : ""
+            }
           </div>
-        </button>
-        <div class="editor-card-body ${isExpanded ? "" : "hidden"}">
+        </div>
+        <div class="editor-card-body ${isExpanded ? "" : "hidden"}" data-editor-card-body="${card.id}">
           <div class="field-group">
             <label>Soru</label>
             <textarea data-editor-field="question" data-card-id="${card.id}" style="min-height:90px;" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
@@ -1201,7 +1407,6 @@ function renderEditorForm(draft) {
               <div class="field-group">
                 <div class="editor-preview-head">
                   <label>Canlı Önizleme</label>
-                  <span class="editor-preview-hint">Aşağı çekerek büyüt</span>
                 </div>
                 <div class="editor-preview" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
               </div>
@@ -1209,7 +1414,24 @@ function renderEditorForm(draft) {
           </div>
         </div>
       </section>`;
-  }).join("")}</div>`;
+}
+
+function renderEditorForm(draft) {
+  ensureEditorDraftUiState(draft);
+  const cardsMarkup = draft.formLayoutMode === "single"
+    ? (() => {
+        const activeCard = getEditorActiveCard(draft);
+        return activeCard
+          ? renderEditorCardSection(draft, activeCard, draft.activeCardIndex, { interactive: false })
+          : `<div class="editor-empty-state">Bu sette düzenlenecek kart bulunamadı.</div>`;
+      })()
+    : draft.cards.map((card, index) => renderEditorCardSection(draft, card, index, { interactive: true })).join("");
+
+  return `
+    ${renderEditorFormControls(draft)}
+    <div class="editor-card-list editor-card-list--${draft.formLayoutMode}">
+      ${cardsMarkup}
+    </div>`;
 }
 
 const renderEditorRaw = (draft) => `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw">${draft.rawSource}</textarea></div>`;
@@ -1347,12 +1569,42 @@ function bindEditorEvents(draft) {
   document.querySelectorAll("[data-editor-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
       const cardId = button.getAttribute("data-editor-toggle");
-      draft.expandedCardId = draft.expandedCardId === cardId ? null : cardId;
-      if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== draft.expandedCardId) {
-        draft.toolbarExpandedCardId = null;
-      }
+      toggleEditorCardExpansion(draft, cardId);
       renderEditor();
     });
+  });
+  document.querySelectorAll("[data-editor-layout]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextMode = button.getAttribute("data-editor-layout");
+      setEditorFormLayoutMode(draft, nextMode);
+      renderEditor();
+    });
+  });
+  document.getElementById("editor-prev-btn")?.addEventListener("click", () => {
+    moveEditorCardSelection(draft, -1);
+    renderEditor();
+  });
+  document.getElementById("editor-next-btn")?.addEventListener("click", () => {
+    moveEditorCardSelection(draft, 1);
+    renderEditor();
+  });
+  document.getElementById("editor-jump-btn")?.addEventListener("click", () => {
+    const jumpResult = jumpEditorToCard(draft, document.getElementById("editor-jump-input")?.value);
+    if (!jumpResult.ok) {
+      showEditorStatus(jumpResult.message, "error");
+      return;
+    }
+    renderEditor();
+  });
+  document.getElementById("editor-jump-input")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const jumpResult = jumpEditorToCard(draft, event.currentTarget?.value);
+    if (!jumpResult.ok) {
+      showEditorStatus(jumpResult.message, "error");
+      return;
+    }
+    renderEditor();
   });
   document.querySelectorAll("[data-preview-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1403,6 +1655,14 @@ function bindEditorEvents(draft) {
   }
 }
 
+function flushEditorPendingScroll() {
+  if (!editorState.pendingScrollCardId) return;
+  const targetCard = document.querySelector(`[data-editor-card-root="${editorState.pendingScrollCardId}"]`);
+  editorState.pendingScrollCardId = null;
+  if (!targetCard) return;
+  targetCard.scrollIntoView({ block: "nearest", behavior: "auto" });
+}
+
 function renderEditor() {
   renderEditorTabs();
   refreshEditorPills();
@@ -1416,6 +1676,7 @@ function renderEditor() {
   ensureEditorDraftUiState(draft);
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
+  flushEditorPendingScroll();
 }
 
 function confirmLeaveEditor() {
@@ -1424,7 +1685,14 @@ function confirmLeaveEditor() {
 
 function closeEditor(force = false) {
   if (!force && !confirmLeaveEditor()) return;
-  editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+  editorState = {
+    isOpen: false,
+    activeSetId: null,
+    draftOrder: [],
+    drafts: {},
+    focusedField: null,
+    pendingScrollCardId: null,
+  };
   editMode = false;
   renderSetList();
   showScreen("manager");
@@ -1439,6 +1707,7 @@ function openEditorForSelectedSets() {
     draftOrder: targetSetIds,
     drafts: Object.fromEntries(targetSetIds.map((setId) => [setId, createEditorDraft(loadedSets[setId])])),
     focusedField: null,
+    pendingScrollCardId: null,
   };
   showScreen("editor");
   renderEditor();
@@ -1632,6 +1901,9 @@ function bindStaticEvents() {
   document.getElementById("auth-signin-btn")?.addEventListener("click", () => void attemptAuth("signin"));
   document.getElementById("auth-signup-btn")?.addEventListener("click", () => void attemptAuth("signup"));
   document.getElementById("auth-demo-btn")?.addEventListener("click", () => void handleDemoAuth());
+  document.getElementById("auth-remember-me")?.addEventListener("change", (event) => {
+    setRememberMePreference(event.currentTarget?.checked !== false);
+  });
   document.getElementById("sign-out-btn")?.addEventListener("click", () => void signOut());
   document.getElementById("editor-back-btn")?.addEventListener("click", () => closeEditor());
   document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
@@ -1723,6 +1995,7 @@ async function bootstrap() {
     managerToggleId: "theme-toggle-manager",
   });
   syncThemeToggleUI();
+  syncRememberMeUi();
   bindStaticEvents();
   exposeWindowApi();
   platformAdapter.subscribeAuthState((user, event) => {

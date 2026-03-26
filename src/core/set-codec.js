@@ -585,6 +585,11 @@ export function buildEditorDraft(setRecord) {
     cards,
     dirty: false,
     viewMode: "form",
+    formLayoutMode: "list",
+    activeCardIndex: 0,
+    expandedCardId: null,
+    toolbarExpandedCardId: null,
+    expandedPreviewCardId: null,
   };
 }
 
