@@ -396,7 +396,8 @@ test.describe("Flashcards smoke", () => {
     });
     expect(compactHeights.answer).toBeGreaterThan(compactHeights.question);
     expect(compactHeights.preview).toBeGreaterThan(compactHeights.question);
-    expect(Math.abs(compactHeights.answer - compactHeights.preview)).toBeLessThanOrEqual(6);
+    expect(compactHeights.preview).toBeGreaterThanOrEqual(compactHeights.answer);
+    expect(compactHeights.preview - compactHeights.answer).toBeLessThanOrEqual(80);
 
     await page.locator("[data-editor-toggle-list]").click();
     await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "false");

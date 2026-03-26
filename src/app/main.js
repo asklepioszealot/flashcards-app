@@ -1394,7 +1394,7 @@ function renderEditorForm(draft) {
           title="${isListOpen ? "Kart listesini kapat" : "Kart listesini aç"}"
         >
           <span class="editor-list-handle-icon">${isListOpen ? "←" : "→"}</span>
-          <span class="editor-list-handle-text">Kartlar</span>
+          <span class="editor-list-handle-text">${isListOpen ? "Listeyi Daralt" : "Kartlar"}</span>
         </button>
         <div class="editor-list-drawer">
           ${renderEditorCardList(draft)}
@@ -1629,15 +1629,6 @@ function flushEditorFocusedField() {
   targetField.setSelectionRange(valueLength, valueLength);
 }
 
-function syncEditorDrawerPosition() {
-  const screen = document.getElementById("editor-screen");
-  const shell = screen?.querySelector(".editor-shell");
-  if (!screen || !shell) return;
-  const shellRect = shell.getBoundingClientRect();
-  const topOffset = Math.max(Math.round(shellRect.bottom + 16), 110);
-  screen.style.setProperty("--editor-drawer-top", `${topOffset}px`);
-}
-
 function renderEditor() {
   renderEditorTabs();
   refreshEditorPills();
@@ -1652,7 +1643,6 @@ function renderEditor() {
   panel.className = `editor-panel ${draft.viewMode === "form" ? "editor-panel--form" : "editor-panel--raw"}`;
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
-  requestAnimationFrame(syncEditorDrawerPosition);
   flushEditorPendingScroll();
   flushEditorFocusedField();
 }
