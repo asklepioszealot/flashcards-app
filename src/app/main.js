@@ -1614,6 +1614,7 @@ function renderEditor() {
     return;
   }
   ensureEditorDraftUiState(draft);
+  panel.className = `editor-panel ${draft.viewMode === "form" ? "editor-panel--form" : "editor-panel--raw"}`;
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
   flushEditorPendingScroll();
