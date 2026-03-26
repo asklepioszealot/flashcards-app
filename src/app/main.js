@@ -1629,6 +1629,15 @@ function flushEditorFocusedField() {
   targetField.setSelectionRange(valueLength, valueLength);
 }
 
+function syncEditorDrawerPosition() {
+  const screen = document.getElementById("editor-screen");
+  const shell = screen?.querySelector(".editor-shell");
+  if (!screen || !shell) return;
+  const shellRect = shell.getBoundingClientRect();
+  const topOffset = Math.max(Math.round(shellRect.bottom + 16), 110);
+  screen.style.setProperty("--editor-drawer-top", `${topOffset}px`);
+}
+
 function renderEditor() {
   renderEditorTabs();
   refreshEditorPills();
@@ -1643,6 +1652,7 @@ function renderEditor() {
   panel.className = `editor-panel ${draft.viewMode === "form" ? "editor-panel--form" : "editor-panel--raw"}`;
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
+  requestAnimationFrame(syncEditorDrawerPosition);
   flushEditorPendingScroll();
   flushEditorFocusedField();
 }
