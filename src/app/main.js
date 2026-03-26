@@ -1,5 +1,5 @@
 import { createPlatformAdapter } from "../core/platform-adapter.js";
-import { hasSupabaseConfig } from "../core/runtime-config.js";
+import { hasSupabaseConfig, isDesktopRuntime } from "../core/runtime-config.js";
 import {
   backfillRawSource,
   buildEditorDraft,
@@ -463,15 +463,42 @@ function findExistingSetMatch(fileName) {
   return Object.values(loadedSets).find((record) => record.fileName === fileName || record.slug === slug) || null;
 }
 
-async function importSetFromText(text, fileName) {
-  const existingRecord = findExistingSetMatch(fileName);
+async function importSetFromText(text, fileName, sourcePath = "") {
+  const existingRecord = sourcePath
+    ? Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
+      || findExistingSetMatch(fileName)
+    : findExistingSetMatch(fileName);
   const nextRecord = parseSetText(text, fileName, existingRecord, existingRecord?.sourceFormat);
+  if (sourcePath) {
+    nextRecord.sourcePath = sourcePath;
+  } else if (existingRecord?.sourcePath) {
+    nextRecord.sourcePath = existingRecord.sourcePath;
+  }
   const savedRecord = await platformAdapter.saveSet(nextRecord);
   loadedSets[savedRecord.id] = savedRecord;
   selectedSets.add(savedRecord.id);
   saveSelectedSets();
   renderSetList();
   return savedRecord;
+}
+
+async function triggerSetImport() {
+  if (isDesktopRuntime() && typeof platformAdapter.pickNativeSetFiles === "function") {
+    try {
+      const files = await platformAdapter.pickNativeSetFiles();
+      if (!Array.isArray(files) || files.length === 0) return;
+      for (const file of files) {
+        await importSetFromText(file.contents, file.name, file.path || "");
+        showUndoToast(`"${file.name}" yüklendi.`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "Dosya seçimi sırasında hata oluştu.");
+    }
+    return;
+  }
+
+  document.getElementById("file-picker")?.click();
 }
 
 async function handleFileSelect(event) {
@@ -1439,12 +1466,21 @@ async function saveEditorDrafts() {
   if (!editorState.draftOrder.length) return;
   try {
     showEditorStatus("Değişiklikler kaydediliyor...");
+    let sourceWriteCount = 0;
     for (const setId of editorState.draftOrder) {
       const draft = editorState.drafts[setId];
       const previousRecord = loadedSets[setId];
       const nextRecord = resolveEditorDraftRecord(draft);
       cleanupAssessmentsForSet(nextRecord, previousRecord);
       const savedRecord = await platformAdapter.saveSet(nextRecord);
+      if (
+        savedRecord?.sourcePath &&
+        isDesktopRuntime() &&
+        typeof platformAdapter.writeSetSourceFile === "function"
+      ) {
+        await platformAdapter.writeSetSourceFile(savedRecord.sourcePath, savedRecord.rawSource);
+        sourceWriteCount += 1;
+      }
       loadedSets[savedRecord.id] = savedRecord;
       const refreshedDraft = createEditorDraft(savedRecord, draft);
       refreshedDraft.viewMode = draft.viewMode;
@@ -1454,7 +1490,12 @@ async function saveEditorDrafts() {
     setUserJson("assessments", assessments);
     renderSetList();
     renderEditor();
-    showEditorStatus("Değişiklikler kaydedildi.", "success");
+    showEditorStatus(
+      sourceWriteCount > 0
+        ? "Değişiklikler kaydedildi ve bağlı yerel dosyalara yazıldı."
+        : "Değişiklikler kaydedildi.",
+      "success",
+    );
   } catch (error) {
     console.error(error);
     showEditorStatus(error.message || "Kaydetme sırasında hata oluştu.", "error");
@@ -1601,6 +1642,8 @@ function bindStaticEvents() {
   });
   document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
+    const isPlusShortcut = event.key === "+" || event.code === "NumpadAdd" || (event.key === "=" && event.shiftKey);
+    const isMinusShortcut = event.key === "-" || event.code === "NumpadSubtract";
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && editorState.isOpen) {
       event.preventDefault();
       void saveEditorDrafts();
@@ -1628,6 +1671,12 @@ function bindStaticEvents() {
       event.preventDefault();
       assessCard("review");
     } else if (event.key === "3" && isFlipped) {
+      event.preventDefault();
+      assessCard("dunno");
+    } else if (isPlusShortcut && isFlipped) {
+      event.preventDefault();
+      assessCard("know");
+    } else if (isMinusShortcut && isFlipped) {
       event.preventDefault();
       assessCard("dunno");
     } else if (event.key === "ArrowDown" && isFlipped) {
@@ -1663,6 +1712,7 @@ function exposeWindowApi() {
     showSetManager,
     shuffleCards,
     startStudy,
+    triggerSetImport,
     toggleDeleteMode,
     toggleEditMode,
     toggleFullscreen,

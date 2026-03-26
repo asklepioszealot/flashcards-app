@@ -483,6 +483,7 @@ export function normalizeSetRecord(record, options = {}) {
     setName,
     fileName,
     sourceFormat,
+    sourcePath: String(record?.sourcePath ?? previousRecord?.sourcePath ?? "").trim(),
     rawSource: String(record?.rawSource ?? previousRecord?.rawSource ?? "").trim(),
     cards,
     updatedAt: String(record?.updatedAt ?? new Date().toISOString()),
