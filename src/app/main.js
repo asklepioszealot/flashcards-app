@@ -1,1353 +1,1659 @@
-      // ═══ STATE ═══
-      const SESSION_KEY = "fc_session";
-      const SETS_KEY = "fc_loaded_sets";
-      const ASSESSMENTS_KEY = "fc_assessments";
-      const AUTO_ADVANCE_KEY = "fc_auto_advance";
-      const storage = window.AppStorage;
-      
-      let loadedSets = {};
-      let selectedSets = new Set();
-      let removeCandidateSets = new Set();
-      let deleteMode = false;
-      let lastRemovedSets = [];
-      let undoTimeoutId = null;
-      
-      let currentCardIndex = 0;
-      let isFlipped = false;
-      let allFlashcards = [];
-      let filteredFlashcards = [];
-      let cardOrder = [];
-      let assessments = {}; // key: set-based card key → 'know' | 'review' | 'dunno'
-      let activeFilter = "all";
-      let isFullscreen = false; // 'all' | 'know' | 'review' | 'dunno' | 'unanswered'
-      let autoAdvanceEnabled = true;
+import { createPlatformAdapter } from "../core/platform-adapter.js";
+import { hasSupabaseConfig } from "../core/runtime-config.js";
+import {
+  backfillRawSource,
+  buildEditorDraft,
+  buildSetFromEditorDraft,
+  normalizeSetRecord,
+  parseSetText,
+  renderAnswerMarkdown,
+  slugify,
+} from "../core/set-codec.js";
 
-      // ═══ CARD ID HELPER ═══
-      function buildCardKey(setId, card, index) {
-        const normalizedSetId = String(setId ?? "unknown");
-        const cardIdValue =
-          card && card.id !== undefined && card.id !== null
-            ? String(card.id).trim()
-            : "";
-        if (cardIdValue.length > 0) {
-          return `set:${normalizedSetId}::id:${cardIdValue}`;
-        }
-        return `set:${normalizedSetId}::idx:${index}`;
+const APP_NAMESPACE = "fc_v2";
+const THEME_KEY = "fc_theme";
+const LEGACY_KEYS = {
+  session: "fc_session",
+  sets: "fc_loaded_sets",
+  assessments: "fc_assessments",
+  autoAdvance: "fc_auto_advance",
+  selectedSets: "fc_selected_sets",
+  legacyState: "flashcards_state_v6",
+};
+
+const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
+const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
+const DRIVE_APP_ID = "102976125468";
+const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+
+const storage = window.AppStorage;
+const platformAdapter = createPlatformAdapter(storage);
+
+let currentUser = null;
+let loadedSets = {};
+let selectedSets = new Set();
+let removeCandidateSets = new Set();
+let deleteMode = false;
+let editMode = false;
+let lastRemovedSets = [];
+let undoTimeoutId = null;
+
+let currentCardIndex = 0;
+let isFlipped = false;
+let allFlashcards = [];
+let filteredFlashcards = [];
+let cardOrder = [];
+let assessments = {};
+let activeFilter = "all";
+let isFullscreen = false;
+let autoAdvanceEnabled = true;
+let authStateToken = 0;
+let currentScreen = "auth";
+
+let editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+
+let tokenClient = null;
+let driveAccessToken = null;
+let pickerApiLoaded = false;
+
+const safeJsonParse = (rawValue, fallbackValue) => {
+  if (!rawValue) return fallbackValue;
+  try {
+    return JSON.parse(rawValue);
+  } catch {
+    return fallbackValue;
+  }
+};
+
+const nowIso = () => new Date().toISOString();
+const userScopedStorageKey = (key) => `${APP_NAMESPACE}::user::${currentUser?.id || "anonymous"}::${key}`;
+const getUserJson = (key, fallbackValue) => safeJsonParse(storage.getItem(userScopedStorageKey(key)), fallbackValue);
+const setUserJson = (key, value) => storage.setItem(userScopedStorageKey(key), JSON.stringify(value));
+const getUserText = (key) => storage.getItem(userScopedStorageKey(key));
+const setUserText = (key, value) => storage.setItem(userScopedStorageKey(key), value);
+const normalizeSetCollection = (records) =>
+  (Array.isArray(records) ? records : [])
+    .map((record) => {
+      const normalized = normalizeSetRecord(record, { previousRecord: record });
+      return { ...normalized, rawSource: backfillRawSource(normalized) };
+    })
+    .sort((leftValue, rightValue) => {
+      const leftTime = Date.parse(leftValue.updatedAt || "");
+      const rightTime = Date.parse(rightValue.updatedAt || "");
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) return rightTime - leftTime;
+      return leftValue.setName.localeCompare(rightValue.setName, "tr");
+    });
+
+function buildCardKey(setId, card, index) {
+  const normalizedSetId = String(setId ?? "unknown");
+  const cardIdValue = card?.id != null ? String(card.id).trim() : "";
+  return cardIdValue ? `set:${normalizedSetId}::id:${cardIdValue}` : `set:${normalizedSetId}::idx:${index}`;
+}
+
+function legacyCardId(cardOrQuestion) {
+  const question = typeof cardOrQuestion === "string" ? cardOrQuestion : typeof cardOrQuestion?.q === "string" ? cardOrQuestion.q : "";
+  let hash = 0;
+  for (let index = 0; index < question.length; index += 1) {
+    hash = ((hash << 5) - hash + question.charCodeAt(index)) | 0;
+  }
+  return `c${Math.abs(hash)}`;
+}
+
+function getCardKey(card, fallbackSetId, fallbackIndex) {
+  if (card?.__cardKey) return card.__cardKey;
+  if (typeof fallbackSetId === "string" && Number.isInteger(fallbackIndex)) {
+    return buildCardKey(fallbackSetId, card, fallbackIndex);
+  }
+  if (typeof card?.__setId === "string" && Number.isInteger(card?.__setIndex)) {
+    return buildCardKey(card.__setId, card, card.__setIndex);
+  }
+  return null;
+}
+
+function getAssessmentLevel(card, fallbackSetId, fallbackIndex) {
+  const cardKey = getCardKey(card, fallbackSetId, fallbackIndex);
+  if (cardKey && assessments[cardKey]) return assessments[cardKey];
+  return assessments[legacyCardId(card)] || null;
+}
+
+function setStatus(elementId, message, tone = "") {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  const baseClass = elementId.startsWith("auth") ? "auth-status" : "editor-status";
+  element.className = tone ? `${baseClass} ${tone}` : baseClass;
+  element.textContent = message || "";
+}
+
+const showAuthStatus = (message, tone = "") => setStatus("auth-status", message, tone);
+const showEditorStatus = (message, tone = "") => setStatus("editor-status", message, tone);
+const escapeMarkup = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+function summarizeMarkdownText(value, maxLength = 160) {
+  const normalized = String(value ?? "")
+    .replace(/[`*_~>#|[\]()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "Açıklama eklenmedi.";
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength).trim()}...` : normalized;
+}
+
+const primaryMarkdownActions = [
+  { id: "undo", label: "↶", title: "Geri al" },
+  { id: "redo", label: "↷", title: "İleri al" },
+  { id: "bold", label: "B", title: "Kalın" },
+  { id: "critical", label: "!!", title: "Kritik vurgu" },
+  { id: "warning", label: "⚠", title: "Uyarı kutusu" },
+  { id: "bulletList", label: "• Liste", title: "Madde işaretli liste" },
+  { id: "numberList", label: "1. Liste", title: "Numaralı liste" },
+];
+
+const overflowMarkdownActions = [
+  { id: "italic", label: "I", title: "İtalik" },
+  { id: "strike", label: "S", title: "Üstü çizili" },
+  { id: "heading", label: "H2", title: "Başlık" },
+  { id: "quote", label: "> Alıntı", title: "Alıntı" },
+  { id: "link", label: "Link", title: "Bağlantı ekle" },
+  { id: "code", label: "</>", title: "Kod" },
+  { id: "divider", label: "---", title: "Ayraç" },
+  { id: "table", label: "Tablo", title: "Tablo şablonu" },
+];
+
+function markAppReady() {
+  document.body.classList.remove("app-booting");
+}
+
+function syncThemeToggleUI() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const themeToggle = document.getElementById("theme-toggle");
+  const managerToggle = document.getElementById("theme-toggle-manager");
+  if (themeToggle) themeToggle.checked = isDark;
+  if (managerToggle) managerToggle.checked = isDark;
+}
+
+function toggleTheme(isChecked) {
+  window.ThemeManager.toggleTheme({
+    isChecked,
+    primaryToggleId: "theme-toggle",
+    managerToggleId: "theme-toggle-manager",
+    storageKey: THEME_KEY,
+    storageApi: storage,
+  });
+  syncThemeToggleUI();
+}
+
+function syncAutoAdvanceToggleUI() {
+  const toggle = document.getElementById("auto-advance-toggle-manager");
+  const status = document.getElementById("auto-advance-status");
+  if (toggle) toggle.checked = autoAdvanceEnabled;
+  if (status) status.textContent = autoAdvanceEnabled ? "Otomatik sonraki soru: Açık" : "Otomatik sonraki soru: Kapalı";
+}
+
+function showScreen(name) {
+  currentScreen = name;
+  document.getElementById("auth-screen")?.classList.add("hidden");
+  document.getElementById("set-manager")?.classList.add("hidden");
+  document.getElementById("editor-screen")?.classList.add("hidden");
+  const appContainer = document.getElementById("app-container");
+  if (appContainer) appContainer.style.display = "none";
+  if (name === "auth") document.getElementById("auth-screen")?.classList.remove("hidden");
+  if (name === "manager") document.getElementById("set-manager")?.classList.remove("hidden");
+  if (name === "editor") document.getElementById("editor-screen")?.classList.remove("hidden");
+  if (name === "study" && appContainer) appContainer.style.display = "block";
+}
+
+function saveSelectedSets() {
+  if (!currentUser) return;
+  setUserJson("selected_sets", [...selectedSets]);
+}
+
+function saveStudyState() {
+  if (!currentUser) return;
+  setUserJson("assessments", assessments);
+  setUserText("auto_advance", autoAdvanceEnabled ? "1" : "0");
+  const activeCard = filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
+  setUserJson("session", {
+    currentCardIndex,
+    currentCardKey: activeCard ? getCardKey(activeCard) : null,
+    topic: document.getElementById("topic-select")?.value || "hepsi",
+    activeFilter,
+    autoAdvanceEnabled,
+  });
+  saveSelectedSets();
+}
+
+function hydrateLoadedSets(records) {
+  loadedSets = {};
+  normalizeSetCollection(records).forEach((record) => {
+    loadedSets[record.id] = record;
+  });
+}
+
+function updateManagerUserChip() {
+  const chip = document.getElementById("manager-user-chip");
+  const signOutButton = document.getElementById("sign-out-btn");
+  if (chip) {
+    const runtimeLabel = hasSupabaseConfig()
+      ? window.__TAURI__?.core?.invoke ? "Bulut + Masaüstü Cache" : "Bulut"
+      : window.__TAURI__?.core?.invoke ? "Yerel Demo + Masaüstü Cache" : "Yerel Demo";
+    chip.textContent = currentUser ? `Hesap: ${currentUser.email || currentUser.id} · ${runtimeLabel}` : "Hesap: oturum kapalı";
+  }
+  if (signOutButton) signOutButton.disabled = !currentUser;
+}
+
+function normalizeLegacySetRecord(setId, rawRecord) {
+  const fileName = rawRecord?.fileName?.trim() || `${slugify(rawRecord?.setName || setId)}.json`;
+  const sourceFormat = rawRecord?.sourceFormat || (/\.(md|txt)$/i.test(fileName) ? "markdown" : "json");
+  const normalized = normalizeSetRecord(
+    {
+      ...rawRecord,
+      id: rawRecord?.id || setId,
+      slug: rawRecord?.slug || slugify(rawRecord?.setName || setId),
+      setName: rawRecord?.setName || setId,
+      fileName,
+      sourceFormat,
+      rawSource: rawRecord?.rawSource || "",
+      cards: Array.isArray(rawRecord?.cards) ? rawRecord.cards : [],
+      updatedAt: rawRecord?.updatedAt || nowIso(),
+    },
+    { previousRecord: rawRecord },
+  );
+  normalized.rawSource = backfillRawSource(normalized);
+  return normalized;
+}
+
+async function migrateLegacyLocalData() {
+  if (!currentUser) return false;
+  const migrationKey = userScopedStorageKey("legacy_migrated");
+  if (storage.getItem(migrationKey) === "1") return false;
+  let changed = false;
+  const legacySetIds = safeJsonParse(storage.getItem(LEGACY_KEYS.sets), []);
+  if (Array.isArray(legacySetIds)) {
+    for (const legacySetId of legacySetIds) {
+      if (loadedSets[legacySetId]) continue;
+      const legacySetRaw = safeJsonParse(storage.getItem(`fc_set_${legacySetId}`), null);
+      if (!legacySetRaw) continue;
+      await platformAdapter.saveSet(normalizeLegacySetRecord(legacySetId, legacySetRaw));
+      changed = true;
+    }
+  }
+  if (!storage.getItem(userScopedStorageKey("selected_sets"))) {
+    const legacySelectedSets = safeJsonParse(storage.getItem(LEGACY_KEYS.selectedSets), []);
+    if (Array.isArray(legacySelectedSets) && legacySelectedSets.length > 0) setUserJson("selected_sets", legacySelectedSets);
+  }
+  if (!storage.getItem(userScopedStorageKey("assessments"))) {
+    const legacyAssessments = safeJsonParse(storage.getItem(LEGACY_KEYS.assessments), null);
+    if (legacyAssessments && typeof legacyAssessments === "object" && !Array.isArray(legacyAssessments)) {
+      setUserJson("assessments", legacyAssessments);
+    } else {
+      const legacyState = safeJsonParse(storage.getItem(LEGACY_KEYS.legacyState), null);
+      if (legacyState?.assessments && typeof legacyState.assessments === "object" && !Array.isArray(legacyState.assessments)) {
+        setUserJson("assessments", legacyState.assessments);
       }
+    }
+  }
+  if (!storage.getItem(userScopedStorageKey("session"))) {
+    const legacySession = safeJsonParse(storage.getItem(LEGACY_KEYS.session), null);
+    if (legacySession && typeof legacySession === "object") setUserJson("session", legacySession);
+  }
+  if (!storage.getItem(userScopedStorageKey("auto_advance"))) {
+    const legacyAutoAdvance = storage.getItem(LEGACY_KEYS.autoAdvance);
+    if (legacyAutoAdvance === "0" || legacyAutoAdvance === "1") setUserText("auto_advance", legacyAutoAdvance);
+  }
+  storage.setItem(migrationKey, "1");
+  return changed;
+}
 
-      function legacyCardId(card) {
-        const question = card && typeof card.q === "string" ? card.q : "";
-        let h = 0;
-        for (let i = 0; i < question.length; i++) {
-          h = ((h << 5) - h + question.charCodeAt(i)) | 0;
-        }
-        return "c" + Math.abs(h);
+function migrateLegacyAssessmentsIfNeeded() {
+  const entries = Object.entries(assessments || {});
+  if (!entries.length) return;
+  let changed = false;
+  const migrated = {};
+  entries.forEach(([key, value]) => {
+    if (value === "know" || value === "review" || value === "dunno") migrated[key] = value;
+  });
+  Object.entries(loadedSets).forEach(([setId, setRecord]) => {
+    setRecord.cards.forEach((card, index) => {
+      const modernKey = buildCardKey(setId, card, index);
+      const legacyKey = legacyCardId(card);
+      if (!(modernKey in migrated) && migrated[legacyKey]) {
+        migrated[modernKey] = migrated[legacyKey];
+        changed = true;
       }
+    });
+  });
+  if (changed) {
+    assessments = migrated;
+    setUserJson("assessments", assessments);
+  }
+}
 
-      function legacyBackupKey(card) {
-        return `legacy:${legacyCardId(card)}`;
+function loadUserStudyState() {
+  const storedSelected = getUserJson("selected_sets", []);
+  selectedSets = Array.isArray(storedSelected) && storedSelected.length
+    ? new Set(storedSelected.filter((setId) => loadedSets[setId]))
+    : new Set(Object.keys(loadedSets));
+  assessments = getUserJson("assessments", {});
+  if (!assessments || typeof assessments !== "object" || Array.isArray(assessments)) assessments = {};
+  const autoAdvanceRaw = getUserText("auto_advance");
+  autoAdvanceEnabled = autoAdvanceRaw === null ? true : autoAdvanceRaw === "1";
+  syncAutoAdvanceToggleUI();
+  migrateLegacyAssessmentsIfNeeded();
+}
+
+async function loadUserWorkspace() {
+  let records = await platformAdapter.loadSets();
+  hydrateLoadedSets(records);
+  if (await migrateLegacyLocalData()) {
+    records = await platformAdapter.loadSets();
+    hydrateLoadedSets(records);
+  }
+  loadUserStudyState();
+  updateManagerUserChip();
+  renderSetList();
+}
+
+async function handleAuthStateChange(user, event = "unknown") {
+  authStateToken += 1;
+  const token = authStateToken;
+  const previousUserId = currentUser?.id || null;
+  const previousScreen = currentScreen;
+  currentUser = user || null;
+  showAuthStatus("", "");
+  showEditorStatus("", "");
+  updateManagerUserChip();
+  if (!currentUser) {
+    loadedSets = {};
+    selectedSets = new Set();
+    removeCandidateSets.clear();
+    assessments = {};
+    editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+    renderSetList();
+    showScreen("auth");
+    markAppReady();
+    return;
+  }
+
+  const isSameUser = Boolean(previousUserId && previousUserId === currentUser.id);
+  const shouldPreserveActiveScreen = isSameUser && previousScreen !== "auth" && event !== "initial" && event !== "INITIAL_SESSION";
+  if (shouldPreserveActiveScreen) {
+    if (previousScreen === "editor" && editorState.isOpen) {
+      refreshEditorPills();
+    }
+    markAppReady();
+    return;
+  }
+
+  try {
+    await loadUserWorkspace();
+    if (token !== authStateToken) return;
+    if (isSameUser && previousScreen === "editor" && editorState.isOpen) {
+      showScreen("editor");
+      renderEditor();
+      markAppReady();
+      return;
+    }
+    if (isSameUser && previousScreen === "study") {
+      showScreen("study");
+      displayCard();
+      markAppReady();
+      return;
+    }
+    showScreen("manager");
+    markAppReady();
+  } catch (error) {
+    console.error(error);
+    if (token === authStateToken) {
+      showAuthStatus(error.message || "Setler yüklenemedi.", "error");
+      showScreen("auth");
+      markAppReady();
+    }
+  }
+}
+
+async function attemptAuth(action) {
+  const email = document.getElementById("auth-email")?.value || "";
+  const password = document.getElementById("auth-password")?.value || "";
+  try {
+    showAuthStatus(action === "signup" ? "Hesap oluşturuluyor..." : "Giriş yapılıyor...");
+    if (action === "signup") {
+      const response = await platformAdapter.signUp(email, password);
+      if (response?.needsConfirmation) {
+        showAuthStatus("Kayıt oluşturuldu. E-posta doğrulaması gerekebilir.", "success");
+        return;
       }
+    } else {
+      await platformAdapter.signIn(email, password);
+    }
+    showAuthStatus("", "");
+  } catch (error) {
+    console.error(error);
+    showAuthStatus(error.message || "Giriş başarısız oldu.", "error");
+  }
+}
 
-      function getCardKey(card, fallbackSetId, fallbackIndex) {
-        if (card && typeof card.__cardKey === "string" && card.__cardKey.length > 0) {
-          return card.__cardKey;
-        }
-        if (typeof fallbackSetId === "string" && Number.isInteger(fallbackIndex)) {
-          return buildCardKey(fallbackSetId, card, fallbackIndex);
-        }
-        if (
-          card &&
-          typeof card.__setId === "string" &&
-          Number.isInteger(card.__setIndex)
-        ) {
-          return buildCardKey(card.__setId, card, card.__setIndex);
-        }
-        return null;
-      }
+async function handleDemoAuth() {
+  try {
+    showAuthStatus("Yerel demo oturumu açılıyor...");
+    await platformAdapter.signInDemo();
+    showAuthStatus("", "");
+  } catch (error) {
+    console.error(error);
+    showAuthStatus(error.message || "Demo oturumu başlatılamadı.", "error");
+  }
+}
 
-      function getAssessmentLevel(card, fallbackSetId, fallbackIndex) {
-        const cardKey = getCardKey(card, fallbackSetId, fallbackIndex);
-        if (cardKey && assessments[cardKey]) {
-          return assessments[cardKey];
-        }
-        const backupLevel = assessments[legacyBackupKey(card)];
-        if (backupLevel) {
-          return backupLevel;
-        }
-        return assessments[legacyCardId(card)];
-      }
+async function signOut() {
+  try {
+    await platformAdapter.signOut();
+  } catch (error) {
+    console.error(error);
+    showUndoToast("Çıkış yapılamadı.");
+  }
+}
 
-      // ═══ SET MANAGEMENT ═══
-      function syncAutoAdvanceToggleUI() {
-        const toggle = document.getElementById("auto-advance-toggle-manager");
-        if (toggle) {
-          toggle.checked = autoAdvanceEnabled;
-        }
-        const status = document.getElementById("auto-advance-status");
-        if (status) {
-          status.textContent = autoAdvanceEnabled
-            ? "Otomatik sonraki soru: Açık"
-            : "Otomatik sonraki soru: Kapalı";
-        }
-      }
+function findExistingSetMatch(fileName) {
+  const fileStem = String(fileName || "").replace(/\.[^/.]+$/, "");
+  const slug = slugify(fileStem);
+  return Object.values(loadedSets).find((record) => record.fileName === fileName || record.slug === slug) || null;
+}
 
-      function setAutoAdvance(isEnabled) {
-        autoAdvanceEnabled = Boolean(isEnabled);
-        storage.setItem(AUTO_ADVANCE_KEY, autoAdvanceEnabled ? "1" : "0");
-        syncAutoAdvanceToggleUI();
-        saveState();
-      }
+async function importSetFromText(text, fileName) {
+  const existingRecord = findExistingSetMatch(fileName);
+  const nextRecord = parseSetText(text, fileName, existingRecord, existingRecord?.sourceFormat);
+  const savedRecord = await platformAdapter.saveSet(nextRecord);
+  loadedSets[savedRecord.id] = savedRecord;
+  selectedSets.add(savedRecord.id);
+  saveSelectedSets();
+  renderSetList();
+  return savedRecord;
+}
 
-      function showSetManager() {
-        if (isFullscreen) toggleFullscreen();
-        document.getElementById("set-manager").classList.remove("hidden");
-        document.getElementById("app-container").style.display = "none";
-        renderSetList();
-      }
+async function handleFileSelect(event) {
+  const files = event.target.files;
+  if (!files?.length) return;
+  for (const file of files) {
+    try {
+      await importSetFromText(await file.text(), file.name);
+      showUndoToast(`"${file.name}" yüklendi.`);
+    } catch (error) {
+      console.error(error);
+      alert(`${file.name} yüklenirken hata oluştu: ${error.message}`);
+    }
+  }
+  event.target.value = "";
+}
 
-      function startStudy() {
-        if (selectedSets.size === 0) return;
-        
-        allFlashcards = [];
-        for (const setId of selectedSets) {
-          const setData = loadedSets[setId];
-          if (!setData || !Array.isArray(setData.cards)) continue;
-          setData.cards.forEach((card, index) => {
-            const clonedCard = { ...card };
-            clonedCard.__setId = setId;
-            clonedCard.__setIndex = index;
-            clonedCard.__cardKey = buildCardKey(setId, card, index);
-            allFlashcards.push(clonedCard);
-          });
-        }
-        
-        filteredFlashcards = [...allFlashcards];
-        cardOrder = [...Array(filteredFlashcards.length).keys()];
-        currentCardIndex = 0;
-        
-        document.getElementById("set-manager").classList.add("hidden");
-        document.getElementById("app-container").style.display = "block";
-        
-        populateTopicFilter();
-        
-        let session = null;
-        const sessRaw = storage.getItem(SESSION_KEY);
-        if (sessRaw) {
-          try {
-            session = JSON.parse(sessRaw);
-          } catch (error) {
-            session = null;
-          }
-        }
-        if (session && session.topic) {
-          document.getElementById("topic-select").value = session.topic;
-        }
+function toggleSetSelection(setId) {
+  if (selectedSets.has(setId)) selectedSets.delete(setId);
+  else selectedSets.add(setId);
+  saveSelectedSets();
+  renderSetList();
+}
 
-        filterByTopic(false, {
-          preferredCardKey:
-            session && typeof session.currentCardKey === "string"
-              ? session.currentCardKey
-              : null,
-          fallbackIndex:
-            session && Number.isInteger(session.currentCardIndex)
-              ? session.currentCardIndex
-              : null,
-        });
-      }
+function toggleSetCheck(setId) {
+  if (deleteMode) {
+    if (removeCandidateSets.has(setId)) removeCandidateSets.delete(setId);
+    else removeCandidateSets.add(setId);
+    renderSetList();
+    return;
+  }
+  toggleSetSelection(setId);
+}
 
-      function parseMarkdownToFlashcards(content, fileName) {
-        const lines = content.split(/\r?\n/);
-        const fileStem = (fileName || "set").replace(/\.[^/.]+$/, "");
+async function deleteSet(setId) {
+  await removeSets([setId]);
+}
 
-        let setName = "";
-        let canonicalSubject = fileStem;
-        const cards = [];
+async function removeSets(setIds) {
+  const removedEntries = setIds
+    .map((setId) => ({ setId, setData: loadedSets[setId], wasSelected: selectedSets.has(setId) }))
+    .filter((entry) => entry.setData);
+  if (!removedEntries.length) return;
+  try {
+    await platformAdapter.deleteSets(removedEntries.map((entry) => entry.setId));
+    removedEntries.forEach((entry) => {
+      delete loadedSets[entry.setId];
+      selectedSets.delete(entry.setId);
+      removeCandidateSets.delete(entry.setId);
+    });
+    saveSelectedSets();
+    renderSetList();
+    lastRemovedSets = removedEntries;
+    showUndoToast(removedEntries.length === 1 ? "Set kaldırıldı." : `${removedEntries.length} set kaldırıldı.`);
+  } catch (error) {
+    console.error(error);
+    showUndoToast("Setler kaldırılamadı.");
+  }
+}
 
-        let currentCard = null;
-        let freeAnswerLines = [];
-        let explanationLines = [];
-        let awaitingQuestionText = false;
-        let collectingExplanation = false;
+function selectAllSets() {
+  if (deleteMode) {
+    removeCandidateSets = new Set(Object.keys(loadedSets));
+    renderSetList();
+    return;
+  }
+  selectedSets = new Set(Object.keys(loadedSets));
+  saveSelectedSets();
+  renderSetList();
+}
 
-        function processFormatting(text) {
-          return text
-            .replace(/==([^=]+)==/g, "<strong class='highlight-critical'>$1</strong>")
-            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-            .replace(/^(?:> )?⚠️(.*)$/gm, "<span class='highlight-important'>⚠️$1</span>");
-        }
+function clearSetSelection() {
+  if (deleteMode) {
+    removeCandidateSets.clear();
+    renderSetList();
+    return;
+  }
+  selectedSets.clear();
+  saveSelectedSets();
+  renderSetList();
+}
 
-        function finalizeCurrentCard() {
-          if (!currentCard) return;
+async function removeSelectedSets() {
+  if (!deleteMode || !removeCandidateSets.size) return;
+  await removeSets([...removeCandidateSets]);
+}
 
-          const freeAnswer = freeAnswerLines.join("\n").trim();
-          const explanation = explanationLines.join("\n").trim();
+function toggleDeleteMode() {
+  deleteMode = !deleteMode;
+  if (deleteMode) {
+    editMode = false;
+  } else {
+    removeCandidateSets.clear();
+  }
+  renderSetList();
+}
 
-          let answerRaw = "";
-          if (currentCard.correctChar || currentCard.options.length > 0 || explanation) {
-            const parts = [];
+function toggleEditMode() {
+  editMode = !editMode;
+  if (editMode) {
+    deleteMode = false;
+    removeCandidateSets.clear();
+  }
+  renderSetList();
+}
 
-            if (currentCard.correctChar) {
-              const idx = currentCard.correctChar.charCodeAt(0) - 65;
-              const correctOption = idx >= 0 && idx < currentCard.options.length
-                ? currentCard.options[idx]
-                : "";
-              const correctLine = correctOption
-                ? `Doğru Cevap: ${currentCard.correctChar}) ${correctOption}`
-                : `Doğru Cevap: ${currentCard.correctChar}`;
-              parts.push(`**${correctLine}**`);
-            }
+function showUndoToast(message) {
+  const toast = document.getElementById("undo-toast");
+  const messageElement = document.getElementById("undo-message");
+  if (!toast || !messageElement) return;
+  messageElement.textContent = message;
+  toast.style.display = "flex";
+  if (undoTimeoutId) clearTimeout(undoTimeoutId);
+  undoTimeoutId = setTimeout(() => {
+    toast.style.display = "none";
+    lastRemovedSets = [];
+  }, 7000);
+}
 
-            if (explanation) {
-              parts.push(explanation);
-            }
+async function undoLastRemoval() {
+  if (!lastRemovedSets.length) return;
+  try {
+    for (const entry of lastRemovedSets) {
+      const savedRecord = await platformAdapter.saveSet(entry.setData);
+      loadedSets[savedRecord.id] = savedRecord;
+      if (entry.wasSelected) selectedSets.add(savedRecord.id);
+    }
+    saveSelectedSets();
+    renderSetList();
+    document.getElementById("undo-toast").style.display = "none";
+    lastRemovedSets = [];
+  } catch (error) {
+    console.error(error);
+    showUndoToast("Geri alma tamamlanamadı.");
+  }
+}
 
-            answerRaw = parts.join("\n\n").trim();
-            if (!answerRaw && freeAnswer) {
-              answerRaw = freeAnswer;
-            }
-          } else {
-            answerRaw = freeAnswer;
-          }
+function renderSetList() {
+  const listElement = document.getElementById("set-list");
+  const toolsElement = document.getElementById("set-list-tools");
+  const startButton = document.getElementById("start-btn");
+  const removeSelectedButton = document.getElementById("remove-selected-btn");
+  const deleteModeButton = document.getElementById("delete-mode-btn");
+  const editModeButton = document.getElementById("edit-mode-btn");
+  const editSelectedButton = document.getElementById("edit-selected-btn");
+  const selectAllButton = document.getElementById("select-all-btn");
+  const clearSelectionButton = document.getElementById("clear-selection-btn");
+  const modeHint = document.getElementById("mode-hint");
+  if (!listElement) return;
+  const setIds = Object.keys(loadedSets);
+  if (!setIds.length) {
+    listElement.innerHTML = '<div class="set-item empty">Henüz set yüklenmedi.</div>';
+    if (toolsElement) toolsElement.style.display = "none";
+    if (startButton) startButton.disabled = true;
+    if (removeSelectedButton) removeSelectedButton.disabled = true;
+    if (editSelectedButton) editSelectedButton.disabled = true;
+    return;
+  }
+  if (toolsElement) toolsElement.style.display = "flex";
+  if (startButton) startButton.disabled = selectedSets.size === 0 || editMode;
+  if (deleteModeButton) {
+    deleteModeButton.textContent = deleteMode ? "Silme Modu: Açık" : "Silme Modu: Kapalı";
+    deleteModeButton.className = deleteMode ? "btn btn-small btn-danger" : "btn btn-small btn-secondary";
+  }
+  if (editModeButton) {
+    editModeButton.textContent = editMode ? "Düzenleme Modu: Açık" : "Düzenleme Modu: Kapalı";
+    editModeButton.className = editMode ? "btn btn-small" : "btn btn-small btn-secondary";
+  }
+  if (selectAllButton) selectAllButton.textContent = deleteMode ? "Silineceklerin Tümünü Seç" : editMode ? "Düzenleneceklerin Tümünü Seç" : "Tümünü Derse Dahil Et";
+  if (clearSelectionButton) clearSelectionButton.textContent = deleteMode ? "Silme Seçimini Temizle" : editMode ? "Düzenleme Seçimini Temizle" : "Ders Seçimini Temizle";
+  if (removeSelectedButton) {
+    removeSelectedButton.disabled = !deleteMode || removeCandidateSets.size === 0;
+    removeSelectedButton.textContent = `Seçilileri Kaldır (${removeCandidateSets.size})`;
+  }
+  if (editSelectedButton) {
+    editSelectedButton.disabled = !editMode || selectedSets.size === 0;
+    editSelectedButton.textContent = `Kartları Düzenle (${selectedSets.size})`;
+  }
+  if (modeHint) {
+    modeHint.textContent = deleteMode
+      ? "Mod: Sileceğin setleri işaretliyorsun."
+      : editMode
+        ? "Mod: Düzenleyeceğin setleri seçiyorsun."
+        : "Mod: Derse dahil edilecek setleri seçiyorsun.";
+  }
+  listElement.innerHTML = "";
+  setIds.forEach((setId) => {
+    const setRecord = loadedSets[setId];
+    let know = 0;
+    let review = 0;
+    let dunno = 0;
+    setRecord.cards.forEach((card, index) => {
+      const status = getAssessmentLevel(card, setId, index);
+      if (status === "know") know += 1;
+      else if (status === "review") review += 1;
+      else if (status === "dunno") dunno += 1;
+    });
+    const total = setRecord.cards.length;
+    const assessed = know + review + dunno;
+    const isSelected = deleteMode ? removeCandidateSets.has(setId) : selectedSets.has(setId);
+    const row = document.createElement("div");
+    row.className = "set-item";
+    row.innerHTML = `
+      <div class="set-info" data-set-select="${setId}">
+        <input type="checkbox" ${isSelected ? "checked" : ""} data-set-checkbox="${setId}">
+        <div class="set-details">
+          <div class="set-title">${setRecord.setName}</div>
+          <div class="set-stats">${total} kart — ${assessed}/${total} (%${total ? Math.round((assessed / total) * 100) : 0}) tamam</div>
+        </div>
+      </div>
+      <div class="set-actions-row">
+        <button class="btn-delete-circle" title="Seti kaldır" data-set-delete="${setId}">-</button>
+      </div>`;
+    listElement.appendChild(row);
+  });
+  listElement.querySelectorAll("[data-set-select]").forEach((element) => {
+    element.addEventListener("click", () => toggleSetCheck(element.getAttribute("data-set-select")));
+  });
+  listElement.querySelectorAll("[data-set-checkbox]").forEach((element) => {
+    element.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleSetCheck(element.getAttribute("data-set-checkbox"));
+    });
+  });
+  listElement.querySelectorAll("[data-set-delete]").forEach((element) => {
+    element.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      await deleteSet(element.getAttribute("data-set-delete"));
+    });
+  });
+}
 
-          if (!answerRaw) {
-            answerRaw = "Açıklama bulunamadı.";
-          }
+const getPersistedSession = () => {
+  const session = getUserJson("session", null);
+  return session && typeof session === "object" ? session : null;
+};
 
-          let answerHtml = processFormatting(answerRaw);
-          answerHtml = answerHtml.replace(/\n\s*\n/g, "<br><br>\n");
+function showSetManager() {
+  if (editorState.isOpen && !confirmLeaveEditor()) return;
+  closeEditor(true);
+  if (isFullscreen) toggleFullscreen();
+  renderSetList();
+  showScreen("manager");
+}
 
-          currentCard.a = answerHtml;
-          cards.push({
-            q: (currentCard.q || "").trim(),
-            a: currentCard.a,
-            subject: currentCard.subject || canonicalSubject,
-          });
+function populateTopicFilter() {
+  const select = document.getElementById("topic-select");
+  if (!select) return;
+  const subjects = [...new Set(allFlashcards.map((card) => card.subject))].sort((leftValue, rightValue) => leftValue.localeCompare(rightValue, "tr"));
+  select.innerHTML = '<option value="hepsi">Tüm Başlıklar</option>';
+  subjects.forEach((subject) => {
+    const option = document.createElement("option");
+    option.value = subject;
+    option.textContent = subject;
+    select.appendChild(option);
+  });
+}
 
-          currentCard = null;
-          freeAnswerLines = [];
-          explanationLines = [];
-          awaitingQuestionText = false;
-          collectingExplanation = false;
-        }
+function startStudy() {
+  if (!selectedSets.size || editMode) return;
+  allFlashcards = [];
+  selectedSets.forEach((setId) => {
+    const setRecord = loadedSets[setId];
+    if (!Array.isArray(setRecord?.cards)) return;
+    setRecord.cards.forEach((card, index) => {
+      allFlashcards.push({ ...card, __setId: setId, __setIndex: index, __cardKey: buildCardKey(setId, card, index) });
+    });
+  });
+  filteredFlashcards = [...allFlashcards];
+  cardOrder = [...Array(filteredFlashcards.length).keys()];
+  currentCardIndex = 0;
+  populateTopicFilter();
+  const session = getPersistedSession();
+  if (session?.topic && document.getElementById("topic-select")) {
+    document.getElementById("topic-select").value = session.topic;
+  }
+  activeFilter = session?.activeFilter || "all";
+  showScreen("study");
+  filterByTopic(false, {
+    preferredCardKey: typeof session?.currentCardKey === "string" ? session.currentCardKey : null,
+    fallbackIndex: Number.isInteger(session?.currentCardIndex) ? session.currentCardIndex : null,
+  });
+}
 
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const trimmed = line.trim();
-          const normalized = trimmed.replace(/^\*\*(.*?)\*\*$/, "$1").trim();
+function updateAssessmentButtons(level) {
+  document.querySelectorAll(".assess-btn").forEach((button) => button.classList.remove("selected"));
+  if (!level) return;
+  document.querySelectorAll(`.assess-btn.${level}`).forEach((button) => button.classList.add("selected"));
+}
 
-          if (/^[-*_]{3,}$/.test(trimmed)) continue;
+function showAssessmentPanel(isVisible) {
+  const panel = document.getElementById("assessment-panel");
+  const fullscreenPanel = document.querySelector(".fullscreen-assessment-panel");
+  if (isVisible) {
+    panel?.classList.add("visible");
+    if (fullscreenPanel) fullscreenPanel.style.display = "flex";
+  } else {
+    panel?.classList.remove("visible");
+    if (fullscreenPanel) fullscreenPanel.style.display = "none";
+  }
+}
 
-          const h1Match = normalized.match(/^#\s+(.+)$/);
-          if (h1Match) {
-            const h1Title = h1Match[1].trim();
-            if (!setName) setName = h1Title;
-            if (canonicalSubject === fileStem) canonicalSubject = h1Title;
-            continue;
-          }
+function updateScoreDisplay() {
+  let know = 0;
+  let review = 0;
+  let dunno = 0;
+  allFlashcards.forEach((card) => {
+    const status = getAssessmentLevel(card);
+    if (status === "know") know += 1;
+    else if (status === "review") review += 1;
+    else if (status === "dunno") dunno += 1;
+  });
+  const total = allFlashcards.length;
+  const assessed = know + review + dunno;
+  const percentage = total ? Math.round((assessed / total) * 100) : 0;
+  document.getElementById("score-know").textContent = know;
+  document.getElementById("score-review").textContent = review;
+  document.getElementById("score-dunno").textContent = dunno;
+  document.getElementById("score-percent").textContent = `${assessed}/${total} (%${percentage})`;
+  document.getElementById("progress-fill-know").style.width = `${total ? (know / total) * 100 : 0}%`;
+  document.getElementById("progress-fill-review").style.width = `${total ? (review / total) * 100 : 0}%`;
+  document.getElementById("progress-fill-dunno").style.width = `${total ? (dunno / total) * 100 : 0}%`;
+}
 
-          const h2Match = line.match(/^##\s+(.+)$/);
-          if (h2Match) {
-            finalizeCurrentCard();
-            continue;
-          }
+function applyAssessmentFilter(options = {}) {
+  const preferredCardKey = typeof options.preferredCardKey === "string" ? options.preferredCardKey : null;
+  const fallbackIndex = Number.isInteger(options.fallbackIndex) ? options.fallbackIndex : null;
+  document.querySelectorAll(".filter-btn").forEach((button) => button.classList.remove("active"));
+  const labels = { all: "📋 Tümü", know: "✅ Biliyorum", review: "🔄 Tekrar Göz At", dunno: "❌ Bilmiyorum", unanswered: "⬜ Değerlendirilmemiş" };
+  document.querySelectorAll(".filter-btn").forEach((button) => {
+    if (button.textContent.trim() === labels[activeFilter]) button.classList.add("active");
+  });
+  const selectedTopic = document.getElementById("topic-select").value;
+  const baseCards = selectedTopic === "hepsi" ? [...allFlashcards] : allFlashcards.filter((card) => card.subject === selectedTopic);
+  if (activeFilter === "know") filteredFlashcards = baseCards.filter((card) => getAssessmentLevel(card) === "know");
+  else if (activeFilter === "review") filteredFlashcards = baseCards.filter((card) => getAssessmentLevel(card) === "review");
+  else if (activeFilter === "dunno") filteredFlashcards = baseCards.filter((card) => getAssessmentLevel(card) === "dunno");
+  else if (activeFilter === "unanswered") filteredFlashcards = baseCards.filter((card) => !getAssessmentLevel(card));
+  else filteredFlashcards = baseCards;
+  cardOrder = [...Array(filteredFlashcards.length).keys()];
+  let targetIndex = 0;
+  if (filteredFlashcards.length > 0) {
+    let resolvedIndex = -1;
+    if (preferredCardKey) resolvedIndex = filteredFlashcards.findIndex((card) => getCardKey(card) === preferredCardKey);
+    if (resolvedIndex < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < filteredFlashcards.length) resolvedIndex = fallbackIndex;
+    targetIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+  }
+  currentCardIndex = targetIndex;
+  document.getElementById("jump-input").setAttribute("max", String(filteredFlashcards.length));
+  if (filteredFlashcards.length > 0) displayCard();
+  else {
+    document.getElementById("question-text").textContent = "Bu kategoride kart yok.";
+    document.getElementById("answer-text").innerHTML = "";
+    document.getElementById("card-counter").textContent = "0 / 0";
+    document.getElementById("fullscreen-card-counter").textContent = "0 / 0";
+    document.getElementById("subject-display-front").textContent = "";
+    showAssessmentPanel(false);
+  }
+  updateScoreDisplay();
+}
 
-          const konuMatch = normalized.match(/^#{0,3}\s*Konu:\s*(.+)$/i);
-          if (konuMatch) {
-            continue;
-          }
+function setFilter(filter) {
+  const currentCard = filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
+  activeFilter = filter;
+  applyAssessmentFilter({
+    preferredCardKey: currentCard ? getCardKey(currentCard) : null,
+    fallbackIndex: currentCardIndex,
+  });
+  saveStudyState();
+}
 
-          const h3Match = line.match(/^###\s+(.+)$/);
-          const soruInlineMatch = normalized.match(/^Soru:\s*(.+)$/i);
-          const soruNumberedMatch = normalized.match(
-            /^Soru\s+\d+[.)]?\s*(?::\s*(.*))?$/i,
-          );
+function filterByTopic(resetFilter = true, options = {}) {
+  if (resetFilter) activeFilter = "all";
+  applyAssessmentFilter(options);
+}
 
-          const isQuestionStart = h3Match || soruInlineMatch || soruNumberedMatch;
-          if (isQuestionStart) {
-            finalizeCurrentCard();
-            const qText = (
-              h3Match
-                ? h3Match[1]
-                : soruInlineMatch
-                  ? soruInlineMatch[1]
-                  : soruNumberedMatch[1] || ""
-            ).trim();
-            currentCard = {
-              q: qText,
-              a: "",
-              subject: canonicalSubject,
-              options: [],
-              correctChar: "",
-            };
-            freeAnswerLines = [];
-            explanationLines = [];
-            collectingExplanation = false;
-            awaitingQuestionText = qText.length === 0;
-            continue;
-          }
+function displayCard() {
+  if (!filteredFlashcards.length) return;
+  const card = filteredFlashcards[cardOrder[currentCardIndex]];
+  document.getElementById("question-text").textContent = card.q;
+  document.getElementById("answer-text").innerHTML = card.a;
+  document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+  document.getElementById("fullscreen-card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
+  document.getElementById("subject-display-front").textContent = card.subject;
+  document.getElementById("prev-btn").disabled = currentCardIndex === 0;
+  document.getElementById("next-btn").disabled = currentCardIndex === filteredFlashcards.length - 1;
+  if (isFlipped) {
+    document.getElementById("flashcard").classList.remove("flipped");
+    isFlipped = false;
+  }
+  showAssessmentPanel(false);
+  updateAssessmentButtons(getAssessmentLevel(card) || null);
+  saveStudyState();
+}
 
-          if (awaitingQuestionText && currentCard && normalized) {
-            currentCard.q = normalized;
-            awaitingQuestionText = false;
-            continue;
-          }
+function cleanupAssessmentsForSet(nextRecord, previousRecord) {
+  const allowedKeys = new Set(nextRecord.cards.map((card, index) => buildCardKey(nextRecord.id, card, index)));
+  Object.keys(assessments).forEach((key) => {
+    if (key.startsWith(`set:${nextRecord.id}::`) && !allowedKeys.has(key)) delete assessments[key];
+  });
+  previousRecord?.cards?.forEach((card) => delete assessments[legacyCardId(card)]);
+}
 
-          const optionMatch = normalized.match(/^([A-Ea-e])[).]\s+(.+)$/);
-          if (optionMatch && currentCard && !collectingExplanation) {
-            currentCard.options.push(optionMatch[2].trim());
-            continue;
-          }
+function assessCard(level) {
+  if (!filteredFlashcards.length) return;
+  const card = filteredFlashcards[cardOrder[currentCardIndex]];
+  const cardKey = getCardKey(card);
+  const currentLevel = getAssessmentLevel(card);
+  if (cardKey && currentLevel === level) {
+    delete assessments[cardKey];
+    delete assessments[legacyCardId(card)];
+    updateAssessmentButtons(null);
+    updateScoreDisplay();
+    saveStudyState();
+    return;
+  }
+  if (cardKey) assessments[cardKey] = level;
+  updateAssessmentButtons(level);
+  updateScoreDisplay();
+  saveStudyState();
+  if (autoAdvanceEnabled) {
+    setTimeout(() => {
+      if (currentCardIndex < filteredFlashcards.length - 1) nextCard();
+    }, 400);
+  }
+}
 
-          const correctMatch = normalized.match(/^Do(?:ğ|g)ru\s*Cevap:\s*([A-Ea-e])\b/i);
-          if (correctMatch && currentCard) {
-            currentCard.correctChar = correctMatch[1].toUpperCase();
-            continue;
-          }
+function resetProgress() {
+  if (!confirm("Seçili set(ler)deki tüm ilerlemen sıfırlanacak. Emin misin?")) return;
+  allFlashcards.forEach((card) => {
+    const cardKey = getCardKey(card);
+    if (cardKey) delete assessments[cardKey];
+    delete assessments[legacyCardId(card)];
+  });
+  activeFilter = "all";
+  applyAssessmentFilter();
+  saveStudyState();
+}
 
-          const explanationStartMatch = normalized.match(/^(?:Açıklama|Aciklama):\s*(.*)$/i);
-          if (explanationStartMatch && currentCard) {
-            collectingExplanation = true;
-            explanationLines.push(explanationStartMatch[1]);
-            continue;
-          }
+function toggleFullscreen() {
+  isFullscreen = !isFullscreen;
+  const container = document.querySelector(".card-container");
+  if (!container) return;
+  if (isFullscreen) {
+    container.classList.add("fullscreen-active");
+    document.body.style.overflow = "hidden";
+    document.getElementById("fullscreen-toggle-btn").textContent = "✕";
+    document.getElementById("fullscreen-toggle-btn").title = "Tam ekrandan çık (ESC / F)";
+  } else {
+    container.classList.remove("fullscreen-active");
+    document.body.style.overflow = "auto";
+    document.getElementById("fullscreen-toggle-btn").textContent = "⛶";
+    document.getElementById("fullscreen-toggle-btn").title = "Tam ekran (F)";
+  }
+}
 
-          const blockquoteMatch = line.match(/^>\s?(.*)$/);
-          if (blockquoteMatch && currentCard && (currentCard.correctChar || currentCard.options.length > 0 || collectingExplanation)) {
-            collectingExplanation = true;
-            explanationLines.push(blockquoteMatch[1]);
-            continue;
-          }
+function flipCard() {
+  document.getElementById("flashcard").classList.toggle("flipped");
+  isFlipped = !isFlipped;
+  showAssessmentPanel(isFlipped);
+}
 
-          if (currentCard) {
-            if (collectingExplanation) {
-              explanationLines.push(line);
-            } else {
-              freeAnswerLines.push(line);
-            }
-          }
-        }
+const previousCard = () => {
+  if (currentCardIndex > 0) {
+    currentCardIndex -= 1;
+    displayCard();
+  }
+};
 
-        finalizeCurrentCard();
+const nextCard = () => {
+  if (currentCardIndex < filteredFlashcards.length - 1) {
+    currentCardIndex += 1;
+    displayCard();
+  }
+};
 
-        return {
-          setName: setName || fileStem,
-          cards
-        };
-      }
+function jumpToCard() {
+  const input = document.getElementById("jump-input");
+  const cardNumber = Number.parseInt(input.value, 10);
+  if (cardNumber >= 1 && cardNumber <= filteredFlashcards.length) {
+    currentCardIndex = cardNumber - 1;
+    displayCard();
+    input.value = "";
+    return;
+  }
+  alert(`Lütfen 1 ile ${filteredFlashcards.length} arasında bir sayı gir.`);
+}
 
-      async function handleFileSelect(event) {
-        const files = event.target.files;
-        if (!files.length) return;
+function shuffleCards() {
+  if (!filteredFlashcards.length) return;
+  for (let index = cardOrder.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [cardOrder[index], cardOrder[swapIndex]] = [cardOrder[swapIndex], cardOrder[index]];
+  }
+  currentCardIndex = 0;
+  displayCard();
+}
 
-        for (const file of files) {
-          try {
-            const text = await file.text();
-            let data;
+function printCards() {
+  const statusIcons = { know: "✅", review: "🔄", dunno: "❌" };
+  const cardsMarkup = allFlashcards.map((card, index) => {
+    const status = getAssessmentLevel(card);
+    const badge = status ? `<span style="float:right;font-size:18px">${statusIcons[status]}</span>` : "";
+    return `<div style="page-break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:20px 24px; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${index + 1} — ${card.subject}</span>${badge}
+      </div>
+      <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a; white-space:pre-line;">${card.q}</div>
+      <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px;">${card.a}</div>
+    </div>`;
+  }).join("");
+  let know = 0;
+  let review = 0;
+  let dunno = 0;
+  allFlashcards.forEach((card) => {
+    const status = getAssessmentLevel(card);
+    if (status === "know") know += 1;
+    else if (status === "review") review += 1;
+    else if (status === "dunno") dunno += 1;
+  });
+  const total = allFlashcards.length;
+  const assessed = know + review + dunno;
+  const percentage = total ? Math.round((assessed / total) * 100) : 0;
+  const popup = window.open("", "_blank");
+  popup.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Flashcards — Yazdır</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:800px;margin:0 auto;padding:30px 20px;color:#21302a}h1{font-size:22px;margin-bottom:4px}.summary{font-size:14px;color:#5f6d66;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #2f7a56}@media print{body{padding:10px}}</style></head><body><h1>Flashcards</h1><div class="summary">Toplam: ${total} kart | ✅ ${know} | 🔄 ${review} | ❌ ${dunno} | İlerleme: %${percentage}</div>${cardsMarkup}</body></html>`);
+  popup.document.close();
+  popup.onload = () => popup.print();
+}
 
-            if (file.name.endsWith('.md') || file.name.endsWith('.txt')) {
-                data = parseMarkdownToFlashcards(text, file.name);
-            } else {
-                // JSON'daki sondaki virgülleri (trailing commas) temizle
-                const cleanText = text.replace(/,\s*([\]}])/g, "$1");
-                data = JSON.parse(cleanText);
-            }
+function ensureEditorDraftUiState(draft) {
+  const availableCardIds = new Set((draft?.cards || []).map((card) => card.id));
+  if (!availableCardIds.size) {
+    draft.expandedCardId = null;
+    draft.toolbarExpandedCardId = null;
+    draft.expandedPreviewCardId = null;
+    return draft;
+  }
+  if (draft.expandedCardId === undefined) {
+    draft.expandedCardId = null;
+  } else if (draft.expandedCardId !== null && !availableCardIds.has(draft.expandedCardId)) {
+    draft.expandedCardId = null;
+  }
+  if (draft.toolbarExpandedCardId && !availableCardIds.has(draft.toolbarExpandedCardId)) {
+    draft.toolbarExpandedCardId = null;
+  }
+  if (draft.expandedPreviewCardId && !availableCardIds.has(draft.expandedPreviewCardId)) {
+    draft.expandedPreviewCardId = null;
+  }
+  return draft;
+}
 
-            const setId = file.name.replace(/\.[^/.]+$/, "");
+const getCurrentEditorDraft = () => editorState.activeSetId ? editorState.drafts[editorState.activeSetId] : null;
+function createEditorDraft(setRecord, previousDraft = null) {
+  const baseDraft = buildEditorDraft(setRecord);
+  return ensureEditorDraftUiState({
+    ...baseDraft,
+    dirty: false,
+    expandedCardId: previousDraft ? previousDraft.expandedCardId : null,
+    toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? null,
+    expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? null,
+  });
+}
 
-            loadedSets[setId] = {
-              setName: data.setName || setId,
-              cards: data.cards || [],
-              fileName: file.name
-            };
-            selectedSets.add(setId);
+function refreshEditorPills() {
+  const draft = getCurrentEditorDraft();
+  const activeSetPill = document.getElementById("editor-active-set-pill");
+  const dirtyPill = document.getElementById("editor-dirty-pill");
+  const formatPill = document.getElementById("editor-format-pill");
+  const toggleButton = document.getElementById("editor-view-toggle-btn");
+  if (!draft) {
+    if (activeSetPill) activeSetPill.textContent = "Set: -";
+    if (dirtyPill) dirtyPill.textContent = "Durum: Kaydedildi";
+    if (formatPill) formatPill.textContent = "Format: -";
+    return;
+  }
+  if (activeSetPill) activeSetPill.textContent = `Set: ${draft.setName}`;
+  if (dirtyPill) dirtyPill.textContent = `Durum: ${draft.dirty ? "Kaydedilmedi" : "Kaydedildi"}`;
+  if (formatPill) formatPill.textContent = `Format: ${draft.sourceFormat === "markdown" ? "Markdown" : "JSON"}`;
+  if (toggleButton) toggleButton.textContent = draft.viewMode === "form" ? "Raw Code" : "Form Görünümü";
+}
 
-            storage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
-          } catch (e) {
-            alert(file.name + " yüklenirken hata oluştu. Geçerli bir JSON dosyası seçtiğinizden emin olun.");
-          }
-        }
-        saveSetsList();
-        renderSetList();
-        event.target.value = ""; // reset
-      }
+function markDraftDirty(setId, dirty = true) {
+  const draft = editorState.drafts[setId];
+  if (!draft) return;
+  draft.dirty = dirty;
+  refreshEditorPills();
+}
 
-      function toggleSetCheck(setId) {
-        if (deleteMode) {
-          if (removeCandidateSets.has(setId)) {
-            removeCandidateSets.delete(setId);
-          } else {
-            removeCandidateSets.add(setId);
-          }
-          renderSetList();
-          return;
-        }
-        toggleSetSelection(setId);
-      }
+function buildRawSourceFromDraft(draft) {
+  const nextRecord = buildSetFromEditorDraft(draft, loadedSets[draft.setId]);
+  draft.rawSource = nextRecord.rawSource;
+  draft.setName = nextRecord.setName;
+}
 
-      function toggleSetSelection(setId) {
-        if (selectedSets.has(setId)) {
-          selectedSets.delete(setId);
-        } else {
-          selectedSets.add(setId);
-        }
-        saveSetsList();
-        renderSetList();
-      }
+function syncDraftFromRaw(draft) {
+  const existingRecord = loadedSets[draft.setId];
+  const nextRecord = parseSetText(
+    draft.rawSource,
+    existingRecord?.fileName || `${draft.setId}.${draft.sourceFormat === "markdown" ? "md" : "json"}`,
+    existingRecord,
+    draft.sourceFormat,
+  );
+  const nextDraft = buildEditorDraft(nextRecord);
+  draft.cards = nextDraft.cards;
+  draft.rawSource = nextDraft.rawSource;
+  draft.setName = nextDraft.setName;
+  ensureEditorDraftUiState(draft);
+}
 
-      function deleteSet(setId) {
-        removeSets([setId]);
-      }
+function renderEditorTabs() {
+  const select = document.getElementById("editor-set-select");
+  if (!select) return;
+  select.innerHTML = editorState.draftOrder
+    .map((setId) => {
+      const draft = editorState.drafts[setId];
+      return `<option value="${setId}">${escapeMarkup(draft.setName)}${draft.dirty ? " *" : ""}</option>`;
+    })
+    .join("");
+  const fallbackSetId = editorState.draftOrder[0] || "";
+  if (!editorState.activeSetId || !editorState.drafts[editorState.activeSetId]) {
+    editorState.activeSetId = fallbackSetId || null;
+  }
+  select.value = editorState.activeSetId || fallbackSetId;
+  select.disabled = editorState.draftOrder.length <= 1;
+  select.onchange = () => {
+    if (!select.value || select.value === editorState.activeSetId) return;
+    editorState.activeSetId = select.value;
+    editorState.focusedField = null;
+    renderEditor();
+  };
+}
 
-      function removeSets(idsToRemove) {
-        const removed = [];
-        idsToRemove.forEach((setId) => {
-          if (!loadedSets[setId]) return;
-          removed.push({
-            setId: setId,
-            setData: loadedSets[setId],
-            wasSelected: selectedSets.has(setId),
-          });
-          delete loadedSets[setId];
-          selectedSets.delete(setId);
-          removeCandidateSets.delete(setId);
-          storage.removeItem("fc_set_" + setId);
-        });
+function renderEditorToolbarButtons(actions, cardId) {
+  return actions
+    .map(
+      (action) =>
+        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardId}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
+    )
+    .join("");
+}
 
-        if (removed.length === 0) return;
-        lastRemovedSets = removed;
-        showUndoToast(
-          removed.length === 1
-            ? "Set kaldırıldı."
-            : `${removed.length} set kaldırıldı.`,
-        );
-        saveSetsList();
-        renderSetList();
-      }
-
-      function selectAllSets() {
-        if (deleteMode) {
-          removeCandidateSets = new Set(Object.keys(loadedSets));
-          renderSetList();
-          return;
-        }
-        selectedSets = new Set(Object.keys(loadedSets));
-        saveSetsList();
-        renderSetList();
-      }
-
-      function clearSetSelection() {
-        if (deleteMode) {
-          removeCandidateSets.clear();
-          renderSetList();
-          return;
-        }
-        selectedSets.clear();
-        saveSetsList();
-        renderSetList();
-      }
-
-      function removeSelectedSets() {
-        if (!deleteMode || removeCandidateSets.size === 0) return;
-        removeSets([...removeCandidateSets]);
-      }
-
-      function toggleDeleteMode() {
-        deleteMode = !deleteMode;
-        if (!deleteMode) {
-          removeCandidateSets.clear();
-        }
-        renderSetList();
-      }
-
-      function showUndoToast(message) {
-        const toast = document.getElementById("undo-toast");
-        const msgEl = document.getElementById("undo-message");
-        if (!toast || !msgEl) return;
-        msgEl.textContent = message;
-        toast.style.display = "flex";
-        if (undoTimeoutId) {
-          clearTimeout(undoTimeoutId);
-        }
-        undoTimeoutId = setTimeout(() => {
-          toast.style.display = "none";
-          lastRemovedSets = [];
-        }, 7000);
-      }
-
-      function undoLastRemoval() {
-        if (!lastRemovedSets || lastRemovedSets.length === 0) return;
-        lastRemovedSets.forEach((entry) => {
-          loadedSets[entry.setId] = entry.setData;
-          storage.setItem("fc_set_" + entry.setId, JSON.stringify(entry.setData));
-          if (entry.wasSelected) {
-            selectedSets.add(entry.setId);
-          }
-        });
-        const toast = document.getElementById("undo-toast");
-        if (toast) toast.style.display = "none";
-        if (undoTimeoutId) {
-          clearTimeout(undoTimeoutId);
-          undoTimeoutId = null;
-        }
-        removeCandidateSets.clear();
-        lastRemovedSets = [];
-        saveSetsList();
-        renderSetList();
-      }
-
-      function saveSetsList() {
-        storage.setItem(SETS_KEY, JSON.stringify(Object.keys(loadedSets)));
-        const selectedArr = Array.from(selectedSets);
-        storage.setItem("fc_selected_sets", JSON.stringify(selectedArr));
-      }
-
-      function renderSetList() {
-        const listEl = document.getElementById("set-list");
-        const setIds = Object.keys(loadedSets);
-        const setToolsEl = document.getElementById("set-list-tools");
-        const startBtn = document.getElementById("start-btn");
-        const removeSelectedBtn = document.getElementById("remove-selected-btn");
-        const deleteModeBtn = document.getElementById("delete-mode-btn");
-        const selectAllBtn = document.getElementById("select-all-btn");
-        const clearSelectionBtn = document.getElementById("clear-selection-btn");
-        const modeHint = document.getElementById("mode-hint");
-
-        if (setIds.length === 0) {
-          listEl.innerHTML = '<div class="set-item empty">Henüz set yüklenmedi.</div>';
-          if (setToolsEl) setToolsEl.style.display = "none";
-          if (startBtn) startBtn.disabled = true;
-          if (removeSelectedBtn) removeSelectedBtn.disabled = true;
-          return;
-        }
-
-        if (setToolsEl) setToolsEl.style.display = "flex";
-        if (startBtn) startBtn.disabled = selectedSets.size === 0;
-
-        if (deleteModeBtn) {
-          deleteModeBtn.textContent = deleteMode ? "Silme Modu: Açık" : "Silme Modu: Kapalı";
-          deleteModeBtn.className = deleteMode
-            ? "btn btn-small btn-danger"
-            : "btn btn-small btn-secondary";
-        }
-        if (selectAllBtn) {
-          selectAllBtn.textContent = deleteMode
-            ? "Silineceklerin Tümünü Seç"
-            : "Tümünü Derse Dahil Et";
-        }
-        if (clearSelectionBtn) {
-          clearSelectionBtn.textContent = deleteMode
-            ? "Silme Seçimini Temizle"
-            : "Ders Seçimini Temizle";
-        }
-        if (modeHint) {
-          modeHint.textContent = deleteMode
-            ? "Mod: Sileceğin setleri işaretliyorsun."
-            : "Mod: Derse dahil edilecek setleri seçiyorsun.";
-        }
-        if (removeSelectedBtn) {
-          removeSelectedBtn.disabled = !deleteMode || removeCandidateSets.size === 0;
-          removeSelectedBtn.textContent = `Seçilileri Kaldır (${removeCandidateSets.size})`;
-        }
-
-        listEl.innerHTML = "";
-        setIds.forEach(setId => {
-          const set = loadedSets[setId];
-          let know = 0,
-            review = 0,
-            dunno = 0,
-            total = set.cards.length;
-          set.cards.forEach((card, index) => {
-            const status = getAssessmentLevel(card, setId, index);
-            if (status === "know") know++;
-            else if (status === "review") review++;
-            else if (status === "dunno") dunno++;
-          });
-          const assessed = know + review + dunno;
-
-          const isSelected = deleteMode
-            ? removeCandidateSets.has(setId)
-            : selectedSets.has(setId);
-
-          const div = document.createElement("div");
-          div.className = "set-item";
-          div.innerHTML = `
-            <div class="set-info" onclick="toggleSetCheck('${setId}')">
-              <input type="checkbox" ${isSelected ? "checked" : ""} onclick="event.stopPropagation(); toggleSetCheck('${setId}')">
-              <div class="set-details">
-                <div class="set-title">${set.setName}</div>
-                <div class="set-stats">${total} kart — ${assessed}/${total} (%${total ? Math.round((assessed / total) * 100) : 0}) tamam</div>
+function renderEditorForm(draft) {
+  ensureEditorDraftUiState(draft);
+  return `<div class="editor-card-list">${draft.cards.map((card, index) => {
+    const isExpanded = draft.expandedCardId === card.id;
+    const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
+    const questionPreview = card.question?.trim() || "Soru eklenmedi.";
+    return `
+      <section class="editor-card ${isExpanded ? "is-open" : ""}">
+        <button type="button" class="editor-card-toggle" data-editor-toggle="${card.id}" aria-expanded="${isExpanded}">
+          <div class="editor-card-head">
+            <div class="editor-card-head-main">
+              <div class="editor-card-title">Kart ${index + 1}</div>
+              <div class="editor-card-question" data-editor-question-preview="${card.id}">${escapeMarkup(questionPreview)}</div>
+              <div class="editor-card-summary" data-editor-summary-preview="${card.id}">${escapeMarkup(summarizeMarkdownText(card.explanationMarkdown))}</div>
+            </div>
+            <div class="editor-card-head-side">
+              <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
+              <span class="editor-card-chevron" aria-hidden="true">${isExpanded ? "−" : "+"}</span>
+            </div>
+          </div>
+        </button>
+        <div class="editor-card-body ${isExpanded ? "" : "hidden"}">
+          <div class="field-group">
+            <label>Soru</label>
+            <textarea data-editor-field="question" data-card-id="${card.id}" style="min-height:90px;" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
+          </div>
+          <div class="editor-split">
+            <div>
+              <div class="field-group">
+                <label>Açıklama (Markdown)</label>
+                <textarea data-editor-field="answer" data-card-id="${card.id}" style="min-height:220px;" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
+              </div>
+              <div class="editor-toolbar-shell">
+                <div class="editor-toolbar editor-toolbar-primary">
+                  ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
+                  <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
+                </div>
+                <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
+                  ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
+                </div>
               </div>
             </div>
-            <div class="set-actions-row">
-              <button class="btn-delete-circle" title="Seti kaldır" onclick="deleteSet('${setId}')">-</button>
+            <div>
+              <div class="field-group">
+                <div class="editor-preview-head">
+                  <label>Canlı Önizleme</label>
+                  <span class="editor-preview-hint">Aşağı çekerek büyüt</span>
+                </div>
+                <div class="editor-preview" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+              </div>
             </div>
-          `;
-          listEl.appendChild(div);
-        });
+          </div>
+        </div>
+      </section>`;
+  }).join("")}</div>`;
+}
+
+const renderEditorRaw = (draft) => `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw">${draft.rawSource}</textarea></div>`;
+
+function applyMarkdownSnippet(textarea, action) {
+  const selectionStart = textarea.selectionStart;
+  const selectionEnd = textarea.selectionEnd;
+  const selectedText = textarea.value.slice(selectionStart, selectionEnd);
+  let replacement = selectedText || "metin";
+  let selectionOffsetStart = 0;
+  let selectionOffsetEnd = replacement.length;
+
+  if (action === "bold") {
+    replacement = `**${selectedText || "kalın metin"}**`;
+    selectionOffsetStart = 2;
+    selectionOffsetEnd = replacement.length - 2;
+  } else if (action === "italic") {
+    replacement = `*${selectedText || "italik metin"}*`;
+    selectionOffsetStart = 1;
+    selectionOffsetEnd = replacement.length - 1;
+  } else if (action === "critical") {
+    replacement = `==${selectedText || "kritik bilgi"}==`;
+    selectionOffsetStart = 2;
+    selectionOffsetEnd = replacement.length - 2;
+  } else if (action === "warning") {
+    replacement = `> ⚠️ ${selectedText || "Dikkat edilmesi gereken nokta"}`;
+    selectionOffsetStart = 5;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "quote") {
+    replacement = `> ${selectedText || "Alıntı veya not"}`;
+    selectionOffsetStart = 2;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "strike") {
+    replacement = `~~${selectedText || "üstü çizili metin"}~~`;
+    selectionOffsetStart = 2;
+    selectionOffsetEnd = replacement.length - 2;
+  } else if (action === "heading") {
+    replacement = `## ${selectedText || "Başlık"}`;
+    selectionOffsetStart = 3;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "bulletList") {
+    const lines = (selectedText || "Liste maddesi").split("\n").map((line) => line.trim() || "Liste maddesi");
+    replacement = lines.map((line) => `- ${line}`).join("\n");
+    selectionOffsetStart = 2;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "numberList") {
+    const lines = (selectedText || "Liste maddesi").split("\n").map((line) => line.trim() || "Liste maddesi");
+    replacement = lines.map((line, index) => `${index + 1}. ${line}`).join("\n");
+    selectionOffsetStart = 3;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "link") {
+    const label = selectedText || "bağlantı metni";
+    replacement = `[${label}](https://example.com)`;
+    selectionOffsetStart = replacement.indexOf("https://");
+    selectionOffsetEnd = selectionOffsetStart + "https://example.com".length;
+  } else if (action === "code") {
+    const codeText = selectedText || "kod";
+    if (codeText.includes("\n")) {
+      replacement = `\`\`\`\n${codeText}\n\`\`\``;
+      selectionOffsetStart = 4;
+      selectionOffsetEnd = 4 + codeText.length;
+    } else {
+      replacement = `\`${codeText}\``;
+      selectionOffsetStart = 1;
+      selectionOffsetEnd = replacement.length - 1;
+    }
+  } else if (action === "divider") {
+    replacement = "\n\n---\n\n";
+    selectionOffsetStart = replacement.length;
+    selectionOffsetEnd = replacement.length;
+  } else if (action === "table") {
+    replacement = "| Başlık | Değer |\n| --- | --- |\n| Satır | Açıklama |";
+    selectionOffsetStart = replacement.indexOf("Başlık");
+    selectionOffsetEnd = selectionOffsetStart + "Başlık".length;
+  }
+
+  textarea.setRangeText(replacement, selectionStart, selectionEnd, "end");
+  textarea.focus();
+  textarea.setSelectionRange(selectionStart + selectionOffsetStart, selectionStart + selectionOffsetEnd);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function syncEditorFieldFromTextarea(draft, textarea) {
+  const card = draft.cards.find((item) => item.id === textarea.getAttribute("data-card-id"));
+  if (!card) return;
+
+  if (textarea.getAttribute("data-editor-field") === "question") {
+    card.question = textarea.value;
+    const questionPreview = document.querySelector(`[data-editor-question-preview="${card.id}"]`);
+    if (questionPreview) questionPreview.textContent = card.question.trim() || "Soru eklenmedi.";
+  } else {
+    card.explanationMarkdown = textarea.value;
+    const preview = document.querySelector(`[data-editor-preview="${card.id}"]`);
+    if (preview) preview.innerHTML = renderAnswerMarkdown(card.explanationMarkdown);
+    const summaryPreview = document.querySelector(`[data-editor-summary-preview="${card.id}"]`);
+    if (summaryPreview) summaryPreview.textContent = summarizeMarkdownText(card.explanationMarkdown);
+  }
+
+  markDraftDirty(draft.setId, true);
+  renderEditorTabs();
+}
+
+function setFocusedEditorField(textarea) {
+  editorState.focusedField = {
+    setId: getCurrentEditorDraft()?.setId || null,
+    cardId: textarea.getAttribute("data-card-id"),
+    field: textarea.getAttribute("data-editor-field"),
+  };
+}
+
+function getFocusedEditorFieldElement() {
+  const focusedField = editorState.focusedField;
+  if (!focusedField || focusedField.setId !== getCurrentEditorDraft()?.setId) return null;
+  return document.querySelector(`[data-editor-field="${focusedField.field}"][data-card-id="${focusedField.cardId}"]`);
+}
+
+function applyEditorHistoryAction(draft, action) {
+  const textarea = getFocusedEditorFieldElement();
+  if (!textarea) {
+    showEditorStatus("Geri al / ileri al için önce bir metin alanına tıkla.", "error");
+    return;
+  }
+
+  textarea.focus();
+  if (typeof document.execCommand === "function") {
+    document.execCommand(action === "undo" ? "undo" : "redo");
+    queueMicrotask(() => syncEditorFieldFromTextarea(draft, textarea));
+    return;
+  }
+
+  showEditorStatus("Tarayıcı bu geri al / ileri al kısayolunu desteklemiyor.", "error");
+}
+
+function bindEditorEvents(draft) {
+  document.querySelectorAll("[data-editor-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const cardId = button.getAttribute("data-editor-toggle");
+      draft.expandedCardId = draft.expandedCardId === cardId ? null : cardId;
+      if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== draft.expandedCardId) {
+        draft.toolbarExpandedCardId = null;
       }
-
-      // ═══ LOCAL STORAGE ═══
-      function isAssessmentLevel(value) {
-        return value === "know" || value === "review" || value === "dunno";
+      renderEditor();
+    });
+  });
+  document.querySelectorAll("[data-preview-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const cardId = button.getAttribute("data-preview-toggle");
+      draft.expandedPreviewCardId = draft.expandedPreviewCardId === cardId ? null : cardId;
+      renderEditor();
+    });
+  });
+  document.querySelectorAll("[data-toolbar-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const cardId = button.getAttribute("data-toolbar-toggle");
+      draft.toolbarExpandedCardId = draft.toolbarExpandedCardId === cardId ? null : cardId;
+      renderEditor();
+    });
+  });
+  document.querySelectorAll('[data-editor-field="question"]').forEach((textarea) => {
+    textarea.addEventListener("focus", () => setFocusedEditorField(textarea));
+    textarea.addEventListener("click", () => setFocusedEditorField(textarea));
+    textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
+  });
+  document.querySelectorAll('[data-editor-field="answer"]').forEach((textarea) => {
+    textarea.addEventListener("focus", () => setFocusedEditorField(textarea));
+    textarea.addEventListener("click", () => setFocusedEditorField(textarea));
+    textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
+  });
+  document.querySelectorAll("[data-md-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.getAttribute("data-md-action");
+      if (action === "undo" || action === "redo") {
+        applyEditorHistoryAction(draft, action);
+        return;
       }
-
-      function migrateLegacyAssessmentsIfNeeded() {
-        const currentEntries = Object.entries(assessments || {});
-        if (currentEntries.length === 0) return false;
-
-        const modernEntries = {};
-        const legacyEntries = [];
-
-        currentEntries.forEach(([key, value]) => {
-          if (!isAssessmentLevel(value)) return;
-
-          if (key.startsWith("set:")) {
-            modernEntries[key] = value;
-            return;
-          }
-
-          if (/^c\d+$/.test(key)) {
-            legacyEntries.push([key, value]);
-            return;
-          }
-
-          modernEntries[key] = value;
-        });
-
-        const legacyToModernMap = new Map();
-        Object.entries(loadedSets).forEach(([setId, setData]) => {
-          if (!setData || !Array.isArray(setData.cards)) return;
-          setData.cards.forEach((card, index) => {
-            const legacyKey = legacyCardId(card);
-            const modernKey = buildCardKey(setId, card, index);
-            if (!legacyToModernMap.has(legacyKey)) {
-              legacyToModernMap.set(legacyKey, new Set());
-            }
-            legacyToModernMap.get(legacyKey).add(modernKey);
-          });
-        });
-
-        const migrated = { ...modernEntries };
-        let changed = false;
-
-        legacyEntries.forEach(([legacyKey, value]) => {
-          const matches = legacyToModernMap.get(legacyKey);
-          if (!matches || matches.size === 0) {
-            migrated[legacyKey] = value;
-            return;
-          }
-
-          changed = true;
-          matches.forEach((modernKey) => {
-            if (!(modernKey in migrated)) {
-              migrated[modernKey] = value;
-            }
-          });
-        });
-
-        const beforeSnapshot = JSON.stringify(assessments || {});
-        const afterSnapshot = JSON.stringify(migrated);
-        if (beforeSnapshot !== afterSnapshot) {
-          assessments = migrated;
-          changed = true;
-        }
-
-        return changed;
+      const cardId = button.getAttribute("data-card-id");
+      const textarea = document.querySelector(`[data-editor-field="answer"][data-card-id="${cardId}"]`);
+      if (textarea) {
+        setFocusedEditorField(textarea);
+        applyMarkdownSnippet(textarea, action);
       }
+    });
+  });
+  const rawInput = document.getElementById("editor-raw-input");
+  if (rawInput) {
+    rawInput.addEventListener("input", () => {
+      draft.rawSource = rawInput.value;
+      markDraftDirty(draft.setId, true);
+      renderEditorTabs();
+    });
+  }
+}
 
-      function saveState() {
-        storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
-        storage.setItem(AUTO_ADVANCE_KEY, autoAdvanceEnabled ? "1" : "0");
+function renderEditor() {
+  renderEditorTabs();
+  refreshEditorPills();
+  showEditorStatus("", "");
+  const panel = document.getElementById("editor-panel");
+  const draft = getCurrentEditorDraft();
+  if (!panel || !draft) {
+    if (panel) panel.innerHTML = "";
+    return;
+  }
+  ensureEditorDraftUiState(draft);
+  panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
+  bindEditorEvents(draft);
+}
 
-        const activeCard =
-          filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
-        const currentCardKey = activeCard ? getCardKey(activeCard) : null;
+function confirmLeaveEditor() {
+  return !Object.values(editorState.drafts).some((draft) => draft.dirty) || confirm("Kaydedilmemiş değişiklikler var. Editörden çıkmak istediğine emin misin?");
+}
 
-        const session = {
-          currentCardIndex,
-          currentCardKey: currentCardKey || null,
-          theme: document.getElementById("theme-toggle").checked ? "dark" : "light",
-          topic: document.getElementById("topic-select").value,
-          activeFilter,
-          autoAdvanceEnabled,
-        };
-        storage.setItem(SESSION_KEY, JSON.stringify(session));
+function closeEditor(force = false) {
+  if (!force && !confirmLeaveEditor()) return;
+  editorState = { isOpen: false, activeSetId: null, draftOrder: [], drafts: {}, focusedField: null };
+  showScreen("manager");
+}
+
+function openEditorForSelectedSets() {
+  const targetSetIds = [...selectedSets].filter((setId) => loadedSets[setId]);
+  if (!editMode || !targetSetIds.length) return;
+  editorState = {
+    isOpen: true,
+    activeSetId: targetSetIds[0],
+    draftOrder: targetSetIds,
+    drafts: Object.fromEntries(targetSetIds.map((setId) => [setId, createEditorDraft(loadedSets[setId])])),
+    focusedField: null,
+  };
+  showScreen("editor");
+  renderEditor();
+}
+
+async function toggleEditorViewMode() {
+  const draft = getCurrentEditorDraft();
+  if (!draft) return;
+  try {
+    if (draft.viewMode === "form") {
+      buildRawSourceFromDraft(draft);
+      draft.viewMode = "raw";
+    } else {
+      syncDraftFromRaw(draft);
+      draft.viewMode = "form";
+    }
+    renderEditor();
+  } catch (error) {
+    console.error(error);
+    showEditorStatus(error.message || "Raw içerik çözümlenemedi.", "error");
+  }
+}
+
+async function saveEditorDrafts() {
+  if (!editorState.draftOrder.length) return;
+  try {
+    showEditorStatus("Değişiklikler kaydediliyor...");
+    for (const setId of editorState.draftOrder) {
+      const draft = editorState.drafts[setId];
+      const previousRecord = loadedSets[setId];
+      const nextRecord = draft.viewMode === "raw"
+        ? parseSetText(
+            draft.rawSource,
+            previousRecord?.fileName || `${setId}.${draft.sourceFormat === "markdown" ? "md" : "json"}`,
+            previousRecord,
+            draft.sourceFormat,
+          )
+        : buildSetFromEditorDraft(draft, previousRecord);
+      nextRecord.rawSource = backfillRawSource(nextRecord);
+      cleanupAssessmentsForSet(nextRecord, previousRecord);
+      const savedRecord = await platformAdapter.saveSet(nextRecord);
+      loadedSets[savedRecord.id] = savedRecord;
+      const refreshedDraft = createEditorDraft(savedRecord, draft);
+      refreshedDraft.viewMode = draft.viewMode;
+      if (refreshedDraft.viewMode === "raw") refreshedDraft.rawSource = savedRecord.rawSource;
+      editorState.drafts[setId] = refreshedDraft;
+    }
+    setUserJson("assessments", assessments);
+    renderSetList();
+    renderEditor();
+    showEditorStatus("Değişiklikler kaydedildi.", "success");
+  } catch (error) {
+    console.error(error);
+    showEditorStatus(error.message || "Kaydetme sırasında hata oluştu.", "error");
+  }
+}
+
+function setAutoAdvance(isEnabled) {
+  autoAdvanceEnabled = Boolean(isEnabled);
+  syncAutoAdvanceToggleUI();
+  saveStudyState();
+}
+
+function formatBuildDate(isoDate) {
+  if (!isoDate) return "tarih-bilinmiyor";
+  const parsedDate = new Date(isoDate);
+  if (Number.isNaN(parsedDate.getTime())) return isoDate;
+  return parsedDate.toLocaleString("tr-TR", { hour12: false });
+}
+
+function shouldShowBuildMeta() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("buildMeta") === "1" || localStorage.getItem("show-build-meta") === "1";
+}
+
+function renderBuildMeta() {
+  const metaElement = document.getElementById("build-meta");
+  const buildInfo = window.__BUILD_INFO__;
+  if (!metaElement || !buildInfo || !shouldShowBuildMeta()) {
+    if (metaElement) {
+      metaElement.textContent = "";
+      metaElement.style.display = "none";
+    }
+    return;
+  }
+  metaElement.textContent = `Build ${buildInfo.version || "unknown"} (${buildInfo.commit || "nogit"}) | ${formatBuildDate(buildInfo.builtAt)} | ${buildInfo.source || "unknown"} | ${buildInfo.buildId || "unknown"}`;
+  metaElement.style.display = "block";
+}
+
+function initGoogleDrive() {
+  if (!window.google || !window.google.accounts || !window.gapi) {
+    setTimeout(initGoogleDrive, 500);
+    return;
+  }
+  gapi.load("picker", () => {
+    pickerApiLoaded = true;
+  });
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: DRIVE_CLIENT_ID,
+    scope: DRIVE_SCOPES,
+    callback: (tokenResponse) => {
+      if (tokenResponse?.access_token) {
+        driveAccessToken = tokenResponse.access_token;
+        launchDrivePicker();
       }
+    },
+  });
+}
 
-      function loadState() {
-        try {
-          let hasExplicitAutoAdvance = false;
-          const autoAdvanceRaw = storage.getItem(AUTO_ADVANCE_KEY);
-          if (autoAdvanceRaw === "0" || autoAdvanceRaw === "1") {
-            autoAdvanceEnabled = autoAdvanceRaw === "1";
-            hasExplicitAutoAdvance = true;
-          }
+function authGoogleDrive() {
+  if (!tokenClient || !pickerApiLoaded) {
+    alert("Google Drive entegrasyonu henüz hazır değil.");
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: "" });
+}
 
-          let hasModernAssessments = false;
-          const assRaw = storage.getItem(ASSESSMENTS_KEY);
-          if (assRaw) {
-            const parsedAssessments = JSON.parse(assRaw);
-            if (
-              parsedAssessments &&
-              typeof parsedAssessments === "object" &&
-              !Array.isArray(parsedAssessments)
-            ) {
-              assessments = parsedAssessments;
-              hasModernAssessments = true;
-            }
-          }
+function launchDrivePicker() {
+  if (window.__TAURI__?.core?.invoke) {
+    alert("Tauri masaüstü sürümünde Google Picker penceresi desteklenmiyor.");
+    return;
+  }
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes("application/json,text/markdown,text/plain");
+  const picker = new google.picker.PickerBuilder()
+    .addView(view)
+    .setOAuthToken(driveAccessToken)
+    .setDeveloperKey(DRIVE_API_KEY)
+    .setAppId(DRIVE_APP_ID)
+    .setCallback(pickerCallback)
+    .setTitle("Uygulamaya eklenecek seti seç")
+    .build();
+  picker.setVisible(true);
+}
 
-          // Backward compatibility migration from legacy state:
-          // only use legacy when modern key is missing.
-          if (!hasModernAssessments) {
-            const legacyStateRaw = storage.getItem("flashcards_state_v6");
-            if (legacyStateRaw) {
-              const legacyState = JSON.parse(legacyStateRaw);
-              if (
-                legacyState &&
-                legacyState.assessments &&
-                typeof legacyState.assessments === "object" &&
-                !Array.isArray(legacyState.assessments)
-              ) {
-                assessments = legacyState.assessments;
-                storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
-              }
-            }
-          }
+function pickerCallback(data) {
+  if (data.action === google.picker.Action.PICKED) {
+    const file = data.docs[0];
+    void downloadAndLoadDriveFile(file.id, file.name);
+  }
+}
 
-          const setsRaw = storage.getItem(SETS_KEY);
-          if (setsRaw) {
-            const setIds = JSON.parse(setsRaw);
-            setIds.forEach(id => {
-              const setRaw = storage.getItem("fc_set_" + id);
-              if (setRaw) {
-                loadedSets[id] = JSON.parse(setRaw);
-              }
-            });
-          }
-          
-          const selRaw = storage.getItem("fc_selected_sets");
-          if (selRaw) {
-            const selIds = JSON.parse(selRaw);
-            selIds.forEach(id => { if (loadedSets[id]) selectedSets.add(id); });
-          } else {
-            // default all to selected
-            Object.keys(loadedSets).forEach(id => selectedSets.add(id));
-          }
+async function downloadAndLoadDriveFile(fileId, fileName) {
+  try {
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`, {
+      headers: { Authorization: `Bearer ${driveAccessToken}` },
+    });
+    if (!response.ok) throw new Error(`İndirme hatası: ${response.statusText}`);
+    await importSetFromText(await response.text(), fileName);
+    showUndoToast(`"${fileName}" yüklendi.`);
+  } catch (error) {
+    console.error(error);
+    alert(`Drive dosyası yüklenemedi: ${error.message}`);
+  }
+}
 
-          if (migrateLegacyAssessmentsIfNeeded()) {
-            storage.setItem(ASSESSMENTS_KEY, JSON.stringify(assessments));
-          }
+function bindStaticEvents() {
+  document.getElementById("auth-signin-btn")?.addEventListener("click", () => void attemptAuth("signin"));
+  document.getElementById("auth-signup-btn")?.addEventListener("click", () => void attemptAuth("signup"));
+  document.getElementById("auth-demo-btn")?.addEventListener("click", () => void handleDemoAuth());
+  document.getElementById("sign-out-btn")?.addEventListener("click", () => void signOut());
+  document.getElementById("editor-back-btn")?.addEventListener("click", () => closeEditor());
+  document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
+  document.getElementById("editor-save-btn")?.addEventListener("click", () => void saveEditorDrafts());
+  document.getElementById("jump-input")?.addEventListener("keypress", (event) => {
+    if (event.key === "Enter") jumpToCard();
+  });
+  document.addEventListener("keydown", (event) => {
+    const tagName = event.target?.tagName;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && editorState.isOpen) {
+      event.preventDefault();
+      void saveEditorDrafts();
+      return;
+    }
+    if (tagName === "INPUT" || tagName === "SELECT" || tagName === "TEXTAREA") return;
+    if ((event.key === "f" || event.key === "F") && document.getElementById("app-container").style.display !== "none") {
+      event.preventDefault();
+      toggleFullscreen();
+      return;
+    }
+    if (event.key === "Escape" && isFullscreen) {
+      toggleFullscreen();
+      return;
+    }
+    if (event.key === "ArrowLeft") previousCard();
+    else if (event.key === "ArrowRight") nextCard();
+    else if (event.key === " ") {
+      event.preventDefault();
+      flipCard();
+    } else if (event.key === "1" && isFlipped) {
+      event.preventDefault();
+      assessCard("know");
+    } else if (event.key === "2" && isFlipped) {
+      event.preventDefault();
+      assessCard("review");
+    } else if (event.key === "3" && isFlipped) {
+      event.preventDefault();
+      assessCard("dunno");
+    } else if (event.key === "ArrowDown" && isFlipped) {
+      event.preventDefault();
+      document.querySelector(".card-back").scrollTop += 50;
+    } else if (event.key === "ArrowUp" && isFlipped) {
+      event.preventDefault();
+      document.querySelector(".card-back").scrollTop -= 50;
+    }
+  });
+  if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
+}
 
-          const sessRaw = storage.getItem(SESSION_KEY);
-          if (sessRaw) {
-            const session = JSON.parse(sessRaw);
-            if (session.theme === "dark") {
-              window.ThemeManager.setThemeState(true, {
-                primaryToggleId: "theme-toggle",
-                managerToggleId: "theme-toggle-manager",
-              });
-            }
-            if (session.activeFilter) activeFilter = session.activeFilter;
-            if (
-              !hasExplicitAutoAdvance &&
-              typeof session.autoAdvanceEnabled === "boolean"
-            ) {
-              autoAdvanceEnabled = session.autoAdvanceEnabled;
-            }
-          }
-          syncAutoAdvanceToggleUI();
-        } catch (e) {
-          console.error("State loading error:", e);
-        }
-      }
+function exposeWindowApi() {
+  Object.assign(window, {
+    assessCard,
+    authGoogleDrive,
+    clearSetSelection,
+    deleteSet,
+    filterByTopic,
+    flipCard,
+    handleFileSelect,
+    jumpToCard,
+    nextCard,
+    openEditorForSelectedSets,
+    previousCard,
+    printCards,
+    removeSelectedSets,
+    resetProgress,
+    selectAllSets,
+    setAutoAdvance,
+    setFilter,
+    showSetManager,
+    shuffleCards,
+    startStudy,
+    toggleDeleteMode,
+    toggleEditMode,
+    toggleFullscreen,
+    toggleSetCheck,
+    toggleTheme,
+    undoLastRemoval,
+  });
+}
 
-      // ═══ ASSESSMENT ═══
-      function assessCard(level) {
-        if (filteredFlashcards.length === 0) return;
-        const card = filteredFlashcards[cardOrder[currentCardIndex]];
-        const currentLevel = getAssessmentLevel(card);
-        const cardKey = getCardKey(card);
-        const legacyKey = legacyCardId(card);
-        const backupKey = legacyBackupKey(card);
-        const isToggleOff = currentLevel === level;
+async function bootstrap() {
+  renderBuildMeta();
+  window.ThemeManager.initThemeFromStorage({
+    storageKey: THEME_KEY,
+    storageApi: storage,
+    primaryToggleId: "theme-toggle",
+    managerToggleId: "theme-toggle-manager",
+  });
+  syncThemeToggleUI();
+  bindStaticEvents();
+  exposeWindowApi();
+  platformAdapter.subscribeAuthState((user, event) => {
+    void handleAuthStateChange(user, event);
+  });
+  initGoogleDrive();
+}
 
-        if (isToggleOff) {
-          if (cardKey) {
-            delete assessments[cardKey];
-          }
-          delete assessments[backupKey];
-          delete assessments[legacyKey];
-          updateAssessmentButtons(null);
-          updateScoreDisplay();
-          saveState();
-          return;
-        }
-
-        if (cardKey) {
-          assessments[cardKey] = level;
-          assessments[backupKey] = level;
-        } else {
-          assessments[backupKey] = level;
-          assessments[legacyKey] = level;
-        }
-        updateAssessmentButtons(level);
-        updateScoreDisplay();
-        saveState();
-        if (autoAdvanceEnabled) {
-          // auto-advance after a short delay
-          setTimeout(() => {
-            if (currentCardIndex < filteredFlashcards.length - 1) {
-              nextCard();
-            }
-          }, 400);
-        }
-      }
-
-      function updateAssessmentButtons(level) {
-        document
-          .querySelectorAll(".assess-btn")
-          .forEach((btn) => btn.classList.remove("selected"));
-        if (level) {
-          document.querySelectorAll(`.assess-btn.${level}`).forEach(btn => btn.classList.add("selected"));
-        }
-      }
-
-      function showAssessmentPanel(show) {
-        const panel = document.getElementById("assessment-panel");
-        const fsPanel = document.querySelector(".fullscreen-assessment-panel");
-        if (show) {
-          panel.classList.add("visible");
-          if (fsPanel) fsPanel.style.display = "flex";
-        } else {
-          panel.classList.remove("visible");
-          if (fsPanel) fsPanel.style.display = "none";
-        }
-      }
-
-      // ═══ SCORE DISPLAY ═══
-      function updateScoreDisplay() {
-        let know = 0,
-          review = 0,
-          dunno = 0;
-        allFlashcards.forEach((c) => {
-          const status = getAssessmentLevel(c);
-          if (status === "know") know++;
-          else if (status === "review") review++;
-          else if (status === "dunno") dunno++;
-        });
-        const total = allFlashcards.length;
-        const assessed = know + review + dunno;
-        const pct = total > 0 ? Math.round((assessed / total) * 100) : 0;
-        document.getElementById("score-know").textContent = know;
-        document.getElementById("score-review").textContent = review;
-        document.getElementById("score-dunno").textContent = dunno;
-        document.getElementById("score-percent").textContent =
-          `${assessed}/${total} (%${pct})`;
-
-        const knowPct = total > 0 ? (know / total) * 100 : 0;
-        const reviewPct = total > 0 ? (review / total) * 100 : 0;
-        const dunnoPct = total > 0 ? (dunno / total) * 100 : 0;
-
-        const knowFill = document.getElementById("progress-fill-know");
-        const reviewFill = document.getElementById("progress-fill-review");
-        const dunnoFill = document.getElementById("progress-fill-dunno");
-
-        if (knowFill) knowFill.style.width = `${knowPct}%`;
-        if (reviewFill) reviewFill.style.width = `${reviewPct}%`;
-        if (dunnoFill) dunnoFill.style.width = `${dunnoPct}%`;
-      }
-
-      // ═══ FILTER ═══
-      function setFilter(filter) {
-        const currentCard =
-          filteredFlashcards.length > 0
-            ? filteredFlashcards[cardOrder[currentCardIndex]]
-            : null;
-        const preferredCardKey = currentCard ? getCardKey(currentCard) : null;
-        const fallbackIndex = currentCardIndex;
-
-        activeFilter = filter;
-        applyAssessmentFilter({ preferredCardKey, fallbackIndex });
-        saveState();
-      }
-
-      function applyAssessmentFilter(options = {}) {
-        const preferredCardKey =
-          typeof options.preferredCardKey === "string" &&
-          options.preferredCardKey.length > 0
-            ? options.preferredCardKey
-            : null;
-        const fallbackIndex = Number.isInteger(options.fallbackIndex)
-          ? options.fallbackIndex
-          : null;
-
-        // update active button
-        document
-          .querySelectorAll(".filter-btn")
-          .forEach((btn) => btn.classList.remove("active"));
-        const labels = {
-          all: "📋 Tümü",
-          know: "✅ Biliyorum",
-          review: "🔄 Tekrar Göz At",
-          dunno: "❌ Bilmiyorum",
-          unanswered: "⬜ Değerlendirilmemiş",
-        };
-        document.querySelectorAll(".filter-btn").forEach((btn) => {
-          if (btn.textContent.trim() === labels[activeFilter])
-            btn.classList.add("active");
-        });
-
-        const selectedTopic = document.getElementById("topic-select").value;
-        let base =
-          selectedTopic === "hepsi"
-            ? [...allFlashcards]
-            : allFlashcards.filter((c) => c.subject === selectedTopic);
-
-        if (activeFilter === "know") {
-          filteredFlashcards = base.filter((c) => getAssessmentLevel(c) === "know");
-        } else if (activeFilter === "review") {
-          filteredFlashcards = base.filter(
-            (c) => getAssessmentLevel(c) === "review",
-          );
-        } else if (activeFilter === "dunno") {
-          filteredFlashcards = base.filter(
-            (c) => getAssessmentLevel(c) === "dunno",
-          );
-        } else if (activeFilter === "unanswered") {
-          filteredFlashcards = base.filter((c) => !getAssessmentLevel(c));
-        } else {
-          filteredFlashcards = base;
-        }
-
-        cardOrder = [...Array(filteredFlashcards.length).keys()];
-        let targetIndex = 0;
-        if (filteredFlashcards.length > 0) {
-          let resolvedIndex = -1;
-          if (preferredCardKey) {
-            resolvedIndex = filteredFlashcards.findIndex(
-              (card) => getCardKey(card) === preferredCardKey,
-            );
-          }
-          if (
-            resolvedIndex < 0 &&
-            Number.isInteger(fallbackIndex) &&
-            fallbackIndex >= 0 &&
-            fallbackIndex < filteredFlashcards.length
-          ) {
-            resolvedIndex = fallbackIndex;
-          }
-          targetIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
-        }
-        currentCardIndex = targetIndex;
-        document
-          .getElementById("jump-input")
-          .setAttribute("max", filteredFlashcards.length);
-        if (filteredFlashcards.length > 0) {
-          displayCard();
-        } else {
-          document.getElementById("question-text").textContent =
-            "Bu kategoride kart yok.";
-          document.getElementById("answer-text").innerHTML = "";
-          document.getElementById("card-counter").textContent = "0 / 0";
-          document.getElementById("subject-display-front").textContent = "";
-          showAssessmentPanel(false);
-        }
-        updateScoreDisplay();
-      }
-
-      function resetProgress() {
-        if (!confirm("Seçili set(ler)deki tüm ilerlemeniz sıfırlanacak. Emin misiniz?")) return;
-        
-        allFlashcards.forEach(card => {
-          const key = getCardKey(card);
-          delete assessments[key];
-        });
-        
-        activeFilter = "all";
-        applyAssessmentFilter();
-        updateScoreDisplay();
-        saveState();
-      }
-
-      // ═══ TOPIC FILTER ═══
-      function filterByTopic(resetFilter = true, options = {}) {
-        if (resetFilter) {
-          activeFilter = "all";
-        }
-        applyAssessmentFilter(options);
-      }
-
-      // ═══ DISPLAY ═══
-      function displayCard() {
-        if (filteredFlashcards.length === 0) return;
-        const card = filteredFlashcards[cardOrder[currentCardIndex]];
-        document.getElementById("question-text").textContent = card.q;
-        document.getElementById("answer-text").innerHTML = card.a;
-        document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
-        updateFullscreenCounter();
-        document.getElementById("subject-display-front").textContent =
-          card.subject;
-
-        document.getElementById("prev-btn").disabled = currentCardIndex === 0;
-        document.getElementById("next-btn").disabled =
-          currentCardIndex === filteredFlashcards.length - 1;
-
-        // reset flip
-        if (isFlipped) {
-          document.getElementById("flashcard").classList.remove("flipped");
-          isFlipped = false;
-        }
-        // hide assessment panel when showing front
-        showAssessmentPanel(false);
-        // highlight current assessment if any
-        const currentAssessment = getAssessmentLevel(card);
-        updateAssessmentButtons(currentAssessment || null);
-
-        saveState();
-      }
-
-      // ═══ FLIP ═══
-      
-      function toggleFullscreen() {
-        isFullscreen = !isFullscreen;
-        const container = document.querySelector('.card-container');
-        if (isFullscreen) {
-          container.classList.add('fullscreen-active');
-          document.body.style.overflow = 'hidden';
-          document.getElementById('fullscreen-toggle-btn').textContent = '✕';
-          document.getElementById('fullscreen-toggle-btn').title = 'Tam ekrandan çık (ESC / F)';
-        } else {
-          container.classList.remove('fullscreen-active');
-          document.body.style.overflow = 'auto';
-          document.getElementById('fullscreen-toggle-btn').textContent = '⛶';
-          document.getElementById('fullscreen-toggle-btn').title = 'Tam ekran (F)';
-        }
-        updateFullscreenCounter();
-        if (document.activeElement && document.activeElement.blur) {
-          document.activeElement.blur();
-        }
-      }
-
-      function updateFullscreenCounter() {
-        const fsCounter = document.getElementById("fullscreen-card-counter");
-        if (fsCounter) {
-          fsCounter.textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
-        }
-      }
-
-      function flipCard() {
-        const card = document.getElementById("flashcard");
-        card.classList.toggle("flipped");
-        isFlipped = !isFlipped;
-        showAssessmentPanel(isFlipped);
-      }
-
-      // ═══ NAVIGATION ═══
-      function previousCard() {
-        if (currentCardIndex > 0) {
-          currentCardIndex--;
-          displayCard();
-        }
-      }
-
-      function nextCard() {
-        if (currentCardIndex < filteredFlashcards.length - 1) {
-          currentCardIndex++;
-          displayCard();
-        }
-      }
-
-      function jumpToCard() {
-        const input = document.getElementById("jump-input");
-        const cardNum = parseInt(input.value);
-        if (cardNum >= 1 && cardNum <= filteredFlashcards.length) {
-          currentCardIndex = cardNum - 1;
-          displayCard();
-          input.value = "";
-        } else {
-          alert(
-            `Lütfen 1 ile ${filteredFlashcards.length} arasında bir sayı girin.`,
-          );
-        }
-      }
-
-      document
-        .getElementById("jump-input")
-        .addEventListener("keypress", function (e) {
-          if (e.key === "Enter") jumpToCard();
-        });
-
-      // ═══ THEME ═══
-      function toggleTheme(isChecked) {
-        window.ThemeManager.toggleTheme({
-          isChecked: isChecked,
-          primaryToggleId: "theme-toggle",
-          managerToggleId: "theme-toggle-manager",
-          onAfterToggle: () => saveState(),
-        });
-      }
-
-      // ═══ SHUFFLE ═══
-      function shuffleCards() {
-        if (filteredFlashcards.length === 0) return;
-        for (let i = cardOrder.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [cardOrder[i], cardOrder[j]] = [cardOrder[j], cardOrder[i]];
-        }
-        currentCardIndex = 0;
-        displayCard();
-      }
-
-      // ═══ PRINT ═══
-      function printCards() {
-        const statusIcons = { know: "✅", review: "🔄", dunno: "❌" };
-        let cardsHtml = "";
-        allFlashcards.forEach((card, i) => {
-          const status = getAssessmentLevel(card);
-          const badge = status
-            ? `<span style="float:right;font-size:18px">${statusIcons[status]}</span>`
-            : "";
-          cardsHtml += `
-                <div style="page-break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:20px 24px; margin-bottom:16px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                        <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${i + 1} — ${card.subject}</span>
-                        ${badge}
-                    </div>
-                    <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a; white-space: pre-line;">${card.q}</div>
-                    <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px; white-space: pre-line;">${card.a}</div>
-                </div>`;
-        });
-
-        let know = 0,
-          review = 0,
-          dunno = 0;
-        allFlashcards.forEach((c) => {
-          const s = getAssessmentLevel(c);
-          if (s === "know") know++;
-          else if (s === "review") review++;
-          else if (s === "dunno") dunno++;
-        });
-        const total = allFlashcards.length;
-        const assessed = know + review + dunno;
-        const pct = total > 0 ? Math.round((assessed / total) * 100) : 0;
-
-        const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
-            <title>Flashcards — Yazdır</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width:800px; margin:0 auto; padding:30px 20px; color:#21302a; }
-                h1 { font-size:22px; margin-bottom:4px; }
-                .summary { font-size:14px; color:#5f6d66; margin-bottom:20px; padding-bottom:15px; border-bottom:2px solid #2f7a56; }
-                @media print { body { padding:10px; } }
-            </style></head><body>
-            <h1>Flashcards</h1>
-            <div class="summary">Toplam: ${total} kart &nbsp;|&nbsp; ✅ ${know} &nbsp; 🔄 ${review} &nbsp; ❌ ${dunno} &nbsp;|&nbsp; İlerleme: %${pct}</div>
-            ${cardsHtml}
-            </body></html>`;
-
-        const w = window.open("", "_blank");
-        w.document.write(html);
-        w.document.close();
-        w.onload = () => w.print();
-      }
-
-      // ═══ KEYBOARD ═══
-      document.addEventListener("keydown", function (e) {
-        // skip if typing in input
-        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
-          return;
-                if (e.key === 'f' || e.key === 'F') {
-          if (document.getElementById("app-container").style.display !== 'none') {
-            e.preventDefault();
-            toggleFullscreen();
-            return;
-          }
-        }
-        if (e.key === 'Escape' && isFullscreen) {
-            toggleFullscreen();
-            return;
-        }
-        if (e.key === "ArrowLeft") {
-          previousCard();
-        } else if (e.key === "ArrowRight") {
-          nextCard();
-        } else if (e.key === " ") {
-          e.preventDefault();
-          flipCard();
-        } else if (e.key === "1" && isFlipped) {
-          e.preventDefault();
-          assessCard("know");
-        } else if (e.key === "2" && isFlipped) {
-          e.preventDefault();
-          assessCard("review");
-        } else if (e.key === "3" && isFlipped) {
-          e.preventDefault();
-          assessCard("dunno");
-        } else if (e.key === "ArrowDown" && isFlipped) {
-          e.preventDefault();
-          document.querySelector(".card-back").scrollTop += 50;
-        } else if (e.key === "ArrowUp" && isFlipped) {
-          e.preventDefault();
-          document.querySelector(".card-back").scrollTop -= 50;
-        }
-      });
-
-      function formatBuildDate(isoDate) {
-        if (!isoDate) return "tarih-bilinmiyor";
-        const parsed = new Date(isoDate);
-        if (Number.isNaN(parsed.getTime())) return isoDate;
-        return parsed.toLocaleString("tr-TR", { hour12: false });
-      }
-
-      function shouldShowBuildMeta() {
-        const params = new URLSearchParams(window.location.search);
-        return (
-          params.get("buildMeta") === "1" ||
-          localStorage.getItem("show-build-meta") === "1"
-        );
-      }
-
-      function renderBuildMeta() {
-        const metaEl = document.getElementById("build-meta");
-        if (!metaEl) return;
-
-        if (!shouldShowBuildMeta()) {
-          metaEl.textContent = "";
-          metaEl.style.display = "none";
-          return;
-        }
-
-        const buildInfo = window.__BUILD_INFO__;
-        if (!buildInfo || typeof buildInfo !== "object") {
-          metaEl.textContent = "";
-          metaEl.style.display = "none";
-          return;
-        }
-
-        const version = buildInfo.version || "unknown";
-        const commit = buildInfo.commit || "nogit";
-        const buildId = buildInfo.buildId || `${version}-${commit}`;
-        const source = buildInfo.source || "unknown";
-        const builtAt = formatBuildDate(buildInfo.builtAt);
-
-        metaEl.textContent =
-          `Build ${version} (${commit}) | ${builtAt} | ${source} | ${buildId}`;
-        metaEl.style.display = "block";
-      }
-
-      // ═══ INIT ═══
-      
-      // ═══ GOOGLE DRIVE INTEGRATION ═══
-      const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
-      const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
-      const DRIVE_APP_ID = "102976125468";
-      const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.readonly";
-
-      let tokenClient;
-      let driveAccessToken = null;
-      let pickerApiLoaded = false;
-
-      function initGoogleDrive() {
-        if (!window.google || !window.google.accounts || !window.gapi) {
-          setTimeout(initGoogleDrive, 500);
-          return;
-        }
-        
-        gapi.load('picker', () => {
-          pickerApiLoaded = true;
-        });
-
-        tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: DRIVE_CLIENT_ID,
-          scope: DRIVE_SCOPES,
-          callback: (tokenResponse) => {
-            if (tokenResponse && tokenResponse.access_token) {
-              driveAccessToken = tokenResponse.access_token;
-              launchDrivePicker();
-            }
-          },
-        });
-      }
-
-      function authGoogleDrive() {
-        if (!tokenClient || !pickerApiLoaded) {
-          alert("Google hesap servisleri henüz yüklenmedi veya bağlantı hatası var.");
-          return;
-        }
-        tokenClient.requestAccessToken({ prompt: '' });
-      }
-
-      function launchDrivePicker() {
-        if (window.__TAURI__) {
-             alert("Tauri (masaüstü) versiyonunda Google Picker penceresi desteklenmiyor.");
-             return;
-        }
-        const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-          .setMimeTypes('application/json,text/markdown,text/plain');
-        const picker = new google.picker.PickerBuilder()
-          .addView(view)
-          .setOAuthToken(driveAccessToken)
-          .setDeveloperKey(DRIVE_API_KEY)
-          .setAppId(DRIVE_APP_ID)
-          .setCallback(pickerCallback)
-          .setTitle('Uygulamaya eklenecek seti seçin (.json, .md)')
-          .build();
-        picker.setVisible(true);
-      }
-
-      function pickerCallback(data) {
-        if (data.action === google.picker.Action.PICKED) {
-          const file = data.docs[0];
-          downloadAndLoadDriveFile(file.id, file.name);
-        }
-      }
-
-      async function downloadAndLoadDriveFile(fileId, fileName) {
-        try {
-          const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${DRIVE_API_KEY}`, {
-            headers: {
-              'Authorization': `Bearer ${driveAccessToken}`
-            }
-          });
-          if (!response.ok) throw new Error("İndirme Hatası: " + response.statusText);
-          const text = await response.text();
-          let data;
-          if (fileName.endsWith('.md') || fileName.endsWith('.txt')) {
-            data = parseMarkdownToFlashcards(text, fileName);
-          } else {
-            const cleanText = text.replace(/,\s*([\}\]])/g, "$1");
-            data = JSON.parse(cleanText);
-          }
-          const setId = fileName.replace(/\.[^/.]+$/, "");
-          loadedSets[setId] = {
-            setName: data.setName || setId,
-            cards: data.cards || [],
-            fileName: fileName
-          };
-          selectedSets.add(setId);
-          storage.setItem("fc_set_" + setId, JSON.stringify(loadedSets[setId]));
-          saveSetsList();
-          renderSetList();
-          showUndoToast(`"${fileName}" yüklendi!`);
-        } catch (e) {
-          console.error(e);
-          alert("İndirme hatası: " + e.message);
-        }
-      }
-      function populateTopicFilter() {
-        const select = document.getElementById("topic-select");
-        const subjects = [...new Set(allFlashcards.map((c) => c.subject))];
-        select.innerHTML = '<option value="hepsi">Tüm Başlıklar</option>';
-        subjects.forEach((subject) => {
-          const option = document.createElement("option");
-          option.value = subject;
-          option.textContent = subject;
-          select.appendChild(option);
-        });
-      }
-
-      // Initialization routine
-      renderBuildMeta();
-      loadState();
-      showSetManager();
-      initGoogleDrive();
+bootstrap().catch((error) => {
+  console.error(error);
+  showAuthStatus(error.message || "Uygulama başlatılamadı.", "error");
+  showScreen("auth");
+  markAppReady();
+});

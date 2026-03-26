@@ -9,6 +9,7 @@
     "beforeBuildCommand": "node build.mjs"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Pediatri Flashcards",

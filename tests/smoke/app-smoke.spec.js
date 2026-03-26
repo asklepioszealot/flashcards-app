@@ -2,6 +2,14 @@ const path = require("path");
 const { pathToFileURL } = require("url");
 const { test, expect } = require("playwright/test");
 
+const APP_NAMESPACE = "fc_v2";
+const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
+const DEMO_USER = {
+  id: "demo-demo-local-flashcards",
+  email: "demo@local.flashcards",
+  provider: "demo",
+};
+
 function appUrl() {
   const indexPath = path.resolve(process.cwd(), "dist", "index.html");
   return pathToFileURL(indexPath).toString();
@@ -15,6 +23,32 @@ function legacyCardId(question) {
   return `c${Math.abs(h)}`;
 }
 
+function userScopedKey(userId, key) {
+  return `${APP_NAMESPACE}::user::${userId}::${key}`;
+}
+
+function normalizeSetForSeed(setId, setData) {
+  const fileName = setData.fileName || `${setId}.json`;
+  const sourceFormat =
+    setData.sourceFormat || (/\.(md|txt)$/i.test(fileName) ? "markdown" : "json");
+
+  return {
+    id: setId,
+    slug: setData.slug || setId,
+    setName: setData.setName || setId,
+    fileName,
+    sourceFormat,
+    rawSource: setData.rawSource || "",
+    cards: (setData.cards || []).map((card, index) => ({
+      id: card.id || `${setId}-card-${index + 1}`,
+      q: card.q,
+      a: card.a,
+      subject: card.subject || "Genel",
+    })),
+    updatedAt: setData.updatedAt || new Date().toISOString(),
+  };
+}
+
 async function clearStorage(page) {
   await page.goto(appUrl());
   await page.evaluate(() => localStorage.clear());
@@ -24,32 +58,56 @@ async function clearStorage(page) {
 async function seedLocalSets(page, { sets, selectedSetIds, assessments, session }) {
   await page.goto(appUrl());
   await page.evaluate(
-    ({ sets, selectedSetIds, assessments, session }) => {
+    ({ sets, selectedSetIds, assessments, session, demoUser, mockSessionKey, appNamespace }) => {
       localStorage.clear();
-      Object.entries(sets).forEach(([setId, setData]) => {
-        localStorage.setItem(`fc_set_${setId}`, JSON.stringify(setData));
-      });
+      localStorage.setItem(mockSessionKey, JSON.stringify(demoUser));
       const loadedSetIds = Object.keys(sets);
-      localStorage.setItem("fc_loaded_sets", JSON.stringify(loadedSetIds));
       localStorage.setItem(
-        "fc_selected_sets",
+        `${appNamespace}::user::${demoUser.id}::set_records`,
+        JSON.stringify(Object.entries(sets).map(([setId, setData]) => ({ ...setData, id: setId }))),
+      );
+      localStorage.setItem(
+        `${appNamespace}::user::${demoUser.id}::selected_sets`,
         JSON.stringify(selectedSetIds || loadedSetIds),
       );
       if (assessments) {
-        localStorage.setItem("fc_assessments", JSON.stringify(assessments));
+        localStorage.setItem(
+          `${appNamespace}::user::${demoUser.id}::assessments`,
+          JSON.stringify(assessments),
+        );
       }
       if (session) {
-        localStorage.setItem("fc_session", JSON.stringify(session));
+        localStorage.setItem(
+          `${appNamespace}::user::${demoUser.id}::session`,
+          JSON.stringify(session),
+        );
       }
     },
     {
-      sets,
+      sets: Object.fromEntries(
+        Object.entries(sets).map(([setId, setData]) => [
+          setId,
+          normalizeSetForSeed(setId, setData),
+        ]),
+      ),
       selectedSetIds,
       assessments,
       session,
+      demoUser: DEMO_USER,
+      mockSessionKey: MOCK_SESSION_KEY,
+      appNamespace: APP_NAMESPACE,
     },
   );
   await page.reload();
+}
+
+async function continueWithDemo(page) {
+  await page.goto(appUrl());
+  const authScreen = page.locator("#auth-screen");
+  if (await authScreen.isVisible()) {
+    await page.locator("#auth-demo-btn").click();
+  }
+  await expect(page.locator("#set-manager")).toBeVisible();
 }
 
 async function loadFixtureAndStart(page) {
@@ -61,6 +119,7 @@ async function loadFixtureAndStart(page) {
   );
 
   await clearStorage(page);
+  await continueWithDemo(page);
   await page.setInputFiles("#file-picker", fixturePath);
   await page.locator("#start-btn").click();
 }
@@ -108,6 +167,10 @@ test.describe("Flashcards smoke", () => {
 
     await clearStorage(page);
 
+    await expect(page.locator("#auth-screen")).toBeVisible();
+    await expect(page.locator("#auth-demo-btn")).toBeVisible();
+    await page.locator("#auth-demo-btn").click();
+
     const setManager = page.locator("#set-manager");
     const appContainer = page.locator("#app-container");
     const startButton = page.locator("#start-btn");
@@ -145,6 +208,43 @@ test.describe("Flashcards smoke", () => {
     await expect(appContainer).toBeVisible();
     await expect(setManager).toBeHidden();
     await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
+  });
+
+  test("edit mode opens separate editor and saves question text", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        editor: {
+          setName: "Editor Demo",
+          fileName: "editor-demo.md",
+          sourceFormat: "markdown",
+          rawSource: "# Editor Demo\n\n### İlk soru\n\nAçıklama satırı",
+          cards: [{ id: "card-1", q: "İlk soru", a: "Açıklama satırı", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: ["editor"],
+    });
+
+    await expect(page.locator("#set-manager")).toBeVisible();
+    await page.locator("#edit-mode-btn").click();
+    await expect(page.locator("#edit-selected-btn")).toBeEnabled();
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+    await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
+
+    const questionInput = page.locator('[data-editor-field="question"]').first();
+    await questionInput.fill("Düzenlenmiş soru");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    await page.locator("#editor-back-btn").click();
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#question-text")).toHaveText("Düzenlenmiş soru");
+
+    await page.reload();
+    await expect(page.locator("#set-manager")).toBeVisible();
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#question-text")).toHaveText("Düzenlenmiş soru");
   });
 
   test("subject label is only under the card, not next to the counter", async ({
@@ -402,7 +502,7 @@ test.describe("Flashcards smoke", () => {
     const migratedAssessments = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
     );
-    expect(migratedAssessments["set:legacy::idx:0"]).toBe("review");
+    expect(migratedAssessments["set:legacy::id:legacy-card-1"]).toBe("review");
   });
 
   test("legacy state does not overwrite modern assessments on refresh", async ({
@@ -417,7 +517,7 @@ test.describe("Flashcards smoke", () => {
         },
       },
       selectedSetIds: ["stable"],
-      assessments: { "set:stable::idx:0": "know" },
+      assessments: { "set:stable::id:stable-card-1": "know" },
     });
 
     await page.evaluate(() => {
@@ -434,7 +534,7 @@ test.describe("Flashcards smoke", () => {
     const snapshot = await page.evaluate(() =>
       JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
     );
-    expect(snapshot["set:stable::idx:0"]).toBe("know");
+    expect(snapshot["set:stable::id:stable-card-1"]).toBe("know");
   });
 test("fullscreen toggle works and card navigation remains functional", async ({ page }) => {
     await loadFixtureAndStart(page);
