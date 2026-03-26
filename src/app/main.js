@@ -4,6 +4,7 @@ import {
   backfillRawSource,
   buildEditorDraft,
   buildSetFromEditorDraft,
+  generateId,
   normalizeSetRecord,
   parseSetText,
   renderAnswerMarkdown,
@@ -1129,74 +1130,64 @@ function getEditorActiveCard(draft) {
   return draft.cards[draft.activeCardIndex] || null;
 }
 
+function setEditorActiveCardIndex(draft, index) {
+  ensureEditorDraftUiState(draft);
+  if (!draft.cards.length) {
+    draft.activeCardIndex = 0;
+    return;
+  }
+  draft.activeCardIndex = Math.min(Math.max(index, 0), draft.cards.length - 1);
+  draft.expandedCardId = null;
+  draft.toolbarExpandedCardId = null;
+}
+
+function setEditorActiveCardById(draft, cardId) {
+  const targetIndex = draft.cards.findIndex((card) => card.id === cardId);
+  if (targetIndex < 0) return;
+  setEditorActiveCardIndex(draft, targetIndex);
+}
+
 function queueEditorCardScroll(cardId) {
   editorState.pendingScrollCardId = cardId || null;
 }
 
-function openEditorCardAtIndex(draft, index, { scrollIntoView = false } = {}) {
-  ensureEditorDraftUiState(draft);
-  if (!draft.cards.length) return;
-  const safeIndex = Math.min(Math.max(index, 0), draft.cards.length - 1);
-  const targetCard = draft.cards[safeIndex];
-  if (!targetCard) return;
-  draft.activeCardIndex = safeIndex;
-  draft.expandedCardId = targetCard.id;
-  if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== targetCard.id) {
-    draft.toolbarExpandedCardId = null;
-  }
-  if (scrollIntoView) {
-    queueEditorCardScroll(targetCard.id);
-  }
+function addEditorCard(draft) {
+  const activeCard = getEditorActiveCard(draft);
+  const nextCard = {
+    id: generateId("card"),
+    subject: activeCard?.subject || draft.setName || "Genel",
+    question: "",
+    explanationMarkdown: "",
+  };
+  draft.cards.push(nextCard);
+  setEditorActiveCardIndex(draft, draft.cards.length - 1);
+  editorState.focusedField = {
+    setId: draft.setId,
+    cardId: nextCard.id,
+    field: "question",
+  };
+  markDraftDirty(draft.setId, true);
 }
 
-function toggleEditorCardExpansion(draft, cardId) {
+function deleteEditorCard(draft, cardId) {
   const targetIndex = draft.cards.findIndex((card) => card.id === cardId);
   if (targetIndex < 0) return;
-  draft.activeCardIndex = targetIndex;
-  const willClose = draft.expandedCardId === cardId;
-  draft.expandedCardId = willClose ? null : cardId;
-  if (draft.toolbarExpandedCardId && draft.toolbarExpandedCardId !== draft.expandedCardId) {
-    draft.toolbarExpandedCardId = null;
-  }
-  if (!willClose) {
-    queueEditorCardScroll(cardId);
-  }
-}
 
-function setEditorFormLayoutMode(draft, mode) {
-  ensureEditorDraftUiState(draft);
-  if ((mode !== "list" && mode !== "single") || draft.formLayoutMode === mode) return;
-  draft.formLayoutMode = mode;
-  const activeCard = getEditorActiveCard(draft);
-  if (!activeCard) {
+  draft.cards.splice(targetIndex, 1);
+  if (editorState.focusedField?.cardId === cardId) {
+    editorState.focusedField = null;
+  }
+  if (!draft.cards.length) {
+    draft.activeCardIndex = 0;
+    draft.toolbarExpandedCardId = null;
     draft.expandedCardId = null;
+    markDraftDirty(draft.setId, true);
     return;
   }
-  draft.expandedCardId = activeCard.id;
-  if (mode === "list") {
-    queueEditorCardScroll(activeCard.id);
-  }
-}
 
-function moveEditorCardSelection(draft, delta) {
-  if (!draft.cards.length) return;
-  const nextIndex = Math.min(Math.max(draft.activeCardIndex + delta, 0), draft.cards.length - 1);
-  openEditorCardAtIndex(draft, nextIndex, { scrollIntoView: draft.formLayoutMode === "list" });
-}
-
-function jumpEditorToCard(draft, rawValue) {
-  if (!draft.cards.length) {
-    return { ok: false, message: "Bu sette kart yok." };
-  }
-  const nextValue = Number.parseInt(String(rawValue || "").trim(), 10);
-  if (!Number.isInteger(nextValue)) {
-    return { ok: false, message: "Geçerli bir kart numarası gir." };
-  }
-  if (nextValue < 1 || nextValue > draft.cards.length) {
-    return { ok: false, message: `Kart numarası 1 ile ${draft.cards.length} arasında olmalı.` };
-  }
-  openEditorCardAtIndex(draft, nextValue - 1, { scrollIntoView: draft.formLayoutMode === "list" });
-  return { ok: true };
+  const nextIndex = targetIndex >= draft.cards.length ? draft.cards.length - 1 : targetIndex;
+  setEditorActiveCardIndex(draft, nextIndex);
+  markDraftDirty(draft.setId, true);
 }
 
 function refreshEditorPills() {
@@ -1292,146 +1283,110 @@ function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
-function renderEditorFormControls(draft) {
-  const totalCards = draft.cards.length;
-  const currentCardNumber = totalCards ? draft.activeCardIndex + 1 : 0;
-  const canMovePrevious = totalCards > 0 && draft.activeCardIndex > 0;
-  const canMoveNext = totalCards > 0 && draft.activeCardIndex < totalCards - 1;
-  const navigationMarkup = draft.formLayoutMode === "single"
-    ? `
-      <div class="editor-nav-controls">
-        <div class="editor-nav-buttons">
-          <button type="button" class="btn btn-small btn-secondary" id="editor-prev-btn" ${canMovePrevious ? "" : "disabled"}>Önceki</button>
-          <div class="editor-nav-counter" id="editor-card-counter">${currentCardNumber} / ${totalCards}</div>
-          <button type="button" class="btn btn-small btn-secondary" id="editor-next-btn" ${canMoveNext ? "" : "disabled"}>Sonraki</button>
-        </div>
-        <div class="editor-jump-controls">
-          <input
-            id="editor-jump-input"
-            class="editor-jump-input"
-            type="number"
-            min="1"
-            max="${Math.max(totalCards, 1)}"
-            value="${currentCardNumber || ""}"
-            inputmode="numeric"
-            placeholder="#"
-            ${totalCards ? "" : "disabled"}
-          />
-          <button type="button" class="btn btn-small btn-secondary" id="editor-jump-btn" ${totalCards ? "" : "disabled"}>Git</button>
-        </div>
-      </div>`
-    : "";
+function renderEditorCardList(draft) {
+  const itemsMarkup = draft.cards.length
+    ? draft.cards
+        .map((card, index) => {
+          const questionPreview = card.question.trim() || "Yeni kart";
+          const isActiveCard = draft.activeCardIndex === index;
+          return `
+            <div class="editor-list-row">
+              <button
+                type="button"
+                class="editor-list-select ${isActiveCard ? "active" : ""}"
+                data-editor-select-card="${card.id}"
+                aria-pressed="${isActiveCard}"
+              >
+                <span class="editor-list-index">Kart ${index + 1}</span>
+                <span class="editor-list-question" data-editor-list-question="${card.id}">${escapeMarkup(questionPreview)}</span>
+              </button>
+              <button
+                type="button"
+                class="editor-list-delete"
+                data-editor-delete-card="${card.id}"
+                aria-label="Kart ${index + 1} sil"
+                title="Kartı sil"
+              >×</button>
+            </div>`;
+        })
+        .join("")
+    : `<div class="editor-list-empty">Bu sette henüz kart yok.</div>`;
 
   return `
-    <div class="editor-form-controls">
-      <div class="editor-layout-toggle" role="tablist" aria-label="Form görünümü">
-        <button
-          type="button"
-          class="editor-layout-btn ${draft.formLayoutMode === "list" ? "active" : ""}"
-          id="editor-layout-list-btn"
-          data-editor-layout="list"
-          aria-pressed="${draft.formLayoutMode === "list"}"
-        >Liste</button>
-        <button
-          type="button"
-          class="editor-layout-btn ${draft.formLayoutMode === "single" ? "active" : ""}"
-          id="editor-layout-single-btn"
-          data-editor-layout="single"
-          aria-pressed="${draft.formLayoutMode === "single"}"
-        >Tek Kart</button>
+    <aside class="editor-list-panel">
+      <div class="editor-list-header">
+        <div>
+          <div class="editor-list-title">Kartlar</div>
+          <div class="editor-list-subtitle">Düzenlemek için soldan bir soru seç.</div>
+        </div>
+        <button type="button" class="btn btn-small" id="editor-add-card-btn">Kart Ekle</button>
       </div>
-      ${navigationMarkup}
-    </div>`;
+      <div class="editor-list-items">
+        ${itemsMarkup}
+      </div>
+    </aside>`;
 }
 
-function renderEditorCardSection(draft, card, index, { interactive } = { interactive: true }) {
-  const isActiveCard = draft.activeCardIndex === index;
-  const isExpanded = interactive ? draft.expandedCardId === card.id : true;
+function renderEditorCardDetail(draft, card, index) {
   const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
-  const headerContent = `
-    <div class="editor-card-head-main">
-      <div class="editor-card-title">Kart ${index + 1}</div>
-    </div>`;
-  const toggleControl = interactive
-    ? `<button
-        type="button"
-        class="editor-card-toggle"
-        data-editor-toggle="${card.id}"
-        aria-expanded="${isExpanded}"
-      >${headerContent}</button>`
-    : `<div class="editor-card-toggle-static">${headerContent}</div>`;
-
   return `
-      <section
-        class="editor-card ${isExpanded ? "is-open" : ""} ${isActiveCard ? "is-active" : ""}"
-        data-editor-card-root="${card.id}"
-      >
-        <div class="editor-card-head">
-          ${toggleControl}
-          <div class="editor-card-head-side">
-            <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
-            ${
-              interactive
-                ? `<button
-                    type="button"
-                    class="editor-card-expand-btn"
-                    data-editor-toggle="${card.id}"
-                    aria-expanded="${isExpanded}"
-                    aria-label="Kart ${index + 1} ${isExpanded ? "daralt" : "genişlet"}"
-                  >${isExpanded ? "−" : "+"}</button>`
-                : ""
-            }
-          </div>
+    <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${card.id}">
+      <div class="editor-card-head">
+        <div class="editor-card-head-main">
+          <div class="editor-card-title">Kart ${index + 1}</div>
         </div>
-        <div class="editor-card-body ${isExpanded ? "" : "hidden"}" data-editor-card-body="${card.id}">
-          <div class="field-group">
-            <label>Soru</label>
-            <textarea data-editor-field="question" data-card-id="${card.id}" style="min-height:90px;" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
-          </div>
-          <div class="editor-split">
-            <div>
-              <div class="field-group">
-                <label>Açıklama (Markdown)</label>
-                <textarea data-editor-field="answer" data-card-id="${card.id}" style="min-height:220px;" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
-              </div>
-              <div class="editor-toolbar-shell">
-                <div class="editor-toolbar editor-toolbar-primary">
-                  ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
-                  <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
-                </div>
-                <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
-                  ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
-                </div>
-              </div>
+        <div class="editor-card-head-side">
+          <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
+        </div>
+      </div>
+      <div class="editor-card-body" data-editor-card-body="${card.id}">
+        <div class="field-group">
+          <label>Soru</label>
+          <textarea class="editor-input-compact" data-editor-field="question" data-card-id="${card.id}" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
+        </div>
+        <div class="editor-split">
+          <div>
+            <div class="field-group">
+              <label>Açıklama (Markdown)</label>
+              <textarea class="editor-input-compact" data-editor-field="answer" data-card-id="${card.id}" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
             </div>
-            <div>
-              <div class="field-group">
-                <div class="editor-preview-head">
-                  <label>Canlı Önizleme</label>
-                </div>
-                <div class="editor-preview" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+            <div class="editor-toolbar-shell">
+              <div class="editor-toolbar editor-toolbar-primary">
+                ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
+                <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
+              </div>
+              <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
+                ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
               </div>
             </div>
           </div>
+          <div>
+            <div class="field-group">
+              <div class="editor-preview-head">
+                <label>Canlı Önizleme</label>
+              </div>
+              <div class="editor-preview editor-preview-compact" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+            </div>
+          </div>
         </div>
-      </section>`;
+      </div>
+    </section>`;
 }
 
 function renderEditorForm(draft) {
   ensureEditorDraftUiState(draft);
-  const cardsMarkup = draft.formLayoutMode === "single"
-    ? (() => {
-        const activeCard = getEditorActiveCard(draft);
-        return activeCard
-          ? renderEditorCardSection(draft, activeCard, draft.activeCardIndex, { interactive: false })
-          : `<div class="editor-empty-state">Bu sette düzenlenecek kart bulunamadı.</div>`;
-      })()
-    : draft.cards.map((card, index) => renderEditorCardSection(draft, card, index, { interactive: true })).join("");
+  const activeCard = getEditorActiveCard(draft);
 
   return `
-    ${renderEditorFormControls(draft)}
-    <div class="editor-card-list editor-card-list--${draft.formLayoutMode}">
-      ${cardsMarkup}
+    <div class="editor-workspace">
+      ${renderEditorCardList(draft)}
+      <div class="editor-detail-panel">
+        ${
+          activeCard
+            ? renderEditorCardDetail(draft, activeCard, draft.activeCardIndex)
+            : `<div class="editor-empty-state">Kart ekleyerek düzenlemeye başlayabilirsin.</div>`
+        }
+      </div>
     </div>`;
 }
 
@@ -1521,14 +1476,12 @@ function syncEditorFieldFromTextarea(draft, textarea) {
 
   if (textarea.getAttribute("data-editor-field") === "question") {
     card.question = textarea.value;
-    const questionPreview = document.querySelector(`[data-editor-question-preview="${card.id}"]`);
-    if (questionPreview) questionPreview.textContent = card.question.trim() || "Soru eklenmedi.";
+    const questionPreview = document.querySelector(`[data-editor-list-question="${card.id}"]`);
+    if (questionPreview) questionPreview.textContent = card.question.trim() || "Yeni kart";
   } else {
     card.explanationMarkdown = textarea.value;
     const preview = document.querySelector(`[data-editor-preview="${card.id}"]`);
     if (preview) preview.innerHTML = renderAnswerMarkdown(card.explanationMarkdown);
-    const summaryPreview = document.querySelector(`[data-editor-summary-preview="${card.id}"]`);
-    if (summaryPreview) summaryPreview.textContent = summarizeMarkdownText(card.explanationMarkdown);
   }
 
   markDraftDirty(draft.setId, true);
@@ -1567,45 +1520,23 @@ function applyEditorHistoryAction(draft, action) {
 }
 
 function bindEditorEvents(draft) {
-  document.querySelectorAll("[data-editor-toggle]").forEach((button) => {
+  document.getElementById("editor-add-card-btn")?.addEventListener("click", () => {
+    addEditorCard(draft);
+    renderEditor();
+  });
+  document.querySelectorAll("[data-editor-select-card]").forEach((button) => {
     button.addEventListener("click", () => {
-      const cardId = button.getAttribute("data-editor-toggle");
-      toggleEditorCardExpansion(draft, cardId);
+      const cardId = button.getAttribute("data-editor-select-card");
+      setEditorActiveCardById(draft, cardId);
       renderEditor();
     });
   });
-  document.querySelectorAll("[data-editor-layout]").forEach((button) => {
+  document.querySelectorAll("[data-editor-delete-card]").forEach((button) => {
     button.addEventListener("click", () => {
-      const nextMode = button.getAttribute("data-editor-layout");
-      setEditorFormLayoutMode(draft, nextMode);
+      const cardId = button.getAttribute("data-editor-delete-card");
+      deleteEditorCard(draft, cardId);
       renderEditor();
     });
-  });
-  document.getElementById("editor-prev-btn")?.addEventListener("click", () => {
-    moveEditorCardSelection(draft, -1);
-    renderEditor();
-  });
-  document.getElementById("editor-next-btn")?.addEventListener("click", () => {
-    moveEditorCardSelection(draft, 1);
-    renderEditor();
-  });
-  document.getElementById("editor-jump-btn")?.addEventListener("click", () => {
-    const jumpResult = jumpEditorToCard(draft, document.getElementById("editor-jump-input")?.value);
-    if (!jumpResult.ok) {
-      showEditorStatus(jumpResult.message, "error");
-      return;
-    }
-    renderEditor();
-  });
-  document.getElementById("editor-jump-input")?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    const jumpResult = jumpEditorToCard(draft, event.currentTarget?.value);
-    if (!jumpResult.ok) {
-      showEditorStatus(jumpResult.message, "error");
-      return;
-    }
-    renderEditor();
   });
   document.querySelectorAll("[data-preview-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1664,6 +1595,14 @@ function flushEditorPendingScroll() {
   targetCard.scrollIntoView({ block: "nearest", behavior: "auto" });
 }
 
+function flushEditorFocusedField() {
+  const targetField = getFocusedEditorFieldElement();
+  if (!targetField) return;
+  targetField.focus();
+  const valueLength = targetField.value.length;
+  targetField.setSelectionRange(valueLength, valueLength);
+}
+
 function renderEditor() {
   renderEditorTabs();
   refreshEditorPills();
@@ -1678,6 +1617,7 @@ function renderEditor() {
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
   flushEditorPendingScroll();
+  flushEditorFocusedField();
 }
 
 function confirmLeaveEditor() {
