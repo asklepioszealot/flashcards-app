@@ -197,6 +197,7 @@ test.describe("Flashcards smoke", () => {
     await clearStorage(page);
 
     await expect(page.locator("#auth-screen")).toBeVisible();
+    await expect(page.locator("#theme-select-auth")).toBeVisible();
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
 
@@ -208,19 +209,24 @@ test.describe("Flashcards smoke", () => {
     await expect(setManager).toBeVisible();
     await expect(setManagerHint).toBeVisible();
     await expect(setManagerHint).toContainText("Space");
-    const themeToggleSwitch = page
-      .locator("#set-manager .toggle-switch")
-      .first();
-    await expect(themeToggleSwitch).toBeVisible();
+    const themeSelect = page.locator("#theme-select-manager");
+    await expect(themeSelect).toBeVisible();
 
-    await themeToggleSwitch.click();
+    await themeSelect.selectOption("dark");
     await expect
       .poll(async () =>
         page.evaluate(() => document.documentElement.getAttribute("data-theme")),
       )
       .toBe("dark");
 
-    await themeToggleSwitch.click();
+    await themeSelect.selectOption("ember");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => document.documentElement.getAttribute("data-theme")),
+      )
+      .toBe("ember");
+
+    await themeSelect.selectOption("light");
     await expect
       .poll(async () =>
         page.evaluate(() => document.documentElement.getAttribute("data-theme")),
