@@ -1342,13 +1342,13 @@ function renderEditorCardDetail(draft, card, index) {
       <div class="editor-card-body" data-editor-card-body="${card.id}">
         <div class="field-group">
           <label>Soru</label>
-          <textarea class="editor-input-compact" data-editor-field="question" data-card-id="${card.id}" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
+          <textarea class="editor-input-question" data-editor-field="question" data-card-id="${card.id}" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
         </div>
         <div class="editor-split">
           <div>
             <div class="field-group">
               <label>Açıklama (Markdown)</label>
-              <textarea class="editor-input-compact" data-editor-field="answer" data-card-id="${card.id}" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
+              <textarea class="editor-input-answer" data-editor-field="answer" data-card-id="${card.id}" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
             </div>
             <div class="editor-toolbar-shell">
               <div class="editor-toolbar editor-toolbar-primary">
@@ -1365,7 +1365,7 @@ function renderEditorCardDetail(draft, card, index) {
               <div class="editor-preview-head">
                 <label>Canlı Önizleme</label>
               </div>
-              <div class="editor-preview editor-preview-compact" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+              <div class="editor-preview editor-preview-answer" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
             </div>
           </div>
         </div>
