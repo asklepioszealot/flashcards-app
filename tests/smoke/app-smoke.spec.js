@@ -296,8 +296,8 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#edit-selected-btn").click();
     await expect(page.locator("#editor-screen")).toBeVisible();
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
+    await expect(page.locator("#editor-add-card-btn")).toBeVisible();
 
-    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
     const questionInput = page.locator('[data-editor-field="question"]').first();
     await questionInput.fill("Düzenlenmiş soru");
     await page.locator("#editor-save-btn").click();
@@ -319,7 +319,12 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#question-text")).toHaveText("Düzenlenmiş soru");
   });
 
-  test("editor supports list and single-card modes with navigation", async ({ page }) => {
+  test("editor uses a question list, preserves tables, and supports add/delete", async ({ page }) => {
+    const tableAnswerHtml = [
+      "<p>Laboratuvar değerlendirmesi:</p>",
+      '<div class="markdown-table-wrap"><table><thead><tr><th>Tetkik</th><th>Yorum</th></tr></thead><tbody><tr><td>Hemogram + periferik yayma</td><td>Lökopeni</td></tr><tr><td>CRP</td><td>Antibiyotik cevabını en iyi gösteren belirteç</td></tr></tbody></table></div>',
+    ].join("");
+
     await seedLocalSets(page, {
       sets: {
         editor: {
@@ -330,26 +335,29 @@ test.describe("Flashcards smoke", () => {
             "# Editor Navigation Demo",
             "",
             "### İlk soru",
+            "Konu: Konu 1",
             "",
-            "İlk cevap",
+            "Laboratuvar değerlendirmesi:",
+            "",
+            "| Tetkik | Yorum |",
+            "| --- | --- |",
+            "| Hemogram + periferik yayma | Lökopeni |",
+            "| CRP | Antibiyotik cevabını en iyi gösteren belirteç |",
             "",
             "### İkinci soru",
+            "Konu: Konu 2",
             "",
             "İkinci cevap",
             "",
             "### Üçüncü soru",
+            "Konu: Konu 3",
             "",
             "Üçüncü cevap",
-            "",
-            "### Dördüncü soru",
-            "",
-            "Dördüncü cevap",
           ].join("\n"),
           cards: [
-            { id: "card-1", q: "İlk soru", a: "İlk cevap", subject: "Konu 1" },
-            { id: "card-2", q: "İkinci soru", a: "İkinci cevap", subject: "Konu 2" },
-            { id: "card-3", q: "Üçüncü soru", a: "Üçüncü cevap", subject: "Konu 3" },
-            { id: "card-4", q: "Dördüncü soru", a: "Dördüncü cevap", subject: "Konu 4" },
+            { id: "card-1", q: "İlk soru", a: tableAnswerHtml, subject: "Konu 1" },
+            { id: "card-2", q: "İkinci soru", a: "<p>İkinci cevap</p>", subject: "Konu 2" },
+            { id: "card-3", q: "Üçüncü soru", a: "<p>Üçüncü cevap</p>", subject: "Konu 3" },
           ],
         },
       },
@@ -360,64 +368,61 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#edit-selected-btn").click();
     await expect(page.locator("#editor-screen")).toBeVisible();
 
-    await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
+    await expect(page.locator("#editor-layout-list-btn")).toHaveCount(0);
+    await expect(page.locator("#editor-layout-single-btn")).toHaveCount(0);
     await expect(page.locator("#editor-prev-btn")).toHaveCount(0);
     await expect(page.locator("#editor-jump-input")).toHaveCount(0);
-    await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
-    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeHidden();
+    await expect(page.locator(".editor-list-row")).toHaveCount(3);
     await expect(page.locator("#editor-screen")).not.toContainText("Aşağı çekerek büyüt");
-    await expect(page.locator('[data-editor-card-root="card-1"] .editor-card-toggle')).toHaveText(
-      "Kart 1",
-    );
-
-    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
-    await expect(page.locator('[data-editor-card-root="card-1"]')).toHaveClass(/is-open/);
     await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
-
-    await page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn').click();
-    await expect(page.locator(".editor-card.is-open")).toHaveCount(0);
-    await expect(page.locator('[data-editor-card-body="card-1"]')).toBeHidden();
-
-    await page.locator('[data-editor-card-root="card-3"] .editor-card-expand-btn').click();
-    await expect(page.locator('[data-editor-card-root="card-3"]')).toHaveClass(/is-open/);
-
-    const thirdQuestion = page.locator('[data-editor-field="question"][data-card-id="card-3"]');
-    await thirdQuestion.fill("Üçüncü soru güncel");
-    await page.locator("#editor-layout-single-btn").click();
-
-    await expect(page.locator("#editor-layout-single-btn")).toHaveClass(/active/);
-    await expect(page.locator("#editor-prev-btn")).toBeVisible();
-    await expect(page.locator("#editor-jump-input")).toBeVisible();
-    await expect(page.locator(".editor-card")).toHaveCount(1);
-    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
-    await expect(page.locator('[data-editor-field="question"][data-card-id="card-3"]')).toHaveValue(
-      "Üçüncü soru güncel",
+    await expect(page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn')).toHaveCount(0);
+    await expect(page.locator('[data-editor-select-card="card-1"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-editor-field="answer"][data-card-id="card-1"]')).toHaveValue(
+      /\| Tetkik \| Yorum \|/,
     );
+    await expect(page.locator('[data-editor-preview="card-1"] table')).toBeVisible();
+    await expect(page.locator('[data-editor-preview="card-1"] th')).toHaveText(["Tetkik", "Yorum"]);
 
-    await page.locator("#editor-next-btn").click();
-    await expect(page.locator("#editor-card-counter")).toHaveText("4 / 4");
-    await expect(page.locator('[data-editor-field="question"][data-card-id="card-4"]')).toHaveValue(
-      "Dördüncü soru",
-    );
+    const compactHeights = await page.evaluate(() => {
+      const question = document.querySelector('[data-editor-field="question"]');
+      const answer = document.querySelector('[data-editor-field="answer"]');
+      const preview = document.querySelector('[data-editor-preview]');
+      return {
+        question: question?.clientHeight ?? 0,
+        answer: answer?.clientHeight ?? 0,
+        preview: preview?.clientHeight ?? 0,
+      };
+    });
+    expect(Math.abs(compactHeights.answer - compactHeights.question)).toBeLessThanOrEqual(6);
+    expect(Math.abs(compactHeights.preview - compactHeights.question)).toBeLessThanOrEqual(6);
 
-    await page.locator("#editor-prev-btn").click();
-    await expect(page.locator("#editor-card-counter")).toHaveText("3 / 4");
-    await expect(page.locator('[data-editor-field="question"][data-card-id="card-3"]')).toHaveValue(
-      "Üçüncü soru güncel",
-    );
-
-    await page.locator("#editor-jump-input").fill("2");
-    await page.locator("#editor-jump-btn").click();
-    await expect(page.locator("#editor-card-counter")).toHaveText("2 / 4");
+    await page.locator('[data-editor-select-card="card-2"]').click();
+    await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveClass(/active/);
     await expect(page.locator('[data-editor-field="question"][data-card-id="card-2"]')).toHaveValue(
       "İkinci soru",
     );
 
-    await page.locator("#editor-layout-list-btn").click();
-    await expect(page.locator("#editor-layout-list-btn")).toHaveClass(/active/);
-    await expect(page.locator("#editor-prev-btn")).toHaveCount(0);
-    await expect(page.locator('[data-editor-card-root="card-2"]')).toHaveClass(/is-open/);
-    await expect(page.locator('[data-editor-card-root="card-3"]')).not.toHaveClass(/is-open/);
+    await page.locator("#editor-add-card-btn").click();
+    await expect(page.locator(".editor-list-row")).toHaveCount(4);
+    await expect(page.locator('[data-editor-field="question"]')).toHaveValue("");
+    await page.locator('[data-editor-field="question"]').fill("Yeni soru");
+    await expect(page.locator(".editor-list-question").last()).toHaveText("Yeni soru");
+
+    await page.locator('[data-editor-delete-card="card-2"]').click();
+    await expect(page.locator(".editor-list-row")).toHaveCount(3);
+    await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveCount(0);
+
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    const savedSetRecords = await page.evaluate(
+      ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "[]"),
+      { storageKey: userScopedKey(DEMO_USER.id, "set_records") },
+    );
+    expect(savedSetRecords[0].cards).toHaveLength(3);
+    expect(savedSetRecords[0].cards.some((card) => card.q === "İkinci soru")).toBe(false);
+    expect(savedSetRecords[0].cards.some((card) => card.q === "Yeni soru")).toBe(true);
+    expect(savedSetRecords[0].rawSource).toContain("| Tetkik | Yorum |");
   });
 
   test("subject label is only under the card, not next to the counter", async ({

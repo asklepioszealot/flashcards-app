@@ -158,11 +158,9 @@ export function renderAnswerMarkdown(markdownText) {
     .join("");
 }
 
-export function htmlToEditableMarkdown(htmlText) {
-  const raw = String(htmlText ?? "").trim();
-  if (!raw) return "";
-
-  return raw
+function fallbackHtmlToEditableMarkdown(htmlText) {
+  return String(htmlText ?? "")
+    .trim()
     .replace(
       /<strong\s+class=['"]highlight-critical['"]>(.*?)<\/strong>/gi,
       "==$1==",
@@ -184,6 +182,143 @@ export function htmlToEditableMarkdown(htmlText) {
     .replace(/<[^>]+>/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function normalizeEditableMarkdown(markdownText) {
+  return String(markdownText ?? "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function stringifyInlineNodes(nodes) {
+  return Array.from(nodes)
+    .map((node) => inlineNodeToMarkdown(node))
+    .join("")
+    .replace(/\u00a0/g, " ");
+}
+
+function inlineNodeToMarkdown(node) {
+  if (!node) return "";
+  if (node.nodeType === 3) {
+    return node.textContent || "";
+  }
+  if (node.nodeType !== 1) return "";
+
+  const tagName = node.tagName.toLowerCase();
+  if (tagName === "br") return "\n";
+  if (tagName === "strong" && node.classList.contains("highlight-critical")) {
+    return `==${stringifyInlineNodes(node.childNodes)}==`;
+  }
+  if (tagName === "strong") return `**${stringifyInlineNodes(node.childNodes)}**`;
+  if (tagName === "em") return `*${stringifyInlineNodes(node.childNodes)}*`;
+  if (tagName === "del") return `~~${stringifyInlineNodes(node.childNodes)}~~`;
+  if (tagName === "code") return `\`${node.textContent || ""}\``;
+  if (tagName === "a") {
+    const href = node.getAttribute("href") || "";
+    return `[${stringifyInlineNodes(node.childNodes)}](${href})`;
+  }
+  return stringifyInlineNodes(node.childNodes);
+}
+
+function stringifyParagraph(node) {
+  return stringifyInlineNodes(node.childNodes)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function stringifyTable(tableNode) {
+  const rows = Array.from(tableNode.querySelectorAll("tr"))
+    .map((row) =>
+      Array.from(row.children).map((cell) =>
+        stringifyParagraph(cell).replace(/\n+/g, " ").trim(),
+      ),
+    )
+    .filter((row) => row.some((cell) => cell.length > 0));
+
+  if (!rows.length) return "";
+
+  const headerRow = rows[0];
+  const separatorRow = headerRow.map(() => "---");
+  const bodyRows = rows.slice(1);
+
+  return [
+    `| ${headerRow.join(" | ")} |`,
+    `| ${separatorRow.join(" | ")} |`,
+    ...bodyRows.map((row) => `| ${row.join(" | ")} |`),
+  ].join("\n");
+}
+
+function stringifyBlockNode(node) {
+  if (!node) return "";
+  if (node.nodeType === 3) {
+    const text = String(node.textContent || "").trim();
+    return text;
+  }
+  if (node.nodeType !== 1) return "";
+
+  const tagName = node.tagName.toLowerCase();
+  if (tagName === "div" && node.classList.contains("markdown-table-wrap")) {
+    const tableNode = node.querySelector("table");
+    return tableNode ? stringifyTable(tableNode) : "";
+  }
+  if (tagName === "table") return stringifyTable(node);
+  if (/^h[1-6]$/.test(tagName)) {
+    return `${"#".repeat(Number.parseInt(tagName.slice(1), 10))} ${stringifyParagraph(node)}`.trim();
+  }
+  if (tagName === "hr") return "---";
+  if (tagName === "p") return stringifyParagraph(node);
+  if (tagName === "blockquote") {
+    const content = stringifyBlockChildren(node.childNodes);
+    if (!content) return "";
+    return content
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+  }
+  if (tagName === "ul") {
+    return Array.from(node.children)
+      .filter((child) => child.tagName?.toLowerCase() === "li")
+      .map((item) => `- ${stringifyParagraph(item)}`)
+      .join("\n");
+  }
+  if (tagName === "ol") {
+    return Array.from(node.children)
+      .filter((child) => child.tagName?.toLowerCase() === "li")
+      .map((item, index) => `${index + 1}. ${stringifyParagraph(item)}`)
+      .join("\n");
+  }
+  return stringifyBlockChildren(node.childNodes);
+}
+
+function stringifyBlockChildren(nodes) {
+  return Array.from(nodes)
+    .map((node) => stringifyBlockNode(node))
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+export function htmlToEditableMarkdown(htmlText) {
+  const raw = String(htmlText ?? "").trim();
+  if (!raw) return "";
+  if (typeof DOMParser !== "function") {
+    return fallbackHtmlToEditableMarkdown(raw);
+  }
+
+  try {
+    const parser = new DOMParser();
+    const documentNode = parser.parseFromString(`<div>${raw}</div>`, "text/html");
+    const root = documentNode.body.firstElementChild;
+    if (!root) {
+      return fallbackHtmlToEditableMarkdown(raw);
+    }
+    const markdown = normalizeEditableMarkdown(stringifyBlockChildren(root.childNodes));
+    return markdown || fallbackHtmlToEditableMarkdown(raw);
+  } catch {
+    return fallbackHtmlToEditableMarkdown(raw);
+  }
 }
 
 function normalizeCardShape(card, index, previousCards = []) {
