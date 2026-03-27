@@ -278,6 +278,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#set-manager")).toBeVisible();
     await expect(page.locator("#set-list-tools")).toBeVisible();
     await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("3/3 seçili");
+    await expect(page.locator("#set-bulk-menu-trigger")).toHaveCount(0);
 
     const scrollState = await page.locator("#set-list").evaluate((node) => ({
       className: node.className,

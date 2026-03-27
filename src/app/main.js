@@ -1181,34 +1181,6 @@ function toggleBulkSetSelection() {
   selectAllSets();
 }
 
-function closeBulkSetMenu() {
-  const menu = document.getElementById("set-bulk-menu");
-  const trigger = document.getElementById("set-bulk-menu-trigger");
-  if (menu) menu.hidden = true;
-  if (trigger) trigger.setAttribute("aria-expanded", "false");
-}
-
-function toggleBulkSetMenu(event) {
-  event?.preventDefault();
-  event?.stopPropagation();
-  const menu = document.getElementById("set-bulk-menu");
-  const trigger = document.getElementById("set-bulk-menu-trigger");
-  if (!menu || !trigger) return;
-
-  const shouldOpen = menu.hidden;
-  closeBulkSetMenu();
-  if (!shouldOpen) return;
-
-  menu.hidden = false;
-  trigger.setAttribute("aria-expanded", "true");
-}
-
-function applyBulkSetSelection(selectionMode) {
-  if (selectionMode === "all") selectAllSets();
-  else clearSetSelection();
-  closeBulkSetMenu();
-}
-
 async function removeSelectedSets() {
   if (!deleteMode || !removeCandidateSets.size) return;
   await removeSets([...removeCandidateSets]);
@@ -1305,7 +1277,6 @@ function renderSetList() {
     if (startButton) startButton.disabled = true;
     if (removeSelectedButton) removeSelectedButton.disabled = true;
     if (editSelectedButton) editSelectedButton.disabled = true;
-    closeBulkSetMenu();
     return;
   }
   if (toolsElement) toolsElement.style.display = "flex";
@@ -1396,7 +1367,6 @@ function renderSetList() {
     });
   });
   updateSetListScrollState(listElement, setIds.length);
-  closeBulkSetMenu();
 }
 
 const getPersistedSession = () => {
@@ -2939,10 +2909,6 @@ function bindStaticEvents() {
     event.preventDefault();
     jumpToCard();
   });
-  document.addEventListener("click", (event) => {
-    if (event.target?.closest(".set-bulk-select")) return;
-    closeBulkSetMenu();
-  });
   document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && editorState.isOpen) {
@@ -2994,7 +2960,6 @@ function bindStaticEvents() {
 function exposeWindowApi() {
   Object.assign(window, {
     assessCard,
-    applyBulkSetSelection,
     authGoogleDrive,
     clearSetSelection,
     deleteSet,
@@ -3016,7 +2981,6 @@ function exposeWindowApi() {
     startStudy,
     triggerSetImport,
     toggleDeleteMode,
-    toggleBulkSetMenu,
     toggleBulkSetSelection,
     toggleEditMode,
     toggleFullscreen,
