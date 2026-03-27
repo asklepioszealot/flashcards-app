@@ -87,7 +87,9 @@ function buildFallbackSetRow(userId, snapshot) {
     slug: STUDY_STATE_FALLBACK_SLUG,
     set_name: STUDY_STATE_FALLBACK_SET_NAME,
     file_name: "study-state.sync.json",
-    source_format: "system",
+    // Keep fallback rows compatible with older deployments that only allow
+    // json/markdown in the source_format check constraint.
+    source_format: "json",
     raw_source: "",
     cards_json: [
       {
