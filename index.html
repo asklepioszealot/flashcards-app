@@ -177,6 +177,10 @@
         margin: 0 auto;
       }
 
+      #app-container.container {
+        max-width: 1520px;
+      }
+
       .header {
         display: flex;
         justify-content: space-between;
@@ -435,7 +439,7 @@
       }
 
       .card-back .card-content {
-        font-size: 20px;
+        font-size: 18px;
         text-align: left;
         line-height: 1.8;
       }
@@ -1619,28 +1623,58 @@
 
       .editor-split {
         display: grid;
-        grid-template-columns: minmax(280px, var(--editor-answer-fr, 56fr)) minmax(280px, var(--editor-preview-fr, 44fr));
-        gap: 18px;
+        grid-template-columns: minmax(280px, var(--editor-answer-fr, 56fr)) 20px minmax(280px, var(--editor-preview-fr, 44fr));
+        gap: 0;
         align-items: start;
       }
 
-      .editor-split-control {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 190px;
+      .editor-split-pane {
+        min-width: 0;
       }
 
-      .editor-split-control-label {
-        font-size: 12px;
-        color: var(--color-text-secondary);
-        white-space: nowrap;
-      }
-
-      .editor-split-range {
-        width: 112px;
-        accent-color: var(--color-accent);
+      .editor-split-handle {
+        position: relative;
+        align-self: stretch;
+        width: 20px;
+        border: none;
+        padding: 0;
+        background: transparent;
         cursor: ew-resize;
+        touch-action: none;
+        opacity: 0;
+        transition: opacity 160ms ease;
+      }
+
+      .editor-split-handle::before {
+        content: "";
+        position: absolute;
+        top: 14px;
+        bottom: 14px;
+        left: 50%;
+        width: 3px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.38);
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+        transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+
+      .editor-split:hover .editor-split-handle,
+      .editor-split-handle:focus-visible,
+      .editor-split-handle.is-active {
+        opacity: 1;
+      }
+
+      .editor-split-handle:hover::before,
+      .editor-split-handle:focus-visible::before,
+      .editor-split-handle.is-active::before {
+        background: var(--color-accent);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 0 0 4px rgba(230, 148, 57, 0.12);
+        transform: translateX(-50%) scaleX(1.08);
+      }
+
+      .editor-split-handle:focus-visible {
+        outline: none;
       }
 
       .editor-preview {
@@ -1686,8 +1720,7 @@
 
       .editor-format-toolbar-head {
         display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
+        align-items: center;
         gap: 12px;
         flex-wrap: wrap;
       }
@@ -1739,20 +1772,21 @@
       }
 
       .editor-toolbar-shell {
-        display: grid;
-        gap: 10px;
-        justify-items: stretch;
+        display: block;
         margin-top: 0;
         padding-top: 0;
+        overflow-x: auto;
+        scrollbar-width: thin;
       }
 
       .editor-toolbar {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         justify-content: flex-start;
-        gap: 10px;
+        gap: 8px;
         margin-top: 0;
         align-items: stretch;
+        min-width: max-content;
       }
 
       .editor-toolbar-secondary {
@@ -1764,24 +1798,15 @@
       }
 
       .editor-tool-btn {
-        padding-inline: 12px;
+        padding-inline: 10px;
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
 
       .editor-tool-btn[title="Geri al"],
       .editor-tool-btn[title="İleri al"] {
         font-size: 16px;
         font-weight: 700;
-      }
-
-      .editor-toolbar-overflow {
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 1px;
-      }
-
-      .editor-toolbar-overflow.active {
-        border-color: var(--color-accent);
-        color: var(--color-accent);
       }
 
       .editor-raw {
@@ -1859,7 +1884,7 @@
         }
 
         .card-back .card-content {
-          font-size: 19px;
+          font-size: 17px;
         }
 
         .card-label {
@@ -1900,9 +1925,8 @@
           align-items: stretch;
         }
 
-        .editor-split-control {
-          width: 100%;
-          justify-content: space-between;
+        .editor-split-handle {
+          display: none;
         }
 
         .editor-format-toolbar-head {
@@ -1910,9 +1934,11 @@
           align-items: stretch;
         }
 
-        .editor-toolbar-shell,
+        .editor-toolbar-shell {
+          overflow-x: auto;
+        }
+
         .editor-toolbar {
-          justify-items: stretch;
           justify-content: flex-start;
         }
 
@@ -2206,7 +2232,7 @@
       }
 
       .card-container.fullscreen-active .card-back .card-content {
-        font-size: 22px;
+        font-size: 20px;
       }
 
       .fullscreen-nav-bar {
