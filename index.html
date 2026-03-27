@@ -644,7 +644,7 @@
         text-align: center;
       }
 
-      .fullscreen-card-overlay {
+      .fullscreen-card-header {
         display: none;
       }
 
@@ -2455,38 +2455,34 @@
         background: var(--color-bg-primary);
         display: flex;
         flex-direction: column;
+        gap: 12px;
         perspective: 1000px;
       }
 
-      .card-container.fullscreen-active .card {
-        flex: 1;
-        min-height: unset;
-        max-height: none;
-        border-radius: 16px;
-      }
-
-      .card-container.fullscreen-active .card-face {
-        padding: 40px 60px;
-      }
-
-      .card-container.fullscreen-active .fullscreen-card-overlay {
-        position: absolute;
-        top: 18px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 6;
+      .card-container.fullscreen-active .fullscreen-card-header {
         display: flex;
         justify-content: center;
-        pointer-events: none;
+        flex-shrink: 0;
       }
 
-      .card-container.fullscreen-active .fullscreen-card-overlay .card-counter {
+      .card-container.fullscreen-active .fullscreen-card-header .card-counter {
         padding: 8px 18px;
         border-radius: 999px;
         background: rgba(15, 23, 42, 0.72);
         color: #f8fafc;
         border: 1px solid rgba(255, 255, 255, 0.14);
         box-shadow: 0 12px 28px rgba(2, 6, 23, 0.22);
+      }
+
+      .card-container.fullscreen-active .card {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+        border-radius: 16px;
+      }
+
+      .card-container.fullscreen-active .card-face {
+        padding: 40px 60px;
       }
 
       .card-container.fullscreen-active .card-content {
@@ -2503,16 +2499,15 @@
 
       .card-container.fullscreen-active .fullscreen-nav-bar {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
         align-items: center;
-        gap: 12px;
-        padding: 12px 0 0 0;
+        gap: 16px;
+        padding: 0;
         flex-shrink: 0;
       }
 
-      .fullscreen-nav-bar .nav-btn,
-      .fullscreen-nav-bar .assess-btn {
-        width: 100%;
+      .fullscreen-nav-bar .nav-btn {
+        width: min(100%, 220px);
         min-width: 0;
         min-height: 46px;
         display: inline-flex;
@@ -2521,14 +2516,52 @@
         text-align: center;
       }
 
+      .fullscreen-nav-bar .nav-btn:first-child {
+        justify-self: start;
+      }
+
+      .fullscreen-nav-bar .nav-btn:last-child {
+        justify-self: end;
+      }
+
       .fullscreen-nav-bar .fullscreen-assessment-panel {
-        display: contents;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
       }
 
       .fullscreen-nav-bar .assess-btn {
+        min-width: 160px;
+        min-height: 46px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         padding: 12px 18px;
         font-size: 15px;
         border-radius: 8px;
+      }
+
+      @media (max-width: 1100px) {
+        .card-container.fullscreen-active .fullscreen-nav-bar {
+          grid-template-columns: 1fr;
+          justify-items: stretch;
+        }
+
+        .fullscreen-nav-bar .nav-btn:first-child,
+        .fullscreen-nav-bar .nav-btn:last-child {
+          justify-self: stretch;
+          width: 100%;
+        }
+
+        .fullscreen-nav-bar .fullscreen-assessment-panel {
+          flex-wrap: wrap;
+        }
+
+        .fullscreen-nav-bar .assess-btn {
+          flex: 1 1 180px;
+          min-width: 0;
+        }
       }
 
       @media (max-width: 768px) {
@@ -2540,17 +2573,13 @@
           padding: 30px 20px;
         }
 
-        .card-container.fullscreen-active .fullscreen-card-overlay {
-          top: 12px;
-        }
-
-        .card-container.fullscreen-active .fullscreen-card-overlay .card-counter {
+        .card-container.fullscreen-active .fullscreen-card-header .card-counter {
           font-size: 16px;
           padding: 7px 14px;
         }
 
         .card-container.fullscreen-active .fullscreen-nav-bar {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
         }
       }
       /* ═══ DRIVE MODAL ═══ */
@@ -2915,11 +2944,11 @@
       </div>
 
       <div class="card-container">
+        <div class="fullscreen-card-header" aria-hidden="true">
+          <div class="card-counter" id="fullscreen-card-counter">1 / 20</div>
+        </div>
         <div class="card" id="flashcard" onclick="flipCard()">
           <button class="fullscreen-toggle-btn" id="fullscreen-toggle-btn" onclick="event.stopPropagation(); toggleFullscreen()" title="Tam ekran (F)">⛶</button>
-          <div class="fullscreen-card-overlay" aria-hidden="true">
-            <div class="card-counter" id="fullscreen-card-counter">1 / 20</div>
-          </div>
           <div class="card-face card-front">
             <div class="card-content-wrapper">
               <div class="card-label">SORU</div>
