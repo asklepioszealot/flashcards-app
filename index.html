@@ -56,19 +56,19 @@
         --color-header-bg: rgba(30, 41, 59, 0.85);
         --color-text-primary: #f8fafc; /* Slate 50 */
         --color-text-secondary: #94a3b8; /* Slate 400 */
-        --color-accent: #34d399; /* Emerald 400 */
-        --color-accent-hover: #10b981; /* Emerald 500 */
-        --color-accent-soft: rgba(52, 211, 153, 0.15);
-        --color-emphasis: #6ee7b7; /* Emerald 300 */
-        --color-emphasis-strong: #a7f3d0; /* Emerald 200 */
+        --color-accent: #6366f1; /* Indigo 500 */
+        --color-accent-hover: #4f46e5; /* Indigo 600 */
+        --color-accent-soft: rgba(99, 102, 241, 0.16);
+        --color-emphasis: #c7d2fe; /* Indigo 200 */
+        --color-emphasis-strong: #e0e7ff; /* Indigo 100 */
         --color-border: rgba(255, 255, 255, 0.1);
         --color-card-front: #1e293b; /* Slate 800 */
         --color-card-back: #334155; /* Slate 700 */
-        --screen-glow: rgba(52, 211, 153, 0.16);
+        --screen-glow: rgba(129, 140, 248, 0.18);
         --screen-wash: rgba(15, 23, 42, 0.4);
-        --auth-panel-glow: rgba(52, 211, 153, 0.18);
+        --auth-panel-glow: rgba(129, 140, 248, 0.18);
         --auth-panel-start: rgba(15, 23, 42, 0.96);
-        --auth-panel-end: rgba(6, 78, 59, 0.9);
+        --auth-panel-end: rgba(67, 56, 202, 0.9);
         --shell-shadow: rgba(2, 6, 23, 0.32);
         --build-meta-bg: rgba(35, 40, 38, 0.8);
       }
@@ -334,7 +334,7 @@
         padding-block: 8px;
       }
 
-      /* Eklenen adaptif büyüme kuralları (sarı kısmı mavi kadar yapma ve butonları ölçekleme) */
+      /* Eklenen adaptif büyüme kuralları (butonları ölçekleme) */
       .header-controls .btn-small.btn-secondary {
         flex: 1 1 auto;
         font-size: clamp(10px, 1.2vw, 14px);
@@ -345,10 +345,6 @@
         text-align: center;
         white-space: nowrap;
         min-height: 40px;
-      }
-
-      .header-controls .btn-small:not(.btn-secondary) {
-        flex: 0 0 auto; /* Git butonu sabit kalabilir veya hafif büyüyebilir */
       }
 
       .card-container {
@@ -1995,6 +1991,23 @@
           flex: 1 1 96px;
           width: auto;
         }
+
+        .set-list-panel {
+          padding: 16px;
+        }
+
+        .set-bulk-select,
+        .set-list-tools-actions {
+          width: 100%;
+        }
+
+        .set-list-tools-actions {
+          justify-content: stretch;
+        }
+
+        .set-list-tools-actions .btn {
+          flex: 1 1 calc(50% - 10px);
+        }
       }
       /* SET MANAGER CSS */
       .set-manager {
@@ -2033,21 +2046,54 @@
         font-size: 16px;
       }
 
-      .set-list {
+      .set-list-panel {
         width: 100%;
         max-width: 600px;
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 30px;
+        border-radius: 18px;
+        padding: 18px;
+        margin-bottom: 24px;
+        box-shadow: 0 18px 48px var(--shell-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .set-list {
+        width: 100%;
+        background: transparent;
+        border: none;
+        border-radius: 14px;
+        padding: 0;
+        margin-bottom: 0;
+        min-height: 84px;
+      }
+
+      .set-list.set-list--scrollable {
+        overflow-y: auto;
+        padding-right: 6px;
+        max-height: var(--set-list-max-height, 248px);
+        scrollbar-color: var(--color-border) transparent;
+        scrollbar-width: thin;
+      }
+
+      .set-list.set-list--scrollable::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .set-list.set-list--scrollable::-webkit-scrollbar-thumb {
+        background: var(--color-border);
+        border-radius: 999px;
       }
 
       .set-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 15px 0;
+        gap: 12px;
+        min-height: 86px;
+        padding: 15px 2px;
         border-bottom: 1px solid var(--color-border);
       }
 
@@ -2102,17 +2148,175 @@
 
       .set-list-tools {
         width: 100%;
-        max-width: 600px;
         display: flex;
-        justify-content: center;
-        gap: 10px;
-        margin-bottom: 15px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 0;
         flex-wrap: wrap;
+      }
+
+      .set-list-tools-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex: 1 1 280px;
+        flex-wrap: wrap;
+      }
+
+      .set-actions-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .set-bulk-select {
+        display: flex;
+        align-items: stretch;
+        gap: 8px;
+        flex: 1 1 250px;
+        min-width: min(100%, 270px);
+        position: relative;
+      }
+
+      .set-bulk-toggle {
+        flex: 1 1 auto;
+        min-width: 0;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--color-bg-primary), var(--color-bg-secondary));
+        color: var(--color-text-primary);
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 14px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      }
+
+      .set-bulk-toggle:hover,
+      .set-bulk-menu-trigger:hover {
+        border-color: var(--color-accent);
+        transform: translateY(-1px);
+      }
+
+      .set-bulk-toggle-box {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        border: 2px solid var(--color-accent);
+        background: transparent;
+        position: relative;
+        flex: 0 0 auto;
+      }
+
+      .set-bulk-toggle[data-selection-state="all"] .set-bulk-toggle-box {
+        background: var(--color-accent);
+      }
+
+      .set-bulk-toggle[data-selection-state="all"] .set-bulk-toggle-box::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 5px;
+        height: 9px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+
+      .set-bulk-toggle[data-selection-state="partial"] .set-bulk-toggle-box {
+        background: var(--color-accent-soft);
+      }
+
+      .set-bulk-toggle[data-selection-state="partial"] .set-bulk-toggle-box::after {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 6px;
+        width: 8px;
+        height: 2px;
+        border-radius: 999px;
+        background: var(--color-accent);
+      }
+
+      .set-bulk-toggle-copy {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+      }
+
+      .set-bulk-toggle-title {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .set-bulk-toggle-meta {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+      }
+
+      .set-bulk-menu-wrap {
+        position: relative;
+        flex: 0 0 auto;
+      }
+
+      .set-bulk-menu-trigger {
+        width: 44px;
+        height: 44px;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: var(--color-bg-primary);
+        color: var(--color-text-secondary);
+        font-size: 18px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
+      }
+
+      .set-bulk-menu-trigger[aria-expanded="true"] {
+        color: var(--color-accent);
+        border-color: var(--color-accent);
+      }
+
+      .set-bulk-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        min-width: 140px;
+        padding: 8px;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: var(--color-bg-secondary);
+        box-shadow: 0 18px 42px rgba(2, 6, 23, 0.18);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 30;
+      }
+
+      .set-bulk-menu button {
+        border: none;
+        background: transparent;
+        color: var(--color-text-primary);
+        text-align: left;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      .set-bulk-menu button:hover {
+        background: var(--color-accent-soft);
+        color: var(--color-accent);
       }
 
       .mode-hint {
         width: 100%;
-        text-align: center;
+        text-align: left;
         color: var(--color-text-secondary);
         font-size: 13px;
       }
@@ -2371,10 +2575,10 @@
           <div class="theme-control theme-control--stacked">
             <label for="theme-select-auth">Tema</label>
             <select id="theme-select-auth" onchange="toggleTheme(this.value)">
-              <option value="light">Aydınlık</option>
-              <option value="dark">Lacivert</option>
-              <option value="ember">Amber</option>
-              <option value="midnight">Karanlık</option>
+              <option value="light">☀️⛅ AYDINLIK</option>
+              <option value="midnight">🌑🌃 KARANLIK</option>
+              <option value="ember">🟫🟧 AMBER</option>
+              <option value="dark">🟦🟪 MAVİ</option>
             </select>
           </div>
 
@@ -2416,30 +2620,55 @@
         </div>
       </div>
 
-      <div class="set-list" id="set-list">
-        <div class="set-item empty">Henüz set yüklenmedi.</div>
-      </div>
+      <div class="set-list-panel">
+        <div class="set-list-tools" id="set-list-tools" style="display: none;">
+          <div class="set-bulk-select">
+            <button class="set-bulk-toggle" id="set-bulk-toggle" type="button" data-selection-state="none" onclick="toggleBulkSetSelection()">
+              <span class="set-bulk-toggle-box" aria-hidden="true"></span>
+              <span class="set-bulk-toggle-copy">
+                <span class="set-bulk-toggle-title" id="set-bulk-toggle-title">Ders Seçimi</span>
+                <span class="set-bulk-toggle-meta" id="set-bulk-toggle-meta">0/0 seçili</span>
+              </span>
+            </button>
+            <div class="set-bulk-menu-wrap">
+              <button
+                class="set-bulk-menu-trigger"
+                id="set-bulk-menu-trigger"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                onclick="toggleBulkSetMenu(event)"
+              >
+                ▾
+              </button>
+              <div class="set-bulk-menu" id="set-bulk-menu" hidden>
+                <button type="button" onclick="applyBulkSetSelection('all')">Tümü</button>
+                <button type="button" onclick="applyBulkSetSelection('none')">Hiçbiri</button>
+              </div>
+            </div>
+          </div>
 
-      <div class="set-list-tools" id="set-list-tools" style="display: none;">
-        <button class="btn btn-small btn-secondary" id="delete-mode-btn" onclick="toggleDeleteMode()">
-          Silme Modu: Kapalı
-        </button>
-        <button class="btn btn-small btn-secondary" id="edit-mode-btn" onclick="toggleEditMode()">
-          Düzenleme Modu: Kapalı
-        </button>
-        <button class="btn btn-small btn-secondary" id="select-all-btn" onclick="selectAllSets()">
-          Tümünü Seç
-        </button>
-        <button class="btn btn-small btn-secondary" id="clear-selection-btn" onclick="clearSetSelection()">
-          Seçimi Kaldır
-        </button>
-        <button class="btn btn-small btn-danger" id="remove-selected-btn" onclick="removeSelectedSets()" disabled>
-          Seçilileri Kaldır
-        </button>
-        <button class="btn btn-small" id="edit-selected-btn" onclick="openEditorForSelectedSets()" disabled>
-          Kartları Düzenle
-        </button>
-        <div class="mode-hint" id="mode-hint">Mod: Derse dahil edilecek setleri seçiyorsun.</div>
+          <div class="set-list-tools-actions">
+            <button class="btn btn-small btn-secondary" id="delete-mode-btn" onclick="toggleDeleteMode()">
+              Silme Modu: Kapalı
+            </button>
+            <button class="btn btn-small btn-secondary" id="edit-mode-btn" onclick="toggleEditMode()">
+              Düzenleme Modu: Kapalı
+            </button>
+            <button class="btn btn-small btn-danger" id="remove-selected-btn" onclick="removeSelectedSets()" disabled>
+              Seçilileri Kaldır
+            </button>
+            <button class="btn btn-small" id="edit-selected-btn" onclick="openEditorForSelectedSets()" disabled>
+              Kartları Düzenle
+            </button>
+          </div>
+
+          <div class="mode-hint" id="mode-hint">Mod: Derse dahil edilecek setleri seçiyorsun.</div>
+        </div>
+
+        <div class="set-list" id="set-list">
+          <div class="set-item empty">Henüz set yüklenmedi.</div>
+        </div>
       </div>
 
       <div class="set-actions">
@@ -2454,10 +2683,10 @@
       <div class="theme-control" style="margin-top: 30px;">
         <label for="theme-select-manager">Tema</label>
         <select id="theme-select-manager" onchange="toggleTheme(this.value)">
-          <option value="light">Aydınlık</option>
-          <option value="dark">Lacivert</option>
-          <option value="ember">Amber</option>
-          <option value="midnight">Karanlık</option>
+          <option value="light">☀️⛅ AYDINLIK</option>
+          <option value="midnight">🌑🌃 KARANLIK</option>
+          <option value="ember">🟫🟧 AMBER</option>
+          <option value="dark">🟦🟪 MAVİ</option>
         </select>
       </div>
 
@@ -2493,10 +2722,10 @@
             <div class="theme-control theme-control--compact">
               <label for="theme-select-editor">Tema</label>
               <select id="theme-select-editor" onchange="toggleTheme(this.value)">
-                <option value="light">Aydınlık</option>
-                <option value="dark">Lacivert</option>
-                <option value="ember">Amber</option>
-                <option value="midnight">Karanlık</option>
+                <option value="light">☀️⛅ AYDINLIK</option>
+                <option value="midnight">🌑🌃 KARANLIK</option>
+                <option value="ember">🟫🟧 AMBER</option>
+                <option value="dark">🟦🟪 MAVİ</option>
               </select>
             </div>
             <button class="btn btn-secondary" id="editor-back-btn">← Geri Dön</button>
@@ -2556,15 +2785,14 @@
             max="20"
             placeholder="Soru No"
           />
-          <button class="btn btn-small" onclick="jumpToCard()">Git</button>
 
           <div class="theme-control">
             <label for="theme-select-study">Tema</label>
             <select id="theme-select-study" onchange="toggleTheme(this.value)">
-              <option value="light">Aydınlık</option>
-              <option value="dark">Lacivert</option>
-              <option value="ember">Amber</option>
-              <option value="midnight">Karanlık</option>
+              <option value="light">☀️⛅ AYDINLIK</option>
+              <option value="midnight">🌑🌃 KARANLIK</option>
+              <option value="ember">🟫🟧 AMBER</option>
+              <option value="dark">🟦🟪 MAVİ</option>
             </select>
           </div>
 
