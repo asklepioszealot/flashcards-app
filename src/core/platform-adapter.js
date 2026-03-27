@@ -34,7 +34,14 @@ function isPlainObject(value) {
 
 function isMissingRelationError(error) {
   const message = String(error?.message || "").toLowerCase();
-  return error?.code === "42P01" || message.includes("does not exist");
+  return (
+    error?.code === "42P01"
+    || error?.code === "PGRST205"
+    || error?.status === 404
+    || message.includes("does not exist")
+    || message.includes("schema cache")
+    || message.includes("could not find the table")
+  );
 }
 
 function isNoRowsError(error) {
@@ -731,7 +738,7 @@ function createSupabaseAdapter(config, storage) {
       return normalizeSetCollection([
         {
           ...mapRowToRecord(data),
-          sourcePath: normalized.sourcePath || record?.sourcePath || "",
+          sourcePath: record?.sourcePath || "",
         },
       ])[0];
     },
