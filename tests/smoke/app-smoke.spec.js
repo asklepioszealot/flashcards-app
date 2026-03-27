@@ -209,6 +209,8 @@ test.describe("Flashcards smoke", () => {
     await expect(setManager).toBeVisible();
     await expect(setManagerHint).toBeVisible();
     await expect(setManagerHint).toContainText("Space");
+    await expect(setManagerHint).toContainText("S");
+    await expect(setManagerHint).toContainText("F");
     const themeSelect = page.locator("#theme-select-manager");
     await expect(themeSelect).toBeVisible();
 
