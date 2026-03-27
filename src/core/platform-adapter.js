@@ -728,7 +728,12 @@ function createSupabaseAdapter(config, storage) {
         .single();
 
       if (error) throw error;
-      return normalizeSetCollection([mapRowToRecord(data)])[0];
+      return normalizeSetCollection([
+        {
+          ...mapRowToRecord(data),
+          sourcePath: normalized.sourcePath || record?.sourcePath || "",
+        },
+      ])[0];
     },
 
     async deleteSets(setIds) {

@@ -24,6 +24,7 @@ const LEGACY_KEYS = {
   legacyState: "flashcards_state_v6",
 };
 const USER_STUDY_STATE_KEY = "study_state_sync";
+const WEB_FILE_SOURCE_PREFIX = "webfile://";
 
 const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
 const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
@@ -78,6 +79,7 @@ let pickerApiLoaded = false;
 let pendingRemoteStudyStateSnapshot = null;
 let remoteStudyStateSyncTimer = null;
 let editorSplitDragState = null;
+const browserFileHandles = new Map();
 
 const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
@@ -111,6 +113,52 @@ const normalizeSetCollection = (records) =>
       if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) return rightTime - leftTime;
       return leftValue.setName.localeCompare(rightValue.setName, "tr");
     });
+
+const supportsBrowserFileAccess =
+  !isDesktopRuntime()
+  && typeof window.showOpenFilePicker === "function"
+  && typeof window.FileSystemFileHandle !== "undefined";
+
+function isWebLinkedSourcePath(sourcePath) {
+  return String(sourcePath || "").startsWith(WEB_FILE_SOURCE_PREFIX);
+}
+
+function createWebFileSourcePath(fileName) {
+  const safeName = slugify(String(fileName || "set").replace(/\.[^/.]+$/, "")) || "set";
+  return `${WEB_FILE_SOURCE_PREFIX}${generateId("source")}/${safeName}`;
+}
+
+function bindBrowserFileHandle(sourcePath, handle) {
+  if (!sourcePath || !handle) return;
+  browserFileHandles.set(sourcePath, handle);
+}
+
+function getBrowserFileHandle(sourcePath) {
+  return sourcePath ? browserFileHandles.get(sourcePath) || null : null;
+}
+
+async function ensureBrowserFileWritePermission(handle) {
+  if (!handle || typeof handle.queryPermission !== "function") return false;
+  const permissionOptions = { mode: "readwrite" };
+  if (await handle.queryPermission(permissionOptions) === "granted") return true;
+  return (await handle.requestPermission(permissionOptions)) === "granted";
+}
+
+async function writeBrowserLinkedSourceFile(sourcePath, rawSource) {
+  const handle = getBrowserFileHandle(sourcePath);
+  if (!handle || typeof handle.createWritable !== "function") return false;
+  const permissionGranted = await ensureBrowserFileWritePermission(handle);
+  if (!permissionGranted) {
+    throw new Error("Tarayıcı aynı dosyaya yazma izni vermedi. Dışa Aktar ile kopya alabilirsin.");
+  }
+  const writable = await handle.createWritable();
+  try {
+    await writable.write(rawSource);
+  } finally {
+    await writable.close();
+  }
+  return true;
+}
 
 function buildCardKey(setId, card, index) {
   const normalizedSetId = String(setId ?? "unknown");
@@ -683,9 +731,17 @@ function saveStudyState() {
 }
 
 function hydrateLoadedSets(records) {
+  const previousLoadedSets = loadedSets;
   loadedSets = {};
   normalizeSetCollection(records).forEach((record) => {
-    loadedSets[record.id] = record;
+    const previousRecord = previousLoadedSets[record.id];
+    loadedSets[record.id] =
+      previousRecord?.sourcePath && !record.sourcePath
+        ? {
+            ...record,
+            sourcePath: previousRecord.sourcePath,
+          }
+        : record;
   });
 }
 
@@ -951,7 +1007,7 @@ function findExistingSetMatch(fileName) {
   return Object.values(loadedSets).find((record) => record.fileName === fileName || record.slug === slug) || null;
 }
 
-async function importSetFromText(text, fileName, sourcePath = "") {
+async function importSetFromText(text, fileName, sourcePath = "", webFileHandle = null) {
   const existingRecord = sourcePath
     ? Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
       || findExistingSetMatch(fileName)
@@ -959,15 +1015,52 @@ async function importSetFromText(text, fileName, sourcePath = "") {
   const nextRecord = parseSetText(text, fileName, existingRecord, existingRecord?.sourceFormat);
   if (sourcePath) {
     nextRecord.sourcePath = sourcePath;
+  } else if (webFileHandle) {
+    nextRecord.sourcePath = existingRecord?.sourcePath || createWebFileSourcePath(fileName);
   } else if (existingRecord?.sourcePath) {
     nextRecord.sourcePath = existingRecord.sourcePath;
   }
   const savedRecord = await platformAdapter.saveSet(nextRecord);
+  if (webFileHandle && savedRecord?.sourcePath) {
+    bindBrowserFileHandle(savedRecord.sourcePath, webFileHandle);
+  }
   loadedSets[savedRecord.id] = savedRecord;
   selectedSets.add(savedRecord.id);
   saveSelectedSets();
   renderSetList();
   return savedRecord;
+}
+
+async function tryBrowserFileSystemImport() {
+  if (!supportsBrowserFileAccess) return false;
+
+  try {
+    const handles = await window.showOpenFilePicker({
+      multiple: true,
+      types: [
+        {
+          description: "Flashcard setleri",
+          accept: {
+            "application/json": [".json"],
+            "text/markdown": [".md"],
+            "text/plain": [".txt"],
+          },
+        },
+      ],
+    });
+    if (!Array.isArray(handles) || handles.length === 0) return true;
+    for (const handle of handles) {
+      if (handle?.kind !== "file") continue;
+      const file = await handle.getFile();
+      await importSetFromText(await file.text(), file.name, "", handle);
+      showUndoToast(`"${file.name}" yüklendi.`);
+    }
+    return true;
+  } catch (error) {
+    if (error?.name === "AbortError") return true;
+    console.error(error);
+    return false;
+  }
 }
 
 async function triggerSetImport() {
@@ -983,6 +1076,10 @@ async function triggerSetImport() {
       console.error(error);
       alert(error.message || "Dosya seçimi sırasında hata oluştu.");
     }
+    return;
+  }
+
+  if (await tryBrowserFileSystemImport()) {
     return;
   }
 
@@ -1033,6 +1130,9 @@ async function removeSets(setIds) {
   try {
     await platformAdapter.deleteSets(removedEntries.map((entry) => entry.setId));
     removedEntries.forEach((entry) => {
+      if (isWebLinkedSourcePath(entry.setData?.sourcePath)) {
+        browserFileHandles.delete(entry.setData.sourcePath);
+      }
       delete loadedSets[entry.setId];
       selectedSets.delete(entry.setId);
       removeCandidateSets.delete(entry.setId);
@@ -2577,13 +2677,22 @@ async function saveEditorDrafts() {
       }
 
       cleanupAssessmentsForSet(savedRecord, previousRecord);
-      if (
-        savedRecord?.sourcePath &&
-        isDesktopRuntime() &&
-        typeof platformAdapter.writeSetSourceFile === "function"
-      ) {
-        await platformAdapter.writeSetSourceFile(savedRecord.sourcePath, savedRecord.rawSource);
-        sourceWriteCount += 1;
+      if (savedRecord?.sourcePath) {
+        if (
+          isDesktopRuntime() &&
+          typeof platformAdapter.writeSetSourceFile === "function"
+        ) {
+          await platformAdapter.writeSetSourceFile(savedRecord.sourcePath, savedRecord.rawSource);
+          sourceWriteCount += 1;
+        } else if (isWebLinkedSourcePath(savedRecord.sourcePath)) {
+          const browserWriteSucceeded = await writeBrowserLinkedSourceFile(
+            savedRecord.sourcePath,
+            savedRecord.rawSource,
+          );
+          if (browserWriteSucceeded) {
+            sourceWriteCount += 1;
+          }
+        }
       }
       loadedSets[savedRecord.id] = savedRecord;
       const refreshedDraft = createEditorDraft(savedRecord, draft);
