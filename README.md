@@ -18,6 +18,7 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 - Değerlendirme bazlı filtreler: Tümü, Tekrar Göz At, Bilmiyorum, Değerlendirilmemiş
 - Karıştırma (shuffle), Açık/Koyu tema, Kart numarasına atlama
 - **Opsiyonel Otomatik Geçiş**: Değerlendirme sonrası bir sonraki karta otomatik geçişi giriş ekranından açıp kapatabilirsiniz (ayar kalıcıdır).
+- **Bulut Senkronu**: Aynı Supabase hesabında set değişiklikleri ve çalışma ilerlemesi cihazlar arasında paylaşılır. Ayrı bir ilerleme tablosu yoksa uygulama bunu mevcut set tablosunda görünmeyen küçük bir kayıtla otomatik sürdürür.
 - Klavye kısayolları
 - `localStorage` ile durum kaydı
 
@@ -31,6 +32,13 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 1. `index.html` dosyasını tarayıcıda açın.
 2. "📂 JSON Dosyası Yükle" butonuna tıklayarak oluşturduğunuz JSON dosyalarını seçin.
 3. Çalışmak istediğiniz setleri işaretleyip "Başla" diyin.
+
+## Supabase Notu
+
+- Yeni sürümlerde set ilerlemesi için ekstra SQL çalıştırmak zorunlu değil.
+- `flashcard_user_state` tablosu varsa uygulama onu kullanır.
+- Bu tablo yoksa ilerleme senkronu otomatik olarak `flashcard_sets` içinde gizli ve çok küçük bir sistem kaydıyla devam eder.
+- [`docs/SUPABASE_SYNC_SETUP.sql`](docs/SUPABASE_SYNC_SETUP.sql) dosyası halen kullanılabilir; bu sadece ayrık bir tablo tercih ediyorsanız opsiyoneldir.
 
 ## Desktop Release Alma (Otomatik)
 
@@ -60,6 +68,20 @@ Legacy kök dosya adlarını bilerek güncellemek için:
 ```powershell
 npm run release:with-legacy
 ```
+
+## Desktop Auto-Updater
+
+- Desktop uygulamasi canli web sitesinin birebir mirror'i degildir; build anindaki `dist` snapshot'ini paketler ve offline calismaya devam eder.
+- Web `Deploy Pages` akisi yalnizca [asklepioszealot.me](https://asklepioszealot.me) tarafini gunceller.
+- Desktop kullanicilarinin yeni surumu gormesi icin GitHub Actions altindaki `Release Desktop` workflow'unun manuel calistirilmasi gerekir.
+- Workflow, GitHub Releases uzerinde updater icin gereken `latest.json` dosyasini da olusturur; uygulama acilisinda ve `Guncellemeleri Kontrol Et` butonunda bu kanal sorgulanir.
+- Updater public key `src-tauri/tauri.conf.json` icinde tanimlidir. Private key'i bir kez uretmek icin:
+
+```powershell
+npx tauri signer generate -w ~/.tauri/flashcards-app-updater.key
+```
+
+- GitHub Secrets olarak en az `TAURI_SIGNING_PRIVATE_KEY` eklenmelidir. Key parola korumaliysa `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` da eklenir.
 
 ## Kullanım
 
