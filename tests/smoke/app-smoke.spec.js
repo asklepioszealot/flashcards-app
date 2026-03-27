@@ -97,7 +97,7 @@ async function seedLocalSets(page, { sets, selectedSetIds, assessments, session 
       );
       localStorage.setItem(
         `${appNamespace}::user::${demoUser.id}::selected_sets`,
-        JSON.stringify(selectedSetIds || loadedSetIds),
+        JSON.stringify(selectedSetIds ?? loadedSetIds),
       );
       if (assessments) {
         localStorage.setItem(
@@ -198,6 +198,12 @@ test.describe("Flashcards smoke", () => {
 
     await expect(page.locator("#auth-screen")).toBeVisible();
     await expect(page.locator("#theme-select-auth")).toBeVisible();
+    await expect(page.locator("#theme-select-auth option")).toHaveText([
+      "☀️⛅ AYDINLIK",
+      "🌑🌃 KARANLIK",
+      "🟫🟧 AMBER",
+      "🟦🟪 MAVİ",
+    ]);
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
 
@@ -245,6 +251,51 @@ test.describe("Flashcards smoke", () => {
     await expect(appContainer).toBeVisible();
     await expect(setManager).toBeHidden();
     await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
+  });
+
+  test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        alpha: {
+          setName: "Alfa Seti",
+          fileName: "alpha.json",
+          cards: [{ q: "A1", a: "C1", subject: "Genel" }],
+        },
+        beta: {
+          setName: "Beta Seti",
+          fileName: "beta.json",
+          cards: [{ q: "B1", a: "C2", subject: "Genel" }],
+        },
+        gamma: {
+          setName: "Gamma Seti",
+          fileName: "gamma.json",
+          cards: [{ q: "G1", a: "C3", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: [],
+    });
+
+    await expect(page.locator("#set-manager")).toBeVisible();
+    await expect(page.locator("#set-list-tools")).toBeVisible();
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("3/3 seçili");
+
+    const scrollState = await page.locator("#set-list").evaluate((node) => ({
+      className: node.className,
+      clientHeight: node.clientHeight,
+      scrollHeight: node.scrollHeight,
+    }));
+    expect(scrollState.className).toContain("set-list--scrollable");
+    expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+
+    await page.locator("#set-bulk-toggle").click();
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("0/3 seçili");
+    await expect(page.locator("#start-btn")).toBeDisabled();
+    await expect(page.locator('#set-list input[type="checkbox"]:checked')).toHaveCount(0);
+
+    await page.locator("#set-bulk-toggle").click();
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("3/3 seçili");
+    await expect(page.locator("#start-btn")).toBeEnabled();
+    await expect(page.locator('#set-list input[type="checkbox"]:checked')).toHaveCount(3);
   });
 
   test("remember me defaults to checked and persists mock auth to localStorage", async ({
@@ -490,6 +541,29 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#subject-display-front")).toBeVisible();
     await expect(page.locator("#subject-display-front")).toHaveText("Genel");
     await expect(page.locator("#card-counter")).toHaveText("1 / 1");
+  });
+
+  test("jump input keeps Enter navigation and no longer shows a Git button", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        nav: {
+          setName: "Gezinme Seti",
+          fileName: "nav.json",
+          cards: [
+            { q: "Kart 1", a: "Cevap 1", subject: "Genel" },
+            { q: "Kart 2", a: "Cevap 2", subject: "Genel" },
+            { q: "Kart 3", a: "Cevap 3", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["nav"],
+    });
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator('#app-container button', { hasText: "Git" })).toHaveCount(0);
+
+    await jumpToCard(page, 3);
+    await expect(page.locator("#question-text")).toHaveText("Kart 3");
   });
 
   test("resume exact card after reload", async ({ page }) => {

@@ -1170,6 +1170,45 @@ function clearSetSelection() {
   renderSetList();
 }
 
+function toggleBulkSetSelection() {
+  const totalSetCount = Object.keys(loadedSets).length;
+  const selectionCount = deleteMode ? removeCandidateSets.size : selectedSets.size;
+  if (!totalSetCount) return;
+  if (selectionCount === totalSetCount) {
+    clearSetSelection();
+    return;
+  }
+  selectAllSets();
+}
+
+function closeBulkSetMenu() {
+  const menu = document.getElementById("set-bulk-menu");
+  const trigger = document.getElementById("set-bulk-menu-trigger");
+  if (menu) menu.hidden = true;
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
+}
+
+function toggleBulkSetMenu(event) {
+  event?.preventDefault();
+  event?.stopPropagation();
+  const menu = document.getElementById("set-bulk-menu");
+  const trigger = document.getElementById("set-bulk-menu-trigger");
+  if (!menu || !trigger) return;
+
+  const shouldOpen = menu.hidden;
+  closeBulkSetMenu();
+  if (!shouldOpen) return;
+
+  menu.hidden = false;
+  trigger.setAttribute("aria-expanded", "true");
+}
+
+function applyBulkSetSelection(selectionMode) {
+  if (selectionMode === "all") selectAllSets();
+  else clearSetSelection();
+  closeBulkSetMenu();
+}
+
 async function removeSelectedSets() {
   if (!deleteMode || !removeCandidateSets.size) return;
   await removeSets([...removeCandidateSets]);
@@ -1225,6 +1264,25 @@ async function undoLastRemoval() {
   }
 }
 
+function updateSetListScrollState(listElement, setCount) {
+  if (!listElement) return;
+  listElement.classList.remove("set-list--scrollable");
+  listElement.style.removeProperty("--set-list-max-height");
+  if (setCount <= 2) return;
+
+  const rows = [...listElement.querySelectorAll(".set-item:not(.empty)")];
+  if (rows.length < 2) return;
+
+  const visibleHeight = rows
+    .slice(0, 2)
+    .reduce((totalHeight, row) => totalHeight + row.getBoundingClientRect().height, 0);
+  const computedStyle = window.getComputedStyle(listElement);
+  const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0;
+  listElement.style.setProperty("--set-list-max-height", `${Math.ceil(visibleHeight + paddingTop + paddingBottom + 6)}px`);
+  listElement.classList.add("set-list--scrollable");
+}
+
 function renderSetList() {
   const listElement = document.getElementById("set-list");
   const toolsElement = document.getElementById("set-list-tools");
@@ -1233,17 +1291,21 @@ function renderSetList() {
   const deleteModeButton = document.getElementById("delete-mode-btn");
   const editModeButton = document.getElementById("edit-mode-btn");
   const editSelectedButton = document.getElementById("edit-selected-btn");
-  const selectAllButton = document.getElementById("select-all-btn");
-  const clearSelectionButton = document.getElementById("clear-selection-btn");
+  const bulkToggle = document.getElementById("set-bulk-toggle");
+  const bulkToggleTitle = document.getElementById("set-bulk-toggle-title");
+  const bulkToggleMeta = document.getElementById("set-bulk-toggle-meta");
   const modeHint = document.getElementById("mode-hint");
   if (!listElement) return;
   const setIds = Object.keys(loadedSets);
   if (!setIds.length) {
     listElement.innerHTML = '<div class="set-item empty">Henüz set yüklenmedi.</div>';
+    listElement.classList.remove("set-list--scrollable");
+    listElement.style.removeProperty("--set-list-max-height");
     if (toolsElement) toolsElement.style.display = "none";
     if (startButton) startButton.disabled = true;
     if (removeSelectedButton) removeSelectedButton.disabled = true;
     if (editSelectedButton) editSelectedButton.disabled = true;
+    closeBulkSetMenu();
     return;
   }
   if (toolsElement) toolsElement.style.display = "flex";
@@ -1256,8 +1318,6 @@ function renderSetList() {
     editModeButton.textContent = editMode ? "Düzenleme Modu: Açık" : "Düzenleme Modu: Kapalı";
     editModeButton.className = editMode ? "btn btn-small" : "btn btn-small btn-secondary";
   }
-  if (selectAllButton) selectAllButton.textContent = deleteMode ? "Silineceklerin Tümünü Seç" : editMode ? "Düzenleneceklerin Tümünü Seç" : "Tümünü Derse Dahil Et";
-  if (clearSelectionButton) clearSelectionButton.textContent = deleteMode ? "Silme Seçimini Temizle" : editMode ? "Düzenleme Seçimini Temizle" : "Ders Seçimini Temizle";
   if (removeSelectedButton) {
     removeSelectedButton.disabled = !deleteMode || removeCandidateSets.size === 0;
     removeSelectedButton.textContent = `Seçilileri Kaldır (${removeCandidateSets.size})`;
@@ -1266,6 +1326,23 @@ function renderSetList() {
     editSelectedButton.disabled = !editMode || selectedSets.size === 0;
     editSelectedButton.textContent = `Kartları Düzenle (${selectedSets.size})`;
   }
+  const selectionCount = deleteMode ? removeCandidateSets.size : selectedSets.size;
+  const selectionLabel = deleteMode ? "Silme Seçimi" : editMode ? "Düzenleme Seçimi" : "Ders Seçimi";
+  const selectionState = selectionCount === 0 ? "none" : selectionCount === setIds.length ? "all" : "partial";
+  if (bulkToggle) {
+    bulkToggle.dataset.selectionState = selectionState;
+    bulkToggle.setAttribute(
+      "aria-label",
+      selectionState === "all"
+        ? `${selectionLabel} için tümünü kaldır`
+        : `${selectionLabel} için tümünü seç`,
+    );
+    bulkToggle.title = selectionState === "all"
+      ? `${selectionLabel}: tümünü kaldır`
+      : `${selectionLabel}: tümünü seç`;
+  }
+  if (bulkToggleTitle) bulkToggleTitle.textContent = selectionLabel;
+  if (bulkToggleMeta) bulkToggleMeta.textContent = `${selectionCount}/${setIds.length} seçili`;
   if (modeHint) {
     modeHint.textContent = deleteMode
       ? "Mod: Sileceğin setleri işaretliyorsun."
@@ -1318,6 +1395,8 @@ function renderSetList() {
       await deleteSet(element.getAttribute("data-set-delete"));
     });
   });
+  updateSetListScrollState(listElement, setIds.length);
+  closeBulkSetMenu();
 }
 
 const getPersistedSession = () => {
@@ -2855,8 +2934,14 @@ function bindStaticEvents() {
   document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
   document.getElementById("editor-export-btn")?.addEventListener("click", () => exportActiveEditorDraft());
   document.getElementById("editor-save-btn")?.addEventListener("click", () => void saveEditorDrafts());
-  document.getElementById("jump-input")?.addEventListener("keypress", (event) => {
-    if (event.key === "Enter") jumpToCard();
+  document.getElementById("jump-input")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    jumpToCard();
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target?.closest(".set-bulk-select")) return;
+    closeBulkSetMenu();
   });
   document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
@@ -2909,6 +2994,7 @@ function bindStaticEvents() {
 function exposeWindowApi() {
   Object.assign(window, {
     assessCard,
+    applyBulkSetSelection,
     authGoogleDrive,
     clearSetSelection,
     deleteSet,
@@ -2930,6 +3016,8 @@ function exposeWindowApi() {
     startStudy,
     triggerSetImport,
     toggleDeleteMode,
+    toggleBulkSetMenu,
+    toggleBulkSetSelection,
     toggleEditMode,
     toggleFullscreen,
     toggleSetCheck,
@@ -2940,6 +3028,7 @@ function exposeWindowApi() {
 
 async function bootstrap() {
   renderBuildMeta();
+  window.ThemeManager.renderThemeOptions(THEME_CONTROL_IDS);
   window.ThemeManager.initThemeFromStorage({
     storageKey: THEME_KEY,
     storageApi: storage,
