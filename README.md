@@ -39,6 +39,22 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 - `flashcard_user_state` tablosu varsa uygulama onu kullanır.
 - Bu tablo yoksa ilerleme senkronu otomatik olarak `flashcard_sets` içinde gizli ve çok küçük bir sistem kaydıyla devam eder.
 - [`docs/SUPABASE_SYNC_SETUP.sql`](docs/SUPABASE_SYNC_SETUP.sql) dosyası halen kullanılabilir; bu sadece ayrık bir tablo tercih ediyorsanız opsiyoneldir.
+- `flashcard_sets` için temel kurtarma şeması [`docs/SUPABASE_FLASHCARD_SETS_SETUP.sql`](docs/SUPABASE_FLASHCARD_SETS_SETUP.sql) içinde tutulur.
+- En kolay kişisel bulut yedeği için uygulama hesabınla giriş yapıp kendi verini dışa al:
+
+```powershell
+npm run backup:cloud-user
+```
+
+- Bu komut DB şifresi veya Docker istemez; normal uygulama giriş e-postası ve şifresi yeterlidir.
+- Ücretsiz planda düzenli dışa aktarma almak için:
+
+```powershell
+$env:SUPABASE_DB_URL="postgresql://<gercek-baglanti-dizesi>"
+npm run backup:supabase
+```
+
+- Ayrıntılı notlar için [`docs/SUPABASE_FREE_PLAN_BACKUP.md`](docs/SUPABASE_FREE_PLAN_BACKUP.md) dosyasına bakın.
 
 ## Desktop Release Alma (Otomatik)
 

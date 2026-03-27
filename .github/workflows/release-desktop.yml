@@ -1,0 +1,81 @@
+name: Release Desktop
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read desktop version
+        id: app_version
+        shell: pwsh
+        run: |
+          $config = Get-Content 'src-tauri/tauri.conf.json' -Raw | ConvertFrom-Json
+          $version = [string]$config.version
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "src-tauri/tauri.conf.json icindeki version alani bos olamaz."
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=desktop-v$version" >> $env:GITHUB_OUTPUT
+
+      - name: Ensure signing secret exists
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace("${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}")) {
+            throw "TAURI_SIGNING_PRIVATE_KEY secret'i ayarlanmadan desktop release alinmaz."
+          }
+
+      - name: Ensure release tag is new
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.app_version.outputs.tag }}"
+          $existingTag = git ls-remote --tags origin "refs/tags/$tag"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Uzak tag kontrolu basarisiz oldu."
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($existingTag)) {
+            throw "Tag zaten mevcut: $tag. Once src-tauri/tauri.conf.json icindeki version degerini bump et."
+          }
+
+      - name: Build and publish desktop release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          ENABLE_DEMO_AUTH: ${{ vars.ENABLE_DEMO_AUTH }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: --bundles nsis
+          generateReleaseNotes: true
+          prerelease: false
+          releaseBody: Windows desktop release for Pediatri Flashcards.
+          releaseDraft: false
+          releaseName: Pediatri Flashcards Desktop v__VERSION__
+          tagName: ${{ steps.app_version.outputs.tag }}
+          updaterJsonPreferNsis: true
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true

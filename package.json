@@ -7,6 +7,9 @@
     "build:dist": "node build.mjs",
     "serve:dist": "node tools/test-static-server.js",
     "web": "npm run build:dist && npm run serve:dist",
+    "backup:cloud-user": "node ./tools/backup-cloud-user.mjs",
+    "backup:supabase": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1",
+    "backup:supabase:dry": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1 -DryRun",
     "build:desktop": "npx tauri build --bundles nsis",
     "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
@@ -35,6 +38,8 @@
     "@tauri-apps/cli": "^2.10.1"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.100.1"
+    "@supabase/supabase-js": "^2.100.1",
+    "@tauri-apps/plugin-process": "^2.3.1",
+    "@tauri-apps/plugin-updater": "^2.10.0"
   }
 }
