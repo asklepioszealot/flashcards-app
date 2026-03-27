@@ -17,11 +17,8 @@ const SUPABASE_UMD_SOURCE = path.join(
 );
 const SUPABASE_UMD_DIST = path.join(
   DIST_DIR,
-  "node_modules",
-  "@supabase",
-  "supabase-js",
-  "dist",
-  "umd",
+  "src",
+  "generated",
   "supabase.js",
 );
 
