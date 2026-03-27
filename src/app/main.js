@@ -697,7 +697,7 @@ function syncAutoAdvanceToggleUI() {
   const toggle = document.getElementById("auto-advance-toggle-manager");
   const status = document.getElementById("auto-advance-status");
   if (toggle) toggle.checked = autoAdvanceEnabled;
-  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE ✅" : "OTOMATİK İLERLE ❌";
+  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE ✓" : "OTOMATİK İLERLE ✕";
 }
 
 function showScreen(name) {
@@ -1282,7 +1282,13 @@ function renderSetList() {
     row.className = "set-item";
     row.innerHTML = `
       <div class="set-info" data-set-select="${setId}">
-        <input type="checkbox" ${isSelected ? "checked" : ""} data-set-checkbox="${setId}">
+        <input
+          type="checkbox"
+          ${isSelected ? "checked" : ""}
+          data-set-checkbox="${setId}"
+          name="set-selection-${setId}"
+          aria-label="${escapeMarkup(setRecord.setName)} seçim kutusu"
+        >
         <div class="set-details">
           <div class="set-title">${setRecord.setName}</div>
           <div class="set-stats">${total} kart — ${assessed}/${total} (%${total ? Math.round((assessed / total) * 100) : 0}) tamam</div>
