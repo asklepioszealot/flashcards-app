@@ -37,9 +37,6 @@ const platformAdapter = createPlatformAdapter(storage);
 let currentUser = null;
 let loadedSets = {};
 let selectedSets = new Set();
-let removeCandidateSets = new Set();
-let deleteMode = false;
-let editMode = false;
 let lastRemovedSets = [];
 let undoTimeoutId = null;
 
@@ -901,7 +898,6 @@ async function handleAuthStateChange(user, event = "unknown") {
     pendingRemoteStudyStateSnapshot = null;
     loadedSets = {};
     selectedSets = new Set();
-    removeCandidateSets.clear();
     assessments = {};
     editorState = {
       isOpen: false,
@@ -1110,12 +1106,6 @@ function toggleSetSelection(setId) {
 }
 
 function toggleSetCheck(setId) {
-  if (deleteMode) {
-    if (removeCandidateSets.has(setId)) removeCandidateSets.delete(setId);
-    else removeCandidateSets.add(setId);
-    renderSetList();
-    return;
-  }
   toggleSetSelection(setId);
 }
 
@@ -1136,7 +1126,6 @@ async function removeSets(setIds) {
       }
       delete loadedSets[entry.setId];
       selectedSets.delete(entry.setId);
-      removeCandidateSets.delete(entry.setId);
     });
     saveSelectedSets();
     renderSetList();
@@ -1149,22 +1138,12 @@ async function removeSets(setIds) {
 }
 
 function selectAllSets() {
-  if (deleteMode) {
-    removeCandidateSets = new Set(Object.keys(loadedSets));
-    renderSetList();
-    return;
-  }
   selectedSets = new Set(Object.keys(loadedSets));
   saveSelectedSets();
   renderSetList();
 }
 
 function clearSetSelection() {
-  if (deleteMode) {
-    removeCandidateSets.clear();
-    renderSetList();
-    return;
-  }
   selectedSets.clear();
   saveSelectedSets();
   renderSetList();
@@ -1172,7 +1151,7 @@ function clearSetSelection() {
 
 function toggleBulkSetSelection() {
   const totalSetCount = Object.keys(loadedSets).length;
-  const selectionCount = deleteMode ? removeCandidateSets.size : selectedSets.size;
+  const selectionCount = selectedSets.size;
   if (!totalSetCount) return;
   if (selectionCount === totalSetCount) {
     clearSetSelection();
@@ -1182,27 +1161,8 @@ function toggleBulkSetSelection() {
 }
 
 async function removeSelectedSets() {
-  if (!deleteMode || !removeCandidateSets.size) return;
-  await removeSets([...removeCandidateSets]);
-}
-
-function toggleDeleteMode() {
-  deleteMode = !deleteMode;
-  if (deleteMode) {
-    editMode = false;
-  } else {
-    removeCandidateSets.clear();
-  }
-  renderSetList();
-}
-
-function toggleEditMode() {
-  editMode = !editMode;
-  if (editMode) {
-    deleteMode = false;
-    removeCandidateSets.clear();
-  }
-  renderSetList();
+  if (!selectedSets.size) return;
+  await removeSets([...selectedSets]);
 }
 
 function showUndoToast(message) {
@@ -1260,13 +1220,10 @@ function renderSetList() {
   const toolsElement = document.getElementById("set-list-tools");
   const startButton = document.getElementById("start-btn");
   const removeSelectedButton = document.getElementById("remove-selected-btn");
-  const deleteModeButton = document.getElementById("delete-mode-btn");
-  const editModeButton = document.getElementById("edit-mode-btn");
   const editSelectedButton = document.getElementById("edit-selected-btn");
   const bulkToggle = document.getElementById("set-bulk-toggle");
   const bulkToggleTitle = document.getElementById("set-bulk-toggle-title");
   const bulkToggleMeta = document.getElementById("set-bulk-toggle-meta");
-  const modeHint = document.getElementById("mode-hint");
   if (!listElement) return;
   const setIds = Object.keys(loadedSets);
   if (!setIds.length) {
@@ -1280,25 +1237,17 @@ function renderSetList() {
     return;
   }
   if (toolsElement) toolsElement.style.display = "flex";
-  if (startButton) startButton.disabled = selectedSets.size === 0 || editMode;
-  if (deleteModeButton) {
-    deleteModeButton.textContent = deleteMode ? "Silme Modu: Açık" : "Silme Modu: Kapalı";
-    deleteModeButton.className = deleteMode ? "btn btn-small btn-danger" : "btn btn-small btn-secondary";
-  }
-  if (editModeButton) {
-    editModeButton.textContent = editMode ? "Düzenleme Modu: Açık" : "Düzenleme Modu: Kapalı";
-    editModeButton.className = editMode ? "btn btn-small" : "btn btn-small btn-secondary";
-  }
+  if (startButton) startButton.disabled = selectedSets.size === 0;
   if (removeSelectedButton) {
-    removeSelectedButton.disabled = !deleteMode || removeCandidateSets.size === 0;
-    removeSelectedButton.textContent = `Seçilileri Kaldır (${removeCandidateSets.size})`;
+    removeSelectedButton.disabled = selectedSets.size === 0;
+    removeSelectedButton.textContent = `Seçilileri Kaldır (${selectedSets.size})`;
   }
   if (editSelectedButton) {
-    editSelectedButton.disabled = !editMode || selectedSets.size === 0;
+    editSelectedButton.disabled = selectedSets.size === 0;
     editSelectedButton.textContent = `Kartları Düzenle (${selectedSets.size})`;
   }
-  const selectionCount = deleteMode ? removeCandidateSets.size : selectedSets.size;
-  const selectionLabel = deleteMode ? "Silme Seçimi" : editMode ? "Düzenleme Seçimi" : "Ders Seçimi";
+  const selectionCount = selectedSets.size;
+  const selectionLabel = "Ders Seçimi";
   const selectionState = selectionCount === 0 ? "none" : selectionCount === setIds.length ? "all" : "partial";
   if (bulkToggle) {
     bulkToggle.dataset.selectionState = selectionState;
@@ -1314,13 +1263,6 @@ function renderSetList() {
   }
   if (bulkToggleTitle) bulkToggleTitle.textContent = selectionLabel;
   if (bulkToggleMeta) bulkToggleMeta.textContent = `${selectionCount}/${setIds.length} seçili`;
-  if (modeHint) {
-    modeHint.textContent = deleteMode
-      ? "Mod: Sileceğin setleri işaretliyorsun."
-      : editMode
-        ? "Mod: Düzenleyeceğin setleri seçiyorsun."
-        : "Mod: Derse dahil edilecek setleri seçiyorsun.";
-  }
   listElement.innerHTML = "";
   setIds.forEach((setId) => {
     const setRecord = loadedSets[setId];
@@ -1335,7 +1277,7 @@ function renderSetList() {
     });
     const total = setRecord.cards.length;
     const assessed = know + review + dunno;
-    const isSelected = deleteMode ? removeCandidateSets.has(setId) : selectedSets.has(setId);
+    const isSelected = selectedSets.has(setId);
     const row = document.createElement("div");
     row.className = "set-item";
     row.innerHTML = `
@@ -1396,7 +1338,7 @@ function populateTopicFilter() {
 }
 
 function startStudy() {
-  if (!selectedSets.size || editMode) return;
+  if (!selectedSets.size) return;
   allFlashcards = [];
   selectedSets.forEach((setId) => {
     const setRecord = loadedSets[setId];
@@ -2628,14 +2570,13 @@ function closeEditor(force = false) {
     focusedField: null,
     pendingScrollCardId: null,
   };
-  editMode = false;
   renderSetList();
   showScreen("manager");
 }
 
 function openEditorForSelectedSets() {
   const targetSetIds = [...selectedSets].filter((setId) => loadedSets[setId]);
-  if (!editMode || !targetSetIds.length) return;
+  if (!targetSetIds.length) return;
   editorState = {
     isOpen: true,
     activeSetId: targetSetIds[0],
@@ -2980,9 +2921,7 @@ function exposeWindowApi() {
     shuffleCards,
     startStudy,
     triggerSetImport,
-    toggleDeleteMode,
     toggleBulkSetSelection,
-    toggleEditMode,
     toggleFullscreen,
     toggleSetCheck,
     toggleTheme,
