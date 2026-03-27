@@ -198,8 +198,61 @@ const overflowMarkdownActions = [
   { id: "table", label: "Tablo", title: "Tablo şablonu" },
 ];
 
+const DEFAULT_EDITOR_FIELD_HEIGHTS = Object.freeze({
+  question: 170,
+  answer: 220,
+});
+
+const MIN_EDITOR_FIELD_HEIGHTS = Object.freeze({
+  question: 136,
+  answer: 184,
+});
+
+const MAX_EDITOR_HISTORY_LENGTH = 120;
+
 function markAppReady() {
   document.body.classList.remove("app-booting");
+}
+
+function getDefaultEditorFieldHeight(field) {
+  return DEFAULT_EDITOR_FIELD_HEIGHTS[field] || 180;
+}
+
+function getEditorFieldMinimumHeight(field) {
+  return MIN_EDITOR_FIELD_HEIGHTS[field] || 120;
+}
+
+function ensureEditorFieldHeightsState(fieldHeights = {}) {
+  const questionHeight = Number.parseFloat(fieldHeights?.question);
+  const answerHeight = Number.parseFloat(fieldHeights?.answer);
+
+  return {
+    question: Number.isFinite(questionHeight) ? Math.max(Math.round(questionHeight), getEditorFieldMinimumHeight("question")) : getDefaultEditorFieldHeight("question"),
+    answer: Number.isFinite(answerHeight) ? Math.max(Math.round(answerHeight), getEditorFieldMinimumHeight("answer")) : getDefaultEditorFieldHeight("answer"),
+  };
+}
+
+function createEditorFieldHistoryState(value = "") {
+  return {
+    entries: [String(value ?? "")],
+    index: 0,
+  };
+}
+
+function ensureEditorFieldHistoryState(historyState, value = "") {
+  const normalizedValue = String(value ?? "");
+  let entries = Array.isArray(historyState?.entries) && historyState.entries.length
+    ? historyState.entries.map((entry) => String(entry ?? ""))
+    : [normalizedValue];
+  let index = Number.isInteger(historyState?.index) ? historyState.index : entries.length - 1;
+  index = Math.min(Math.max(index, 0), entries.length - 1);
+
+  if (entries[index] !== normalizedValue) {
+    entries = [...entries.slice(0, index + 1), normalizedValue].slice(-MAX_EDITOR_HISTORY_LENGTH);
+    index = entries.length - 1;
+  }
+
+  return { entries, index };
 }
 
 function syncThemeControlsUI() {
@@ -924,7 +977,7 @@ function filterByTopic(resetFilter = true, options = {}) {
 function displayCard() {
   if (!filteredFlashcards.length) return;
   const card = filteredFlashcards[cardOrder[currentCardIndex]];
-  document.getElementById("question-text").textContent = card.q;
+  document.getElementById("question-text").innerHTML = renderAnswerMarkdown(card.q);
   document.getElementById("answer-text").innerHTML = card.a;
   document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
   document.getElementById("fullscreen-card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
@@ -1052,7 +1105,7 @@ function printCards() {
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
         <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${index + 1} — ${card.subject}</span>${badge}
       </div>
-      <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a; white-space:pre-line;">${card.q}</div>
+      <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a;">${renderAnswerMarkdown(card.q)}</div>
       <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px;">${card.a}</div>
     </div>`;
   }).join("");
@@ -1083,11 +1136,31 @@ function ensureEditorDraftUiState(draft) {
   if (typeof draft.listPanelOpen !== "boolean") {
     draft.listPanelOpen = true;
   }
+  if (typeof draft.deleteSelectionMode !== "boolean") {
+    draft.deleteSelectionMode = false;
+  }
+  draft.deleteSelectionCardIds = Array.isArray(draft.deleteSelectionCardIds)
+    ? draft.deleteSelectionCardIds.filter((cardId) => availableCardIds.has(cardId))
+    : [];
+  draft.fieldHeights = Object.fromEntries(
+    cards.map((card) => [card.id, ensureEditorFieldHeightsState(draft.fieldHeights?.[card.id])]),
+  );
+  draft.fieldHistory = Object.fromEntries(
+    cards.map((card) => [
+      card.id,
+      {
+        question: ensureEditorFieldHistoryState(draft.fieldHistory?.[card.id]?.question, card.question),
+        answer: ensureEditorFieldHistoryState(draft.fieldHistory?.[card.id]?.answer, card.explanationMarkdown),
+      },
+    ]),
+  );
   if (!availableCardIds.size) {
     draft.activeCardIndex = 0;
     draft.expandedCardId = null;
     draft.toolbarExpandedCardId = null;
     draft.expandedPreviewCardId = null;
+    draft.deleteSelectionMode = false;
+    draft.deleteSelectionCardIds = [];
     return draft;
   }
   if (!Number.isInteger(draft.activeCardIndex)) {
@@ -1111,6 +1184,9 @@ function ensureEditorDraftUiState(draft) {
   if (draft.expandedPreviewCardId && !availableCardIds.has(draft.expandedPreviewCardId)) {
     draft.expandedPreviewCardId = null;
   }
+  if (editorState.focusedField?.setId === draft.setId && !availableCardIds.has(editorState.focusedField.cardId)) {
+    editorState.focusedField = null;
+  }
   return draft;
 }
 
@@ -1126,6 +1202,10 @@ function createEditorDraft(setRecord, previousDraft = null) {
     expandedCardId: previousDraft ? previousDraft.expandedCardId : baseDraft.expandedCardId ?? null,
     toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? baseDraft.toolbarExpandedCardId ?? null,
     expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? baseDraft.expandedPreviewCardId ?? null,
+    fieldHeights: previousDraft?.fieldHeights || {},
+    fieldHistory: previousDraft?.fieldHistory || {},
+    deleteSelectionMode: previousDraft?.deleteSelectionMode ?? false,
+    deleteSelectionCardIds: Array.isArray(previousDraft?.deleteSelectionCardIds) ? [...previousDraft.deleteSelectionCardIds] : [],
   });
 }
 
@@ -1178,6 +1258,7 @@ function deleteEditorCard(draft, cardId) {
   if (targetIndex < 0) return;
 
   draft.cards.splice(targetIndex, 1);
+  draft.deleteSelectionCardIds = draft.deleteSelectionCardIds.filter((selectedCardId) => selectedCardId !== cardId);
   if (editorState.focusedField?.cardId === cardId) {
     editorState.focusedField = null;
   }
@@ -1192,6 +1273,61 @@ function deleteEditorCard(draft, cardId) {
   const nextIndex = targetIndex >= draft.cards.length ? draft.cards.length - 1 : targetIndex;
   setEditorActiveCardIndex(draft, nextIndex);
   markDraftDirty(draft.setId, true);
+}
+
+function toggleEditorDeleteSelectionMode(draft) {
+  draft.deleteSelectionMode = !draft.deleteSelectionMode;
+  if (!draft.deleteSelectionMode) {
+    draft.deleteSelectionCardIds = [];
+  }
+}
+
+function toggleEditorDeleteCardSelection(draft, cardId, shouldSelect) {
+  const selectedIds = new Set(draft.deleteSelectionCardIds);
+  if (shouldSelect) selectedIds.add(cardId);
+  else selectedIds.delete(cardId);
+  draft.deleteSelectionCardIds = draft.cards
+    .map((card) => card.id)
+    .filter((candidateId) => selectedIds.has(candidateId));
+}
+
+function deleteSelectedEditorCards(draft) {
+  ensureEditorDraftUiState(draft);
+  const selectedIds = draft.deleteSelectionCardIds.filter((cardId) => draft.cards.some((card) => card.id === cardId));
+  if (!selectedIds.length) {
+    showEditorStatus("Silmek için önce en az bir kart seç.", "error");
+    return 0;
+  }
+
+  const confirmationMessage = selectedIds.length === 1
+    ? "Seçili kartı silmek istediğine emin misin?"
+    : `Seçili ${selectedIds.length} kartı silmek istediğine emin misin?`;
+
+  if (!confirm(confirmationMessage)) return 0;
+
+  const selectedIdSet = new Set(selectedIds);
+  const currentActiveCardId = getEditorActiveCard(draft)?.id || null;
+  draft.cards = draft.cards.filter((card) => !selectedIdSet.has(card.id));
+  draft.deleteSelectionCardIds = [];
+  draft.deleteSelectionMode = false;
+
+  if (editorState.focusedField?.setId === draft.setId && selectedIdSet.has(editorState.focusedField.cardId)) {
+    editorState.focusedField = null;
+  }
+
+  if (!draft.cards.length) {
+    draft.activeCardIndex = 0;
+    draft.toolbarExpandedCardId = null;
+    draft.expandedCardId = null;
+    draft.expandedPreviewCardId = null;
+  } else if (currentActiveCardId && draft.cards.some((card) => card.id === currentActiveCardId)) {
+    setEditorActiveCardById(draft, currentActiveCardId);
+  } else {
+    setEditorActiveCardIndex(draft, Math.min(draft.activeCardIndex, draft.cards.length - 1));
+  }
+
+  markDraftDirty(draft.setId, true);
+  return selectedIds.length;
 }
 
 function refreshEditorPills() {
@@ -1272,6 +1408,8 @@ function renderEditorTabs() {
   select.disabled = editorState.draftOrder.length <= 1;
   select.onchange = () => {
     if (!select.value || select.value === editorState.activeSetId) return;
+    const currentDraft = getCurrentEditorDraft();
+    if (currentDraft) persistFocusedEditorFieldState(currentDraft);
     editorState.activeSetId = select.value;
     editorState.focusedField = null;
     renderEditor();
@@ -1287,14 +1425,52 @@ function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
+function renderEditorFormattingToolbar(cardId, isOverflowOpen) {
+  return `
+    <div class="editor-format-toolbar">
+      <div class="editor-format-toolbar-head">
+        <div class="editor-format-toolbar-label">
+          <strong>Biçimlendirme</strong>
+          <span>Soru ve açıklama için ortak araçlar</span>
+        </div>
+      </div>
+      <div class="editor-toolbar-shell" role="toolbar" aria-label="Soru ve açıklama biçimlendirme araçları">
+        <div class="editor-toolbar editor-toolbar-primary">
+          ${renderEditorToolbarButtons(primaryMarkdownActions, cardId)}
+          <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${cardId}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
+        </div>
+        <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
+          ${renderEditorToolbarButtons(overflowMarkdownActions, cardId)}
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderEditorCardList(draft) {
+  const isDeleteSelectionMode = draft.deleteSelectionMode === true;
+  const selectedDeleteIds = new Set(draft.deleteSelectionCardIds);
+  const selectedCount = draft.deleteSelectionCardIds.length;
   const itemsMarkup = draft.cards.length
     ? draft.cards
         .map((card, index) => {
           const questionPreview = card.question.trim() || "Yeni kart";
           const isActiveCard = draft.activeCardIndex === index;
+          const isSelectedForDelete = selectedDeleteIds.has(card.id);
           return `
-            <div class="editor-list-row">
+            <div class="editor-list-row ${isDeleteSelectionMode ? "is-selection-enabled" : ""}">
+              ${
+                isDeleteSelectionMode
+                  ? `<div class="editor-list-check-wrap">
+                      <input
+                        type="checkbox"
+                        class="editor-list-check"
+                        data-editor-delete-select="${card.id}"
+                        aria-label="Kart ${index + 1} silmek için seç"
+                        ${isSelectedForDelete ? "checked" : ""}
+                      />
+                    </div>`
+                  : ""
+              }
               <button
                 type="button"
                 class="editor-list-select ${isActiveCard ? "active" : ""}"
@@ -1304,13 +1480,6 @@ function renderEditorCardList(draft) {
                 <span class="editor-list-index">Kart ${index + 1}</span>
                 <span class="editor-list-question" data-editor-list-question="${card.id}">${escapeMarkup(questionPreview)}</span>
               </button>
-              <button
-                type="button"
-                class="editor-list-delete"
-                data-editor-delete-card="${card.id}"
-                aria-label="Kart ${index + 1} sil"
-                title="Kartı sil"
-              >×</button>
             </div>`;
         })
         .join("")
@@ -1319,11 +1488,27 @@ function renderEditorCardList(draft) {
   return `
     <aside class="editor-list-panel">
       <div class="editor-list-header">
-        <div>
-          <div class="editor-list-title">Kartlar</div>
-          <div class="editor-list-subtitle">Düzenlemek için soldan bir soru seç.</div>
+        <div class="editor-list-title">KARTLAR</div>
+        <div class="editor-list-actions">
+          <button type="button" class="btn btn-small" id="editor-add-card-btn">Kart Ekle</button>
+          <button
+            type="button"
+            class="btn btn-small btn-secondary editor-list-action-toggle ${isDeleteSelectionMode ? "active" : ""}"
+            data-editor-toggle-delete-mode
+          >
+            ${isDeleteSelectionMode ? "Seçimi Kapat" : "Kart Sil"}
+          </button>
+          ${
+            isDeleteSelectionMode
+              ? `<button
+                  type="button"
+                  class="btn btn-small btn-danger"
+                  data-editor-delete-selected
+                  ${selectedCount ? "" : "disabled"}
+                >Seçilileri Sil${selectedCount ? ` (${selectedCount})` : ""}</button>`
+              : ""
+          }
         </div>
-        <button type="button" class="btn btn-small" id="editor-add-card-btn">Kart Ekle</button>
       </div>
       <div class="editor-list-items">
         ${itemsMarkup}
@@ -1333,6 +1518,9 @@ function renderEditorCardList(draft) {
 
 function renderEditorCardDetail(draft, card, index) {
   const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
+  const questionHeight = getEditorFieldHeight(draft, card.id, "question");
+  const answerHeight = getEditorFieldHeight(draft, card.id, "answer");
+  const previewHeight = Math.max(answerHeight + 20, 240);
   return `
     <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${card.id}">
       <div class="editor-card-head">
@@ -1344,26 +1532,31 @@ function renderEditorCardDetail(draft, card, index) {
         </div>
       </div>
       <div class="editor-card-body" data-editor-card-body="${card.id}">
+        ${renderEditorFormattingToolbar(card.id, isOverflowOpen)}
         <div class="field-group">
           <label>Soru</label>
-          <textarea class="editor-input-question" data-editor-field="question" data-card-id="${card.id}" placeholder="Soruyu yaz...">${escapeMarkup(card.question)}</textarea>
+          <textarea
+            class="editor-input-question"
+            data-editor-field="question"
+            data-card-id="${card.id}"
+            placeholder="Soruyu yaz..."
+            style="height:${questionHeight}px;"
+          >${escapeMarkup(card.question)}</textarea>
         </div>
         <div class="editor-split">
           <div>
             <div class="field-group">
               <div class="editor-markdown-head">
                 <label>Açıklama (Markdown)</label>
-                <div class="editor-toolbar-shell" role="toolbar" aria-label="Markdown araçları">
-                  <div class="editor-toolbar editor-toolbar-primary">
-                    ${renderEditorToolbarButtons(primaryMarkdownActions, card.id)}
-                    <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${card.id}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
-                  </div>
-                  <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
-                    ${renderEditorToolbarButtons(overflowMarkdownActions, card.id)}
-                  </div>
-                </div>
+                <span class="status-pill">Araçlar üstte iki alan için ortaktır</span>
               </div>
-              <textarea class="editor-input-answer" data-editor-field="answer" data-card-id="${card.id}" placeholder="Markdown açıklamasını yaz...">${escapeMarkup(card.explanationMarkdown)}</textarea>
+              <textarea
+                class="editor-input-answer"
+                data-editor-field="answer"
+                data-card-id="${card.id}"
+                placeholder="Markdown açıklamasını yaz..."
+                style="height:${answerHeight}px;"
+              >${escapeMarkup(card.explanationMarkdown)}</textarea>
             </div>
           </div>
           <div>
@@ -1371,7 +1564,7 @@ function renderEditorCardDetail(draft, card, index) {
               <div class="editor-preview-head">
                 <label>Canlı Önizleme</label>
               </div>
-              <div class="editor-preview editor-preview-answer" data-editor-preview="${card.id}">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+              <div class="editor-preview editor-preview-answer" data-editor-preview="${card.id}" style="height:${previewHeight}px;">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
             </div>
           </div>
         </div>
@@ -1415,6 +1608,7 @@ function renderEditorForm(draft) {
 const renderEditorRaw = (draft) => `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw">${draft.rawSource}</textarea></div>`;
 
 function applyMarkdownSnippet(textarea, action) {
+  restoreEditorFieldSelection(textarea);
   const selectionStart = textarea.selectionStart;
   const selectionEnd = textarea.selectionEnd;
   const selectedText = textarea.value.slice(selectionStart, selectionEnd);
@@ -1489,14 +1683,91 @@ function applyMarkdownSnippet(textarea, action) {
   textarea.setRangeText(replacement, selectionStart, selectionEnd, "end");
   textarea.focus();
   textarea.setSelectionRange(selectionStart + selectionOffsetStart, selectionStart + selectionOffsetEnd);
+  rememberEditorFieldSelection(textarea);
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-function syncEditorFieldFromTextarea(draft, textarea) {
-  const card = draft.cards.find((item) => item.id === textarea.getAttribute("data-card-id"));
+function getEditorFieldNameFromElement(textarea) {
+  return textarea.getAttribute("data-editor-field") === "question" ? "question" : "answer";
+}
+
+function getEditorFieldHeight(draft, cardId, field) {
+  ensureEditorDraftUiState(draft);
+  return draft.fieldHeights?.[cardId]?.[field] || getDefaultEditorFieldHeight(field);
+}
+
+function getEditorFieldHistory(draft, cardId, field, currentValue = "") {
+  if (!draft.fieldHistory[cardId]) draft.fieldHistory[cardId] = {};
+  if (!draft.fieldHistory[cardId][field]) {
+    draft.fieldHistory[cardId][field] = createEditorFieldHistoryState(currentValue);
+  }
+  return draft.fieldHistory[cardId][field];
+}
+
+function recordEditorFieldHistory(draft, cardId, field, value) {
+  const normalizedValue = String(value ?? "");
+  const history = getEditorFieldHistory(draft, cardId, field, normalizedValue);
+  if (history.entries[history.index] === normalizedValue) return;
+  history.entries = [...history.entries.slice(0, history.index + 1), normalizedValue].slice(-MAX_EDITOR_HISTORY_LENGTH);
+  history.index = history.entries.length - 1;
+}
+
+function rememberEditorFieldSelection(textarea) {
+  const activeDraft = getCurrentEditorDraft();
+  if (!textarea || !activeDraft) return;
+
+  editorState.focusedField = {
+    setId: activeDraft.setId,
+    cardId: textarea.getAttribute("data-card-id"),
+    field: getEditorFieldNameFromElement(textarea),
+    selectionStart: typeof textarea.selectionStart === "number" ? textarea.selectionStart : textarea.value.length,
+    selectionEnd: typeof textarea.selectionEnd === "number" ? textarea.selectionEnd : textarea.value.length,
+    scrollTop: textarea.scrollTop || 0,
+  };
+}
+
+function restoreEditorFieldSelection(textarea) {
+  const focusedField = editorState.focusedField;
+  if (!textarea || !focusedField) return;
+  if (
+    textarea.getAttribute("data-card-id") !== focusedField.cardId
+    || getEditorFieldNameFromElement(textarea) !== focusedField.field
+  ) {
+    return;
+  }
+
+  textarea.focus();
+  const valueLength = textarea.value.length;
+  const selectionStart = Math.min(focusedField.selectionStart ?? valueLength, valueLength);
+  const selectionEnd = Math.min(focusedField.selectionEnd ?? selectionStart, valueLength);
+  textarea.setSelectionRange(selectionStart, selectionEnd);
+  textarea.scrollTop = focusedField.scrollTop || 0;
+}
+
+function saveEditorFieldHeight(draft, textarea) {
+  if (!textarea) return;
+  const cardId = textarea.getAttribute("data-card-id");
+  const field = getEditorFieldNameFromElement(textarea);
+  if (!draft.fieldHeights[cardId]) {
+    draft.fieldHeights[cardId] = ensureEditorFieldHeightsState();
+  }
+  draft.fieldHeights[cardId][field] = Math.max(Math.round(textarea.offsetHeight), getEditorFieldMinimumHeight(field));
+}
+
+function persistFocusedEditorFieldState(draft) {
+  const focusedField = getFocusedEditorFieldElement();
+  if (!focusedField) return;
+  rememberEditorFieldSelection(focusedField);
+  saveEditorFieldHeight(draft, focusedField);
+}
+
+function syncEditorFieldFromTextarea(draft, textarea, options = {}) {
+  const cardId = textarea.getAttribute("data-card-id");
+  const field = getEditorFieldNameFromElement(textarea);
+  const card = draft.cards.find((item) => item.id === cardId);
   if (!card) return;
 
-  if (textarea.getAttribute("data-editor-field") === "question") {
+  if (field === "question") {
     card.question = textarea.value;
     const questionPreview = document.querySelector(`[data-editor-list-question="${card.id}"]`);
     if (questionPreview) questionPreview.textContent = card.question.trim() || "Yeni kart";
@@ -1506,63 +1777,121 @@ function syncEditorFieldFromTextarea(draft, textarea) {
     if (preview) preview.innerHTML = renderAnswerMarkdown(card.explanationMarkdown);
   }
 
+  if (options.recordHistory !== false) {
+    recordEditorFieldHistory(draft, cardId, field, textarea.value);
+  }
+  rememberEditorFieldSelection(textarea);
+  saveEditorFieldHeight(draft, textarea);
   markDraftDirty(draft.setId, true);
   renderEditorTabs();
 }
 
 function setFocusedEditorField(textarea) {
-  editorState.focusedField = {
-    setId: getCurrentEditorDraft()?.setId || null,
-    cardId: textarea.getAttribute("data-card-id"),
-    field: textarea.getAttribute("data-editor-field"),
-  };
+  rememberEditorFieldSelection(textarea);
 }
 
-function getFocusedEditorFieldElement() {
+function getFocusedEditorFieldElement(options = {}) {
   const focusedField = editorState.focusedField;
   if (!focusedField || focusedField.setId !== getCurrentEditorDraft()?.setId) return null;
-  return document.querySelector(`[data-editor-field="${focusedField.field}"][data-card-id="${focusedField.cardId}"]`);
+  const targetField = document.querySelector(`[data-editor-field="${focusedField.field}"][data-card-id="${focusedField.cardId}"]`);
+  if (targetField && options.restoreSelection) restoreEditorFieldSelection(targetField);
+  return targetField;
+}
+
+function resolveEditorToolbarTarget(cardId) {
+  const focusedField = getFocusedEditorFieldElement({ restoreSelection: true });
+  if (focusedField && focusedField.getAttribute("data-card-id") === cardId) {
+    return focusedField;
+  }
+
+  return document.querySelector(`[data-editor-field="question"][data-card-id="${cardId}"]`)
+    || document.querySelector(`[data-editor-field="answer"][data-card-id="${cardId}"]`);
+}
+
+function bindEditorTextareaState(draft, textarea) {
+  const syncSelection = () => rememberEditorFieldSelection(textarea);
+
+  textarea.addEventListener("focus", () => setFocusedEditorField(textarea));
+  textarea.addEventListener("click", syncSelection);
+  textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
+  textarea.addEventListener("keyup", syncSelection);
+  textarea.addEventListener("mouseup", () => {
+    syncSelection();
+    saveEditorFieldHeight(draft, textarea);
+  });
+  textarea.addEventListener("select", syncSelection);
+  textarea.addEventListener("scroll", syncSelection);
+  textarea.addEventListener("blur", syncSelection);
+
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(() => saveEditorFieldHeight(draft, textarea));
+    resizeObserver.observe(textarea);
+  }
 }
 
 function applyEditorHistoryAction(draft, action) {
-  const textarea = getFocusedEditorFieldElement();
+  const textarea = getFocusedEditorFieldElement({ restoreSelection: true });
   if (!textarea) {
     showEditorStatus("Geri al / ileri al için önce bir metin alanına tıkla.", "error");
     return;
   }
 
-  textarea.focus();
-  if (typeof document.execCommand === "function") {
-    document.execCommand(action === "undo" ? "undo" : "redo");
-    queueMicrotask(() => syncEditorFieldFromTextarea(draft, textarea));
-    return;
-  }
+  const cardId = textarea.getAttribute("data-card-id");
+  const field = getEditorFieldNameFromElement(textarea);
+  const history = getEditorFieldHistory(draft, cardId, field, textarea.value);
+  const nextIndex = action === "undo" ? history.index - 1 : history.index + 1;
+  if (nextIndex < 0 || nextIndex >= history.entries.length) return;
 
-  showEditorStatus("Tarayıcı bu geri al / ileri al kısayolunu desteklemiyor.", "error");
+  history.index = nextIndex;
+  textarea.value = history.entries[nextIndex];
+  syncEditorFieldFromTextarea(draft, textarea, { recordHistory: false });
+  textarea.focus();
+  const valueLength = textarea.value.length;
+  textarea.setSelectionRange(valueLength, valueLength);
+  rememberEditorFieldSelection(textarea);
 }
 
 function bindEditorEvents(draft) {
   document.querySelectorAll("[data-editor-toggle-list]").forEach((button) => {
     button.addEventListener("click", () => {
+      persistFocusedEditorFieldState(draft);
       draft.listPanelOpen = !draft.listPanelOpen;
       renderEditor();
     });
   });
   document.getElementById("editor-add-card-btn")?.addEventListener("click", () => {
+    persistFocusedEditorFieldState(draft);
     addEditorCard(draft);
     renderEditor();
   });
-  document.querySelectorAll("[data-editor-select-card]").forEach((button) => {
+  document.querySelectorAll("[data-editor-toggle-delete-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      const cardId = button.getAttribute("data-editor-select-card");
-      setEditorActiveCardById(draft, cardId);
+      toggleEditorDeleteSelectionMode(draft);
       renderEditor();
     });
   });
-  document.querySelectorAll("[data-editor-delete-card]").forEach((button) => {
+  document.querySelectorAll("[data-editor-delete-select]").forEach((checkbox) => {
+    checkbox.addEventListener("change", (event) => {
+      toggleEditorDeleteCardSelection(draft, checkbox.getAttribute("data-editor-delete-select"), event.currentTarget?.checked === true);
+      renderEditor();
+    });
+  });
+  document.querySelectorAll("[data-editor-delete-selected]").forEach((button) => {
     button.addEventListener("click", () => {
-      const cardId = button.getAttribute("data-editor-delete-card");
-      deleteEditorCard(draft, cardId);
+      const deletedCount = deleteSelectedEditorCards(draft);
+      if (!deletedCount) return;
+      renderEditor();
+      showEditorStatus(
+        deletedCount === 1 ? "Seçili kart silindi." : `${deletedCount} kart silindi.`,
+        "success",
+      );
+    });
+  });
+  document.querySelectorAll("[data-editor-select-card]").forEach((button) => {
+    button.addEventListener("click", () => {
+      persistFocusedEditorFieldState(draft);
+      const cardId = button.getAttribute("data-editor-select-card");
+      setEditorActiveCardById(draft, cardId);
       renderEditor();
     });
   });
@@ -1575,22 +1904,19 @@ function bindEditorEvents(draft) {
   });
   document.querySelectorAll("[data-toolbar-toggle]").forEach((button) => {
     button.addEventListener("click", () => {
+      persistFocusedEditorFieldState(draft);
       const cardId = button.getAttribute("data-toolbar-toggle");
       draft.toolbarExpandedCardId = draft.toolbarExpandedCardId === cardId ? null : cardId;
       renderEditor();
     });
   });
-  document.querySelectorAll('[data-editor-field="question"]').forEach((textarea) => {
-    textarea.addEventListener("focus", () => setFocusedEditorField(textarea));
-    textarea.addEventListener("click", () => setFocusedEditorField(textarea));
-    textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
-  });
-  document.querySelectorAll('[data-editor-field="answer"]').forEach((textarea) => {
-    textarea.addEventListener("focus", () => setFocusedEditorField(textarea));
-    textarea.addEventListener("click", () => setFocusedEditorField(textarea));
-    textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
+  document.querySelectorAll('[data-editor-field="question"], [data-editor-field="answer"]').forEach((textarea) => {
+    bindEditorTextareaState(draft, textarea);
   });
   document.querySelectorAll("[data-md-action]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
     button.addEventListener("click", () => {
       const action = button.getAttribute("data-md-action");
       if (action === "undo" || action === "redo") {
@@ -1598,7 +1924,7 @@ function bindEditorEvents(draft) {
         return;
       }
       const cardId = button.getAttribute("data-card-id");
-      const textarea = document.querySelector(`[data-editor-field="answer"][data-card-id="${cardId}"]`);
+      const textarea = resolveEditorToolbarTarget(cardId);
       if (textarea) {
         setFocusedEditorField(textarea);
         applyMarkdownSnippet(textarea, action);
@@ -1624,11 +1950,9 @@ function flushEditorPendingScroll() {
 }
 
 function flushEditorFocusedField() {
-  const targetField = getFocusedEditorFieldElement();
+  const targetField = getFocusedEditorFieldElement({ restoreSelection: true });
   if (!targetField) return;
-  targetField.focus();
-  const valueLength = targetField.value.length;
-  targetField.setSelectionRange(valueLength, valueLength);
+  saveEditorFieldHeight(getCurrentEditorDraft(), targetField);
 }
 
 function renderEditor() {

@@ -5,7 +5,7 @@
     return;
   }
 
-  const AVAILABLE_THEMES = Object.freeze(["light", "dark", "ember"]);
+  const AVAILABLE_THEMES = Object.freeze(["light", "dark", "ember", "midnight"]);
 
   function normalizeTheme(themeName) {
     return AVAILABLE_THEMES.includes(themeName) ? themeName : "light";
