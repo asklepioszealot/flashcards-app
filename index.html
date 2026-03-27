@@ -316,6 +316,14 @@
         text-transform: uppercase;
       }
 
+      .auto-advance-label {
+        color: var(--color-text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
       .theme-control select {
         min-width: 148px;
         flex: 0 0 auto;
@@ -683,6 +691,23 @@
         display: flex;
         align-items: center;
         gap: 10px;
+      }
+
+      .manager-settings-row {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 18px;
+        margin-top: 30px;
+        flex-wrap: wrap;
+      }
+
+      .auto-advance-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
       }
 
       .toggle-switch {
@@ -2005,8 +2030,27 @@
           width: 100%;
         }
 
+        .set-bulk-select {
+          flex-basis: auto;
+          min-width: 0;
+        }
+
+        .set-bulk-toggle {
+          width: 100%;
+          min-width: 0;
+        }
+
         .set-list-tools-actions {
           flex-basis: auto;
+        }
+
+        .manager-settings-row {
+          gap: 14px;
+        }
+
+        .auto-advance-control {
+          width: 100%;
+          justify-content: space-between;
         }
       }
       /* SET MANAGER CSS */
@@ -2177,21 +2221,24 @@
       .set-bulk-select {
         display: flex;
         align-items: stretch;
-        flex: 1 1 250px;
-        min-width: min(100%, 270px);
+        flex: 0 0 250px;
+        width: 250px;
+        min-width: 250px;
       }
 
       .set-bulk-toggle {
-        flex: 1 1 auto;
-        min-width: 0;
+        width: 250px;
+        min-width: 250px;
+        height: 42px;
         border: 1px solid var(--color-border);
         border-radius: 14px;
         background: linear-gradient(135deg, var(--color-bg-primary), var(--color-bg-secondary));
         color: var(--color-text-primary);
+        box-sizing: border-box;
         display: inline-flex;
         align-items: center;
         gap: 12px;
-        padding: 11px 14px;
+        padding: 0 12px;
         cursor: pointer;
         transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
         box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
@@ -2245,10 +2292,11 @@
 
       .set-bulk-toggle-copy {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         align-items: baseline;
-        gap: 8px;
+        gap: 6px;
         min-width: 0;
+        white-space: nowrap;
       }
 
       .set-bulk-toggle-title {
@@ -2567,7 +2615,7 @@
             <button class="set-bulk-toggle" id="set-bulk-toggle" type="button" data-selection-state="none" onclick="toggleBulkSetSelection()">
               <span class="set-bulk-toggle-box" aria-hidden="true"></span>
               <span class="set-bulk-toggle-copy">
-                <span class="set-bulk-toggle-title" id="set-bulk-toggle-title">Ders Seçimi</span>
+                <span class="set-bulk-toggle-title" id="set-bulk-toggle-title">DERS SEÇİMİ</span>
                 <span class="set-bulk-toggle-meta" id="set-bulk-toggle-meta">0/0 seçili</span>
               </span>
             </button>
@@ -2597,27 +2645,29 @@
         </button>
       </div>
 
-      <div class="theme-control" style="margin-top: 30px;">
-        <label for="theme-select-manager">Tema</label>
-        <select id="theme-select-manager" onchange="toggleTheme(this.value)">
-          <option value="light">☀️⛅ AYDINLIK</option>
-          <option value="midnight">🌑🌃 KARANLIK</option>
-          <option value="ember">🟫🟧 AMBER</option>
-          <option value="dark">🟦🟪 MAVİ</option>
-        </select>
-      </div>
+      <div class="manager-settings-row">
+        <div class="theme-control">
+          <label for="theme-select-manager">Tema</label>
+          <select id="theme-select-manager" onchange="toggleTheme(this.value)">
+            <option value="light">☀️⛅ AYDINLIK</option>
+            <option value="midnight">🌑🌃 KARANLIK</option>
+            <option value="ember">🟫🟧 AMBER</option>
+            <option value="dark">🟦🟪 MAVİ</option>
+          </select>
+        </div>
 
-      <div class="toggle-container" style="margin-top: 14px; justify-content: flex-start; gap: 12px;">
-        <span id="auto-advance-status">Otomatik sonraki soru: Açık</span>
-        <label class="toggle-switch">
-          <input
-            type="checkbox"
-            id="auto-advance-toggle-manager"
-            onchange="setAutoAdvance(this.checked)"
-            checked
-          />
-          <span class="toggle-slider"></span>
-        </label>
+        <div class="auto-advance-control">
+          <span class="auto-advance-label" id="auto-advance-status">OTOMATİK İLERLE ✅</span>
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              id="auto-advance-toggle-manager"
+              onchange="setAutoAdvance(this.checked)"
+              checked
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
 
       <div class="kbd-hint" style="margin-top: 20px;">

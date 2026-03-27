@@ -695,7 +695,7 @@ test.describe("Flashcards smoke", () => {
     });
 
     await setManagerAutoAdvance(page, false);
-    await expect(page.locator("#auto-advance-status")).toContainText("Kapalı");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ❌");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("0");
 
     await page.locator("#start-btn").click();
@@ -703,7 +703,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#card-counter")).toHaveText("1 / 2");
 
     await page.reload();
-    await expect(page.locator("#auto-advance-status")).toContainText("Kapalı");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ❌");
     await setManagerAutoAdvance(page, false);
 
     await page.locator("#start-btn").click();
@@ -714,7 +714,7 @@ test.describe("Flashcards smoke", () => {
       .locator("button.btn-small.btn-secondary", { hasText: "Setlere Dön" })
       .click();
     await setManagerAutoAdvance(page, true);
-    await expect(page.locator("#auto-advance-status")).toContainText("Açık");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ✅");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("1");
 
     await page.locator("#start-btn").click();

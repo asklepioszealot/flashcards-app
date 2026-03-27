@@ -697,7 +697,7 @@ function syncAutoAdvanceToggleUI() {
   const toggle = document.getElementById("auto-advance-toggle-manager");
   const status = document.getElementById("auto-advance-status");
   if (toggle) toggle.checked = autoAdvanceEnabled;
-  if (status) status.textContent = autoAdvanceEnabled ? "Otomatik sonraki soru: Açık" : "Otomatik sonraki soru: Kapalı";
+  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE ✅" : "OTOMATİK İLERLE ❌";
 }
 
 function showScreen(name) {
@@ -1247,7 +1247,7 @@ function renderSetList() {
     editSelectedButton.textContent = `Kartları Düzenle (${selectedSets.size})`;
   }
   const selectionCount = selectedSets.size;
-  const selectionLabel = "Ders Seçimi";
+  const selectionLabel = "DERS SEÇİMİ";
   const selectionState = selectionCount === 0 ? "none" : selectionCount === setIds.length ? "all" : "partial";
   if (bulkToggle) {
     bulkToggle.dataset.selectionState = selectionState;
