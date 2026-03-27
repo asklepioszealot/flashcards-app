@@ -1059,7 +1059,8 @@ async function tryBrowserFileSystemImport() {
   } catch (error) {
     if (error?.name === "AbortError") return true;
     console.error(error);
-    return false;
+    alert(error?.message || "Dosya seçimi sırasında hata oluştu.");
+    return true;
   }
 }
 
