@@ -9,6 +9,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
+      [hidden] {
+        display: none !important;
+      }
+
       :root {
         --color-bg-primary: #f8fafc; /* Slate 50 */
         --color-bg-secondary: #ffffff;
@@ -2173,10 +2177,8 @@
       .set-bulk-select {
         display: flex;
         align-items: stretch;
-        gap: 8px;
         flex: 1 1 250px;
         min-width: min(100%, 270px);
-        position: relative;
       }
 
       .set-bulk-toggle {
@@ -2195,8 +2197,7 @@
         box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
       }
 
-      .set-bulk-toggle:hover,
-      .set-bulk-menu-trigger:hover {
+      .set-bulk-toggle:hover {
         border-color: var(--color-accent);
         transform: translateY(-1px);
       }
@@ -2244,8 +2245,9 @@
 
       .set-bulk-toggle-copy {
         display: flex;
-        flex-direction: column;
-        align-items: flex-start;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px;
         min-width: 0;
       }
 
@@ -2258,60 +2260,6 @@
       .set-bulk-toggle-meta {
         font-size: 12px;
         color: var(--color-text-secondary);
-      }
-
-      .set-bulk-menu-wrap {
-        position: relative;
-        flex: 0 0 auto;
-      }
-
-      .set-bulk-menu-trigger {
-        width: 44px;
-        height: 44px;
-        border: 1px solid var(--color-border);
-        border-radius: 14px;
-        background: var(--color-bg-primary);
-        color: var(--color-text-secondary);
-        font-size: 18px;
-        cursor: pointer;
-        transition: border-color 0.2s ease, transform 0.2s ease, color 0.2s ease;
-      }
-
-      .set-bulk-menu-trigger[aria-expanded="true"] {
-        color: var(--color-accent);
-        border-color: var(--color-accent);
-      }
-
-      .set-bulk-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        min-width: 140px;
-        padding: 8px;
-        border: 1px solid var(--color-border);
-        border-radius: 14px;
-        background: var(--color-bg-secondary);
-        box-shadow: 0 18px 42px rgba(2, 6, 23, 0.18);
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        z-index: 30;
-      }
-
-      .set-bulk-menu button {
-        border: none;
-        background: transparent;
-        color: var(--color-text-primary);
-        text-align: left;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-size: 14px;
-        cursor: pointer;
-      }
-
-      .set-bulk-menu button:hover {
-        background: var(--color-accent-soft);
-        color: var(--color-accent);
       }
 
       .mode-hint {
@@ -2630,22 +2578,6 @@
                 <span class="set-bulk-toggle-meta" id="set-bulk-toggle-meta">0/0 seçili</span>
               </span>
             </button>
-            <div class="set-bulk-menu-wrap">
-              <button
-                class="set-bulk-menu-trigger"
-                id="set-bulk-menu-trigger"
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded="false"
-                onclick="toggleBulkSetMenu(event)"
-              >
-                ▾
-              </button>
-              <div class="set-bulk-menu" id="set-bulk-menu" hidden>
-                <button type="button" onclick="applyBulkSetSelection('all')">Tümü</button>
-                <button type="button" onclick="applyBulkSetSelection('none')">Hiçbiri</button>
-              </div>
-            </div>
           </div>
 
           <div class="set-list-tools-actions">
