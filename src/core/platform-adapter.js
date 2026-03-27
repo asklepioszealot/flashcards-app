@@ -417,7 +417,6 @@ function createSupabaseAdapter(config, storage) {
   });
 
   let currentUser = null;
-  let warnedMissingStateTable = false;
 
   function mapRowToRecord(row) {
     return {
@@ -631,69 +630,13 @@ function createSupabaseAdapter(config, storage) {
     async loadUserState() {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      if (warnedMissingStateTable) {
-        return loadUserStateFallback(user.id);
-      }
-
-      const { data, error } = await client
-        .from("flashcard_user_state")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        if (isMissingRelationError(error)) {
-          if (!warnedMissingStateTable) {
-            warnedMissingStateTable = true;
-            console.warn("flashcard_user_state tablosu bulunamadı. İlerleme senkronu flashcard_sets içinde gizli bir kayıtla sürdürülecek.");
-          }
-          return loadUserStateFallback(user.id);
-        }
-        if (isNoRowsError(error)) return null;
-        throw error;
-      }
-
-      return data ? mapStateRowToSnapshot(data) : null;
+      return loadUserStateFallback(user.id);
     },
 
     async saveUserState(snapshot) {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      if (warnedMissingStateTable) {
-        return saveUserStateFallback(user.id, snapshot);
-      }
-
-      const normalizedSnapshot = normalizeSyncedUserState(snapshot);
-      const payload = {
-        user_id: user.id,
-        state_json: {
-          selectedSetIds: normalizedSnapshot.selectedSetIds,
-          assessments: normalizedSnapshot.assessments,
-          session: normalizedSnapshot.session,
-          autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
-          updatedAt: normalizedSnapshot.updatedAt,
-        },
-        updated_at: normalizedSnapshot.updatedAt,
-      };
-
-      const { data, error } = await client
-        .from("flashcard_user_state")
-        .upsert(payload, { onConflict: "user_id" })
-        .select("*")
-        .single();
-
-      if (error) {
-        if (isMissingRelationError(error)) {
-          if (!warnedMissingStateTable) {
-            warnedMissingStateTable = true;
-            console.warn("flashcard_user_state tablosu bulunamadı. İlerleme senkronu flashcard_sets içinde gizli bir kayıtla sürdürülecek.");
-          }
-          return saveUserStateFallback(user.id, snapshot);
-        }
-        throw error;
-      }
-
-      return mapStateRowToSnapshot(data);
+      return saveUserStateFallback(user.id, snapshot);
     },
 
     async pickNativeSetFiles() {
