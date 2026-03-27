@@ -113,6 +113,47 @@
         --markdown-warning-bg: rgba(239, 68, 68, 0.12);
       }
 
+      [data-theme="midnight"] {
+        --color-bg-primary: #09090b;
+        --color-bg-secondary: #18181b;
+        --color-header-bg: rgba(24, 24, 27, 0.9);
+        --color-text-primary: #fafafa;
+        --color-text-secondary: #a1a1aa;
+        --color-accent: #d4d4d8;
+        --color-accent-hover: #f4f4f5;
+        --color-accent-soft: rgba(212, 212, 216, 0.12);
+        --color-emphasis: #e4e4e7;
+        --color-emphasis-strong: #fafafa;
+        --color-border: rgba(244, 244, 245, 0.12);
+        --color-card-front: #18181b;
+        --color-card-back: #27272a;
+        --screen-glow: rgba(228, 228, 231, 0.08);
+        --screen-wash: rgba(9, 9, 11, 0.56);
+        --auth-panel-glow: rgba(244, 244, 245, 0.12);
+        --auth-panel-start: rgba(9, 9, 11, 0.98);
+        --auth-panel-end: rgba(39, 39, 42, 0.94);
+        --shell-shadow: rgba(0, 0, 0, 0.42);
+        --build-meta-bg: rgba(24, 24, 27, 0.88);
+        --editor-sidebar-outline: rgba(228, 228, 231, 0.14);
+        --editor-sidebar-glow: rgba(161, 161, 170, 0.08);
+        --editor-sidebar-base: rgba(9, 9, 11, 0.98);
+        --editor-sidebar-panel-outline: rgba(212, 212, 216, 0.12);
+        --editor-sidebar-panel-base: rgba(24, 24, 27, 0.82);
+        --editor-list-hover-border: rgba(212, 212, 216, 0.28);
+        --editor-list-hover-bg: rgba(244, 244, 245, 0.04);
+        --editor-list-active-border: rgba(244, 244, 245, 0.24);
+        --editor-detail-outline: rgba(228, 228, 231, 0.12);
+        --editor-detail-glow: rgba(161, 161, 170, 0.06);
+        --editor-detail-base: rgba(18, 18, 21, 0.86);
+        --editor-card-open-border: rgba(212, 212, 216, 0.18);
+        --editor-card-active-border: rgba(228, 228, 231, 0.14);
+        --editor-card-head-glow: rgba(212, 212, 216, 0.06);
+        --editor-card-head-glow-hover: rgba(244, 244, 245, 0.08);
+        --markdown-quote-bg: rgba(161, 161, 170, 0.16);
+        --markdown-table-head-bg: rgba(113, 113, 122, 0.18);
+        --markdown-warning-bg: rgba(239, 68, 68, 0.16);
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -432,12 +473,12 @@
         color: var(--color-emphasis-strong);
       }
 
-      .card-back .card-content p,
+      .card-content p,
       .editor-preview p {
         margin: 0 0 0.9em;
       }
 
-      .card-back .card-content p:last-child,
+      .card-content p:last-child,
       .editor-preview p:last-child {
         margin-bottom: 0;
       }
@@ -1171,7 +1212,7 @@
       }
 
       .editor-workspace.is-list-open {
-        --editor-sidebar-width: 368px;
+        --editor-sidebar-width: 472px;
       }
 
       .editor-workspace.is-list-closed {
@@ -1274,20 +1315,32 @@
 
       .editor-list-header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 12px;
+        gap: 16px;
+        flex-wrap: wrap;
       }
 
       .editor-list-title {
-        font-size: 16px;
+        font-size: 19px;
         font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
         color: var(--color-text-primary);
       }
 
-      .editor-list-subtitle {
-        font-size: 12px;
-        color: var(--color-text-secondary);
+      .editor-list-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .editor-list-action-toggle.active {
+        border-color: rgba(248, 113, 113, 0.24);
+        background: rgba(248, 113, 113, 0.08);
+        color: #fecaca;
       }
 
       .editor-list-items {
@@ -1299,9 +1352,28 @@
 
       .editor-list-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr);
         gap: 10px;
         align-items: stretch;
+      }
+
+      .editor-list-row.is-selection-enabled {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .editor-list-check-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-inline: 4px;
+      }
+
+      .editor-list-check {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--color-accent);
+        cursor: pointer;
       }
 
       .editor-list-select {
@@ -1344,25 +1416,6 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-      }
-
-      .editor-list-delete {
-        width: 40px;
-        min-width: 40px;
-        border-radius: 14px;
-        border: 1px solid rgba(248, 113, 113, 0.18);
-        background: rgba(248, 113, 113, 0.08);
-        color: #fca5a5;
-        font-size: 22px;
-        line-height: 1;
-        cursor: pointer;
-        transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
-      }
-
-      .editor-list-delete:hover {
-        border-color: rgba(248, 113, 113, 0.34);
-        background: rgba(248, 113, 113, 0.16);
-        color: #fecaca;
       }
 
       .editor-list-empty {
@@ -1567,7 +1620,7 @@
       .editor-split {
         display: grid;
         grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
-        gap: 16px;
+        gap: 18px;
         align-items: start;
       }
 
@@ -1587,19 +1640,54 @@
       }
 
       .editor-input-question {
-        min-height: 96px !important;
-        height: 96px;
+        min-height: 136px !important;
+        height: 170px;
       }
 
       .editor-input-answer {
-        min-height: 180px !important;
-        height: 180px;
+        min-height: 184px !important;
+        height: 220px;
       }
 
       .editor-preview-answer {
-        min-height: 180px;
-        height: 220px;
+        min-height: 220px;
+        height: 240px;
         max-height: none;
+      }
+
+      .editor-format-toolbar {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 12px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--color-bg-primary);
+      }
+
+      .editor-format-toolbar-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .editor-format-toolbar-label {
+        display: grid;
+        gap: 4px;
+      }
+
+      .editor-format-toolbar-label strong {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-primary);
+      }
+
+      .editor-format-toolbar-label span {
+        font-size: 12px;
+        color: var(--color-text-secondary);
       }
 
       .editor-preview-head {
@@ -1634,7 +1722,7 @@
       .editor-toolbar-shell {
         display: grid;
         gap: 10px;
-        justify-items: end;
+        justify-items: stretch;
         margin-top: 0;
         padding-top: 0;
       }
@@ -1642,7 +1730,7 @@
       .editor-toolbar {
         display: flex;
         flex-wrap: wrap;
-        justify-content: flex-end;
+        justify-content: flex-start;
         gap: 10px;
         margin-top: 0;
         align-items: stretch;
@@ -1793,6 +1881,11 @@
           align-items: stretch;
         }
 
+        .editor-format-toolbar-head {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
         .editor-toolbar-shell,
         .editor-toolbar {
           justify-items: stretch;
@@ -1817,6 +1910,11 @@
 
         .editor-list-items {
           max-height: 56vh;
+        }
+
+        .editor-list-actions {
+          width: 100%;
+          justify-content: flex-start;
         }
 
         .editor-list-handle {
@@ -2223,8 +2321,9 @@
             <label for="theme-select-auth">Tema</label>
             <select id="theme-select-auth" onchange="toggleTheme(this.value)">
               <option value="light">Aydınlık</option>
-              <option value="dark">Koyu</option>
+              <option value="dark">Lacivert</option>
               <option value="ember">Amber</option>
+              <option value="midnight">Karanlık</option>
             </select>
           </div>
 
@@ -2304,8 +2403,9 @@
         <label for="theme-select-manager">Tema</label>
         <select id="theme-select-manager" onchange="toggleTheme(this.value)">
           <option value="light">Aydınlık</option>
-          <option value="dark">Koyu</option>
+          <option value="dark">Lacivert</option>
           <option value="ember">Amber</option>
+          <option value="midnight">Karanlık</option>
         </select>
       </div>
 
@@ -2341,8 +2441,9 @@
               <label for="theme-select-editor">Tema</label>
               <select id="theme-select-editor" onchange="toggleTheme(this.value)">
                 <option value="light">Aydınlık</option>
-                <option value="dark">Koyu</option>
+                <option value="dark">Lacivert</option>
                 <option value="ember">Amber</option>
+                <option value="midnight">Karanlık</option>
               </select>
             </div>
             <button class="btn btn-secondary" id="editor-back-btn">← Geri Dön</button>
@@ -2408,8 +2509,9 @@
             <label for="theme-select-study">Tema</label>
             <select id="theme-select-study" onchange="toggleTheme(this.value)">
               <option value="light">Aydınlık</option>
-              <option value="dark">Koyu</option>
+              <option value="dark">Lacivert</option>
               <option value="ember">Amber</option>
+              <option value="midnight">Karanlık</option>
             </select>
           </div>
 

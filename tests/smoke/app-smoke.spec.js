@@ -400,7 +400,9 @@ test.describe("Flashcards smoke", () => {
         preview: preview?.clientHeight ?? 0,
       };
     });
-    expect(compactHeights.answer).toBeGreaterThan(compactHeights.question);
+    expect(compactHeights.question).toBeGreaterThanOrEqual(150);
+    expect(compactHeights.answer).toBeGreaterThanOrEqual(200);
+    expect(Math.abs(compactHeights.answer - compactHeights.question)).toBeLessThanOrEqual(70);
     expect(compactHeights.preview).toBeGreaterThan(compactHeights.question);
     expect(compactHeights.preview).toBeGreaterThanOrEqual(compactHeights.answer);
     expect(compactHeights.preview - compactHeights.answer).toBeLessThanOrEqual(80);
@@ -423,7 +425,11 @@ test.describe("Flashcards smoke", () => {
     await page.locator('[data-editor-field="question"]').fill("Yeni soru");
     await expect(page.locator(".editor-list-question").last()).toHaveText("Yeni soru");
 
-    await page.locator('[data-editor-delete-card="card-2"]').click();
+    await page.locator("[data-editor-toggle-delete-mode]").click();
+    await expect(page.locator('[data-editor-delete-select="card-2"]')).toBeVisible();
+    await page.locator('[data-editor-delete-select="card-2"]').check();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.locator("[data-editor-delete-selected]").click();
     await expect(page.locator(".editor-list-row")).toHaveCount(3);
     await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveCount(0);
 
