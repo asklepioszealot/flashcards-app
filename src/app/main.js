@@ -77,6 +77,7 @@ let driveAccessToken = null;
 let pickerApiLoaded = false;
 let pendingRemoteStudyStateSnapshot = null;
 let remoteStudyStateSyncTimer = null;
+let editorSplitDragState = null;
 
 const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
@@ -210,6 +211,7 @@ const overflowMarkdownActions = [
   { id: "divider", label: "---", title: "Ayraç" },
   { id: "table", label: "Tablo", title: "Tablo şablonu" },
 ];
+const allMarkdownActions = [...primaryMarkdownActions, ...overflowMarkdownActions];
 
 const DEFAULT_EDITOR_FIELD_HEIGHTS = Object.freeze({
   question: 170,
@@ -223,6 +225,7 @@ const MIN_EDITOR_FIELD_HEIGHTS = Object.freeze({
 const DEFAULT_EDITOR_SPLIT_RATIO = 56;
 const MIN_EDITOR_SPLIT_RATIO = 40;
 const MAX_EDITOR_SPLIT_RATIO = 60;
+const EDITOR_SPLIT_KEYBOARD_STEP = 2;
 
 const MAX_EDITOR_HISTORY_LENGTH = 120;
 
@@ -590,6 +593,18 @@ function normalizeEditorSplitRatio(value) {
   const parsedValue = Number.parseInt(value, 10);
   if (!Number.isFinite(parsedValue)) return DEFAULT_EDITOR_SPLIT_RATIO;
   return Math.min(Math.max(parsedValue, MIN_EDITOR_SPLIT_RATIO), MAX_EDITOR_SPLIT_RATIO);
+}
+
+function updateEditorSplitElement(cardId, splitRatio) {
+  const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
+  if (!splitElement) return;
+  splitElement.style.setProperty("--editor-answer-fr", `${splitRatio}fr`);
+  splitElement.style.setProperty("--editor-preview-fr", `${100 - splitRatio}fr`);
+  const handle = splitElement.querySelector(`[data-editor-split-handle="${cardId}"]`);
+  if (handle) {
+    handle.setAttribute("aria-valuenow", String(splitRatio));
+    handle.setAttribute("aria-valuetext", `Açıklama %${splitRatio}, önizleme %${100 - splitRatio}`);
+  }
 }
 
 function createEditorFieldHistoryState(value = "") {
@@ -1804,22 +1819,17 @@ function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
-function renderEditorFormattingToolbar(cardId, isOverflowOpen) {
+function renderEditorFormattingToolbar(cardId) {
   return `
     <div class="editor-format-toolbar">
       <div class="editor-format-toolbar-head">
         <div class="editor-format-toolbar-label">
           <strong>Biçimlendirme</strong>
-          <span>Soru ve açıklama için ortak araçlar</span>
         </div>
       </div>
       <div class="editor-toolbar-shell" role="toolbar" aria-label="Soru ve açıklama biçimlendirme araçları">
         <div class="editor-toolbar editor-toolbar-primary">
-          ${renderEditorToolbarButtons(primaryMarkdownActions, cardId)}
-          <button type="button" class="btn btn-small btn-secondary editor-toolbar-overflow ${isOverflowOpen ? "active" : ""}" data-toolbar-toggle="${cardId}" aria-expanded="${isOverflowOpen}" title="Daha fazla araç" aria-label="Daha fazla araç">...</button>
-        </div>
-        <div class="editor-toolbar editor-toolbar-secondary ${isOverflowOpen ? "" : "hidden"}">
-          ${renderEditorToolbarButtons(overflowMarkdownActions, cardId)}
+          ${renderEditorToolbarButtons(allMarkdownActions, cardId)}
         </div>
       </div>
     </div>`;
@@ -1896,7 +1906,6 @@ function renderEditorCardList(draft) {
 }
 
 function renderEditorCardDetail(draft, card, index) {
-  const isOverflowOpen = draft.toolbarExpandedCardId === card.id;
   const questionHeight = getEditorFieldHeight(draft, card.id, "question");
   const answerHeight = getEditorFieldHeight(draft, card.id, "answer");
   const previewHeight = Math.max(answerHeight + 20, 240);
@@ -1912,7 +1921,7 @@ function renderEditorCardDetail(draft, card, index) {
         </div>
       </div>
       <div class="editor-card-body" data-editor-card-body="${card.id}">
-        ${renderEditorFormattingToolbar(card.id, isOverflowOpen)}
+        ${renderEditorFormattingToolbar(card.id)}
         <div class="field-group">
           <label>Soru</label>
           <textarea
@@ -1928,23 +1937,10 @@ function renderEditorCardDetail(draft, card, index) {
           data-editor-split="${card.id}"
           style="--editor-answer-fr:${splitRatio}fr; --editor-preview-fr:${100 - splitRatio}fr;"
         >
-          <div>
+          <div class="editor-split-pane">
             <div class="field-group">
               <div class="editor-markdown-head">
                 <label>Açıklama (Markdown)</label>
-                <div class="editor-split-control">
-                  <label class="editor-split-control-label" for="editor-split-ratio-${card.id}">Yerleşim</label>
-                  <input
-                    id="editor-split-ratio-${card.id}"
-                    class="editor-split-range"
-                    type="range"
-                    min="${MIN_EDITOR_SPLIT_RATIO}"
-                    max="${MAX_EDITOR_SPLIT_RATIO}"
-                    value="${splitRatio}"
-                    data-editor-split-ratio="${card.id}"
-                    aria-label="Açıklama ve önizleme genişlik oranı"
-                  />
-                </div>
               </div>
               <textarea
                 class="editor-input-answer"
@@ -1955,7 +1951,18 @@ function renderEditorCardDetail(draft, card, index) {
               >${escapeMarkup(card.explanationMarkdown)}</textarea>
             </div>
           </div>
-          <div>
+          <button
+            type="button"
+            class="editor-split-handle"
+            data-editor-split-handle="${card.id}"
+            role="slider"
+            aria-label="Açıklama ve önizleme genişliğini ayarla"
+            aria-valuemin="${MIN_EDITOR_SPLIT_RATIO}"
+            aria-valuemax="${MAX_EDITOR_SPLIT_RATIO}"
+            aria-valuenow="${splitRatio}"
+            aria-valuetext="Açıklama %${splitRatio}, önizleme %${100 - splitRatio}"
+          ></button>
+          <div class="editor-split-pane">
             <div class="field-group">
               <div class="editor-preview-head">
                 <label>Canlı Önizleme</label>
@@ -2095,6 +2102,85 @@ function getEditorFieldHeight(draft, cardId, field) {
 function getEditorSplitRatio(draft, cardId) {
   ensureEditorDraftUiState(draft);
   return normalizeEditorSplitRatio(draft.splitRatios?.[cardId]);
+}
+
+function setEditorSplitRatio(draft, cardId, value) {
+  const splitRatio = normalizeEditorSplitRatio(value);
+  draft.splitRatios[cardId] = splitRatio;
+  updateEditorSplitElement(cardId, splitRatio);
+  return splitRatio;
+}
+
+function getEditorSplitRatioFromPointer(splitElement, clientX) {
+  if (!splitElement || !Number.isFinite(clientX)) return null;
+  const rect = splitElement.getBoundingClientRect();
+  if (!rect.width) return null;
+  return normalizeEditorSplitRatio(((clientX - rect.left) / rect.width) * 100);
+}
+
+function stopEditorSplitDrag() {
+  if (!editorSplitDragState) return;
+  document.removeEventListener("pointermove", editorSplitDragState.handlePointerMove);
+  document.removeEventListener("pointerup", editorSplitDragState.handlePointerUp);
+  document.removeEventListener("pointercancel", editorSplitDragState.handlePointerUp);
+  editorSplitDragState.handle.classList.remove("is-active");
+  document.body.classList.remove("is-editor-split-dragging");
+  editorSplitDragState = null;
+}
+
+function startEditorSplitDrag(draft, cardId, handle, event) {
+  if (!handle || !draft) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  stopEditorSplitDrag();
+  persistFocusedEditorFieldState(draft);
+  const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
+  if (!splitElement) return;
+
+  const handlePointerMove = (moveEvent) => {
+    const nextRatio = getEditorSplitRatioFromPointer(splitElement, moveEvent.clientX);
+    if (nextRatio === null) return;
+    setEditorSplitRatio(draft, cardId, nextRatio);
+  };
+
+  const handlePointerUp = () => {
+    stopEditorSplitDrag();
+  };
+
+  editorSplitDragState = {
+    handle,
+    handlePointerMove,
+    handlePointerUp,
+  };
+
+  handle.classList.add("is-active");
+  document.body.classList.add("is-editor-split-dragging");
+  document.addEventListener("pointermove", handlePointerMove);
+  document.addEventListener("pointerup", handlePointerUp);
+  document.addEventListener("pointercancel", handlePointerUp);
+
+  if (typeof handle.setPointerCapture === "function" && Number.isInteger(event.pointerId)) {
+    handle.setPointerCapture(event.pointerId);
+  }
+
+  handlePointerMove(event);
+}
+
+function handleEditorSplitHandleKeydown(draft, cardId, event) {
+  let nextRatio = null;
+  const currentRatio = getEditorSplitRatio(draft, cardId);
+  if (event.key === "ArrowLeft") {
+    nextRatio = currentRatio - EDITOR_SPLIT_KEYBOARD_STEP;
+  } else if (event.key === "ArrowRight") {
+    nextRatio = currentRatio + EDITOR_SPLIT_KEYBOARD_STEP;
+  } else if (event.key === "Home") {
+    nextRatio = MIN_EDITOR_SPLIT_RATIO;
+  } else if (event.key === "End") {
+    nextRatio = MAX_EDITOR_SPLIT_RATIO;
+  }
+
+  if (nextRatio === null) return;
+  event.preventDefault();
+  setEditorSplitRatio(draft, cardId, nextRatio);
 }
 
 function getEditorFieldHistory(draft, cardId, field, currentValue = "") {
@@ -2303,24 +2389,15 @@ function bindEditorEvents(draft) {
       renderEditor();
     });
   });
-  document.querySelectorAll("[data-toolbar-toggle]").forEach((button) => {
-    button.addEventListener("click", () => {
-      persistFocusedEditorFieldState(draft);
-      const cardId = button.getAttribute("data-toolbar-toggle");
-      draft.toolbarExpandedCardId = draft.toolbarExpandedCardId === cardId ? null : cardId;
-      renderEditor();
+  document.querySelectorAll("[data-editor-split-handle]").forEach((handle) => {
+    handle.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const cardId = handle.getAttribute("data-editor-split-handle");
+      startEditorSplitDrag(draft, cardId, handle, event);
     });
-  });
-  document.querySelectorAll("[data-editor-split-ratio]").forEach((input) => {
-    input.addEventListener("input", () => {
-      const cardId = input.getAttribute("data-editor-split-ratio");
-      const splitRatio = normalizeEditorSplitRatio(input.value);
-      draft.splitRatios[cardId] = splitRatio;
-      const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
-      if (splitElement) {
-        splitElement.style.setProperty("--editor-answer-fr", `${splitRatio}fr`);
-        splitElement.style.setProperty("--editor-preview-fr", `${100 - splitRatio}fr`);
-      }
+    handle.addEventListener("keydown", (event) => {
+      const cardId = handle.getAttribute("data-editor-split-handle");
+      handleEditorSplitHandleKeydown(draft, cardId, event);
     });
   });
   document.querySelectorAll('[data-editor-field="question"], [data-editor-field="answer"]').forEach((textarea) => {
@@ -2369,6 +2446,7 @@ function flushEditorFocusedField() {
 }
 
 function renderEditor() {
+  stopEditorSplitDrag();
   renderEditorTabs();
   refreshEditorPills();
   showEditorStatus("", "");

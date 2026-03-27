@@ -302,6 +302,7 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#edit-selected-btn").click();
     await expect(page.locator("#editor-screen")).toBeVisible();
     await expect(page.locator("#editor-screen")).not.toContainText("Araçlar üstte iki alan için ortaktır");
+    await expect(page.locator("#editor-screen")).not.toContainText("Soru ve açıklama için ortak araçlar");
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
     await expect(page.locator("#editor-add-card-btn")).toBeVisible();
 
@@ -382,9 +383,11 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "true");
     await expect(page.locator(".editor-list-row")).toHaveCount(3);
     await expect(page.locator("#editor-screen")).not.toContainText("Aşağı çekerek büyüt");
+    await expect(page.locator("#editor-screen")).not.toContainText("Yerleşim");
     await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
     await expect(page.locator('[data-editor-card-root="card-1"] .editor-card-expand-btn')).toHaveCount(0);
     await expect(page.locator('[data-editor-select-card="card-1"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-toolbar-toggle="card-1"]')).toHaveCount(0);
     await expect(page.locator('[data-editor-field="answer"][data-card-id="card-1"]')).toHaveValue(
       /\| Tetkik \| Yorum \|/,
     );
@@ -408,12 +411,8 @@ test.describe("Flashcards smoke", () => {
     expect(compactHeights.preview).toBeGreaterThanOrEqual(compactHeights.answer);
     expect(compactHeights.preview - compactHeights.answer).toBeLessThanOrEqual(80);
 
-    await page.evaluate(() => {
-      const range = document.querySelector('[data-editor-split-ratio="card-1"]');
-      if (!range) return;
-      range.value = "60";
-      range.dispatchEvent(new Event("input", { bubbles: true }));
-    });
+    await page.locator('[data-editor-split-handle="card-1"]').focus();
+    await page.keyboard.press("End");
     const splitWidthsBeforeToggle = await page.evaluate(() => {
       const answer = document.querySelector('[data-editor-field="answer"][data-card-id="card-1"]');
       const preview = document.querySelector('[data-editor-preview="card-1"]');
