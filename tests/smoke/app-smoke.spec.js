@@ -301,6 +301,7 @@ test.describe("Flashcards smoke", () => {
 
     await page.locator("#edit-selected-btn").click();
     await expect(page.locator("#editor-screen")).toBeVisible();
+    await expect(page.locator("#editor-screen")).not.toContainText("Araçlar üstte iki alan için ortaktır");
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
     await expect(page.locator("#editor-add-card-btn")).toBeVisible();
 
@@ -407,11 +408,38 @@ test.describe("Flashcards smoke", () => {
     expect(compactHeights.preview).toBeGreaterThanOrEqual(compactHeights.answer);
     expect(compactHeights.preview - compactHeights.answer).toBeLessThanOrEqual(80);
 
+    await page.evaluate(() => {
+      const range = document.querySelector('[data-editor-split-ratio="card-1"]');
+      if (!range) return;
+      range.value = "60";
+      range.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const splitWidthsBeforeToggle = await page.evaluate(() => {
+      const answer = document.querySelector('[data-editor-field="answer"][data-card-id="card-1"]');
+      const preview = document.querySelector('[data-editor-preview="card-1"]');
+      return {
+        answer: Math.round(answer?.getBoundingClientRect().width ?? 0),
+        preview: Math.round(preview?.getBoundingClientRect().width ?? 0),
+      };
+    });
+    expect(Math.abs(splitWidthsBeforeToggle.answer - splitWidthsBeforeToggle.preview)).toBeGreaterThanOrEqual(24);
+
     await page.locator("[data-editor-toggle-list]").click();
     await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "false");
     await expect(page.locator('[data-editor-card-body="card-1"]')).toBeVisible();
     await page.locator("[data-editor-toggle-list]").click();
     await expect(page.locator("[data-editor-toggle-list]")).toHaveAttribute("aria-expanded", "true");
+    const splitWidthsAfterToggle = await page.evaluate(() => {
+      const answer = document.querySelector('[data-editor-field="answer"][data-card-id="card-1"]');
+      const preview = document.querySelector('[data-editor-preview="card-1"]');
+      return {
+        answer: Math.round(answer?.getBoundingClientRect().width ?? 0),
+        preview: Math.round(preview?.getBoundingClientRect().width ?? 0),
+      };
+    });
+    expect(Math.abs(splitWidthsAfterToggle.answer - splitWidthsAfterToggle.preview)).toBeGreaterThanOrEqual(24);
+    expect(Math.abs(splitWidthsAfterToggle.answer - splitWidthsBeforeToggle.answer)).toBeLessThanOrEqual(24);
+    expect(Math.abs(splitWidthsAfterToggle.preview - splitWidthsBeforeToggle.preview)).toBeLessThanOrEqual(24);
 
     await page.locator('[data-editor-select-card="card-2"]').click();
     await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveClass(/active/);

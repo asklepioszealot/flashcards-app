@@ -1619,9 +1619,28 @@
 
       .editor-split {
         display: grid;
-        grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+        grid-template-columns: minmax(280px, var(--editor-answer-fr, 56fr)) minmax(280px, var(--editor-preview-fr, 44fr));
         gap: 18px;
         align-items: start;
+      }
+
+      .editor-split-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 190px;
+      }
+
+      .editor-split-control-label {
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
+      }
+
+      .editor-split-range {
+        width: 112px;
+        accent-color: var(--color-accent);
+        cursor: ew-resize;
       }
 
       .editor-preview {
@@ -1879,6 +1898,11 @@
         .editor-markdown-head {
           flex-direction: column;
           align-items: stretch;
+        }
+
+        .editor-split-control {
+          width: 100%;
+          justify-content: space-between;
         }
 
         .editor-format-toolbar-head {
@@ -2360,6 +2384,7 @@
         <p>Çalışmak istediğin setleri yükle ve başla</p>
         <div class="manager-user-bar">
           <span class="user-chip" id="manager-user-chip">Hesap: hazır değil</span>
+          <button class="btn btn-small btn-secondary" id="check-updates-btn" hidden>Güncellemeleri Kontrol Et</button>
           <button class="btn btn-small btn-secondary" id="sign-out-btn">Çıkış Yap</button>
         </div>
       </div>
@@ -2658,7 +2683,7 @@
     <script src="./src/generated/runtime-config.js"></script>
     <script src="./src/core/storage.js"></script>
     <script src="./src/ui/theme.js"></script>
-    <script src="./node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
+    <script src="./vendor/supabase/supabase.js"></script>
     <script type="module" src="./src/app/main.js"></script>
 
   </body>

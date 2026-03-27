@@ -7,6 +7,9 @@ import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
 const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
+const STUDY_STATE_FALLBACK_SET_ID_PREFIX = `${APP_NAMESPACE}::system::study-state::`;
+const STUDY_STATE_FALLBACK_SLUG = "__system-study-state__";
+const STUDY_STATE_FALLBACK_SET_NAME = "__system_study_state__";
 
 function nowIso() {
   return new Date().toISOString();
@@ -25,8 +28,74 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isMissingRelationError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "42P01" || message.includes("does not exist");
+}
+
+function isNoRowsError(error) {
+  return error?.code === "PGRST116";
+}
+
 function normalizeUserEmail(value) {
   return String(value ?? "").trim().toLowerCase();
+}
+
+function getStudyStateFallbackRecordId(userId) {
+  return `${STUDY_STATE_FALLBACK_SET_ID_PREFIX}${userId}`;
+}
+
+function isStudyStateFallbackRow(row) {
+  return (
+    String(row?.id || "").startsWith(STUDY_STATE_FALLBACK_SET_ID_PREFIX)
+    || String(row?.slug || "") === STUDY_STATE_FALLBACK_SLUG
+    || String(row?.set_name || "") === STUDY_STATE_FALLBACK_SET_NAME
+  );
+}
+
+function mapFallbackSetRowToSnapshot(row) {
+  const stateEnvelope = Array.isArray(row?.cards_json) ? row.cards_json[0] : null;
+  const stateJson = isPlainObject(stateEnvelope?.payload) ? stateEnvelope.payload : {};
+  return normalizeSyncedUserState(
+    {
+      selectedSetIds: stateJson.selectedSetIds,
+      assessments: stateJson.assessments,
+      session: stateJson.session,
+      autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
+      updatedAt: row?.updated_at || stateJson.updatedAt,
+    },
+    row?.updated_at || nowIso(),
+  );
+}
+
+function buildFallbackSetRow(userId, snapshot) {
+  const normalizedSnapshot = normalizeSyncedUserState(snapshot);
+  return {
+    id: getStudyStateFallbackRecordId(userId),
+    user_id: userId,
+    slug: STUDY_STATE_FALLBACK_SLUG,
+    set_name: STUDY_STATE_FALLBACK_SET_NAME,
+    file_name: "study-state.sync.json",
+    source_format: "system",
+    raw_source: "",
+    cards_json: [
+      {
+        type: "study_state_sync",
+        payload: {
+          selectedSetIds: normalizedSnapshot.selectedSetIds,
+          assessments: normalizedSnapshot.assessments,
+          session: normalizedSnapshot.session,
+          autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
+          updatedAt: normalizedSnapshot.updatedAt,
+        },
+      },
+    ],
+    updated_at: normalizedSnapshot.updatedAt,
+  };
 }
 
 function createUserFromEmail(email, provider = "mock") {
@@ -167,6 +236,22 @@ function normalizeSetCollection(records) {
     : [];
 }
 
+function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso()) {
+  const selectedSetIds = Array.isArray(snapshot?.selectedSetIds)
+    ? snapshot.selectedSetIds.filter((setId) => typeof setId === "string" && setId.trim())
+    : [];
+  const assessments = isPlainObject(snapshot?.assessments) ? clone(snapshot.assessments) : {};
+  const session = isPlainObject(snapshot?.session) ? clone(snapshot.session) : null;
+
+  return {
+    selectedSetIds,
+    assessments,
+    session,
+    autoAdvanceEnabled: snapshot?.autoAdvanceEnabled !== false,
+    updatedAt: String(snapshot?.updatedAt || fallbackUpdatedAt),
+  };
+}
+
 function createMockAdapter(config, storage) {
   const authSessionStorage = createAuthSessionStorage(storage);
   let currentUser = safeJsonParse(authSessionStorage.getItem(MOCK_SESSION_KEY), null);
@@ -199,6 +284,7 @@ function createMockAdapter(config, storage) {
   return {
     type: "mock-web",
     supportsRemoteSync: false,
+    supportsStudyStateSync: false,
     supportsDemoAuth: config.enableDemoAuth !== false,
 
     async getCurrentUser() {
@@ -275,6 +361,18 @@ function createMockAdapter(config, storage) {
       return clone(normalized);
     },
 
+    async loadUserState() {
+      return null;
+    },
+
+    async saveUserState(_snapshot) {
+      return null;
+    },
+
+    async getLatestSet(_setId) {
+      return null;
+    },
+
     async deleteSets(setIds) {
       if (!currentUser) return;
       const currentRecords = readUserSets(currentUser.id);
@@ -312,6 +410,7 @@ function createSupabaseAdapter(config, storage) {
   });
 
   let currentUser = null;
+  let warnedMissingStateTable = false;
 
   function mapRowToRecord(row) {
     return {
@@ -320,7 +419,7 @@ function createSupabaseAdapter(config, storage) {
       setName: row.set_name,
       fileName: row.file_name,
       sourceFormat: row.source_format,
-      rawSource: row.raw_source,
+      rawSource: row.raw_source || "",
       cards: Array.isArray(row.cards_json) ? row.cards_json : [],
       updatedAt: row.updated_at,
     };
@@ -343,10 +442,76 @@ function createSupabaseAdapter(config, storage) {
       set_name: normalized.setName,
       file_name: normalized.fileName,
       source_format: normalized.sourceFormat,
-      raw_source: normalized.rawSource,
+      raw_source: "",
       cards_json: normalized.cards,
       updated_at: normalized.updatedAt,
     };
+  }
+
+  function mapStateRowToSnapshot(row) {
+    const stateJson = isPlainObject(row?.state_json) ? row.state_json : {};
+    return normalizeSyncedUserState(
+      {
+        selectedSetIds: stateJson.selectedSetIds,
+        assessments: stateJson.assessments,
+        session: stateJson.session,
+        autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
+        updatedAt: row?.updated_at || stateJson.updatedAt,
+      },
+      row?.updated_at || nowIso(),
+    );
+  }
+
+  async function queryLatestSet(userId, setId) {
+    if (!setId || setId === getStudyStateFallbackRecordId(userId)) {
+      return null;
+    }
+    const { data, error } = await client
+      .from("flashcard_sets")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("id", setId)
+      .maybeSingle();
+
+    if (error) {
+      if (isNoRowsError(error)) return null;
+      throw error;
+    }
+
+    return data ? normalizeSetCollection([mapRowToRecord(data)])[0] : null;
+  }
+
+  async function queryFallbackStateRow(userId) {
+    const { data, error } = await client
+      .from("flashcard_sets")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("id", getStudyStateFallbackRecordId(userId))
+      .maybeSingle();
+
+    if (error) {
+      if (isNoRowsError(error)) return null;
+      throw error;
+    }
+
+    return data || null;
+  }
+
+  async function loadUserStateFallback(userId) {
+    const row = await queryFallbackStateRow(userId);
+    return row ? mapFallbackSetRowToSnapshot(row) : null;
+  }
+
+  async function saveUserStateFallback(userId, snapshot) {
+    const row = buildFallbackSetRow(userId, snapshot);
+    const { data, error } = await client
+      .from("flashcard_sets")
+      .upsert(row, { onConflict: "id" })
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return mapFallbackSetRowToSnapshot(data);
   }
 
   async function refreshCurrentUser() {
@@ -367,6 +532,7 @@ function createSupabaseAdapter(config, storage) {
   return {
     type: "supabase-web",
     supportsRemoteSync: true,
+    supportsStudyStateSync: true,
     supportsDemoAuth: false,
 
     async getCurrentUser() {
@@ -442,7 +608,85 @@ function createSupabaseAdapter(config, storage) {
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
-      return normalizeSetCollection((data || []).map(mapRowToRecord));
+      return normalizeSetCollection(
+        (data || [])
+          .filter((row) => !isStudyStateFallbackRow(row))
+          .map(mapRowToRecord),
+      );
+    },
+
+    async getLatestSet(setId) {
+      const user = currentUser || (await refreshCurrentUser());
+      if (!user || !setId) return null;
+      return queryLatestSet(user.id, setId);
+    },
+
+    async loadUserState() {
+      const user = currentUser || (await refreshCurrentUser());
+      if (!user) return null;
+      if (warnedMissingStateTable) {
+        return loadUserStateFallback(user.id);
+      }
+
+      const { data, error } = await client
+        .from("flashcard_user_state")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        if (isMissingRelationError(error)) {
+          if (!warnedMissingStateTable) {
+            warnedMissingStateTable = true;
+            console.warn("flashcard_user_state tablosu bulunamadı. İlerleme senkronu flashcard_sets içinde gizli bir kayıtla sürdürülecek.");
+          }
+          return loadUserStateFallback(user.id);
+        }
+        if (isNoRowsError(error)) return null;
+        throw error;
+      }
+
+      return data ? mapStateRowToSnapshot(data) : null;
+    },
+
+    async saveUserState(snapshot) {
+      const user = currentUser || (await refreshCurrentUser());
+      if (!user) return null;
+      if (warnedMissingStateTable) {
+        return saveUserStateFallback(user.id, snapshot);
+      }
+
+      const normalizedSnapshot = normalizeSyncedUserState(snapshot);
+      const payload = {
+        user_id: user.id,
+        state_json: {
+          selectedSetIds: normalizedSnapshot.selectedSetIds,
+          assessments: normalizedSnapshot.assessments,
+          session: normalizedSnapshot.session,
+          autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
+          updatedAt: normalizedSnapshot.updatedAt,
+        },
+        updated_at: normalizedSnapshot.updatedAt,
+      };
+
+      const { data, error } = await client
+        .from("flashcard_user_state")
+        .upsert(payload, { onConflict: "user_id" })
+        .select("*")
+        .single();
+
+      if (error) {
+        if (isMissingRelationError(error)) {
+          if (!warnedMissingStateTable) {
+            warnedMissingStateTable = true;
+            console.warn("flashcard_user_state tablosu bulunamadı. İlerleme senkronu flashcard_sets içinde gizli bir kayıtla sürdürülecek.");
+          }
+          return saveUserStateFallback(user.id, snapshot);
+        }
+        throw error;
+      }
+
+      return mapStateRowToSnapshot(data);
     },
 
     async pickNativeSetFiles() {
@@ -457,6 +701,23 @@ function createSupabaseAdapter(config, storage) {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) {
         throw new Error("Kaydetmeden önce giriş yapmalısın.");
+      }
+
+      if (!record?.forceOverwrite && typeof record?.baseUpdatedAt === "string" && record.baseUpdatedAt) {
+        const latestRemoteRecord = await queryLatestSet(user.id, record.id);
+        const baseTime = Date.parse(record.baseUpdatedAt);
+        const latestTime = Date.parse(latestRemoteRecord?.updatedAt || "");
+        if (
+          latestRemoteRecord &&
+          Number.isFinite(baseTime) &&
+          Number.isFinite(latestTime) &&
+          latestTime > baseTime
+        ) {
+          const conflictError = new Error("Bulutta daha yeni bir set sürümü var.");
+          conflictError.code = "REMOTE_CONFLICT";
+          conflictError.remoteRecord = latestRemoteRecord;
+          throw conflictError;
+        }
       }
 
       const row = mapRecordToRow(record, user.id);
@@ -599,6 +860,7 @@ function createDesktopAdapter(remoteAdapter) {
     ...remoteAdapter,
     type: "desktop-sync",
     supportsRemoteSync: true,
+    supportsStudyStateSync: typeof remoteAdapter.loadUserState === "function" && typeof remoteAdapter.saveUserState === "function",
 
     async loadSets() {
       const user = await getUserOrThrow();
@@ -642,7 +904,11 @@ function createDesktopAdapter(remoteAdapter) {
       await bridge.upsertLocalSet(user.id, normalized);
 
       try {
-        const remoteRecord = await remoteAdapter.saveSet(normalized);
+        const remoteRecord = await remoteAdapter.saveSet({
+          ...normalized,
+          baseUpdatedAt: record?.baseUpdatedAt,
+          forceOverwrite: record?.forceOverwrite === true,
+        });
         const persistedRecord = normalizeSetCollection([
           {
             ...remoteRecord,
@@ -652,6 +918,9 @@ function createDesktopAdapter(remoteAdapter) {
         await bridge.upsertLocalSet(user.id, persistedRecord);
         return persistedRecord;
       } catch (error) {
+        if (error?.code === "REMOTE_CONFLICT") {
+          throw error;
+        }
         await bridge.queueSync(user.id, {
           type: "upsert",
           queuedAt: nowIso(),
@@ -674,6 +943,21 @@ function createDesktopAdapter(remoteAdapter) {
           setIds,
         });
       }
+    },
+
+    async loadUserState() {
+      if (typeof remoteAdapter.loadUserState !== "function") return null;
+      return remoteAdapter.loadUserState();
+    },
+
+    async saveUserState(snapshot) {
+      if (typeof remoteAdapter.saveUserState !== "function") return null;
+      return remoteAdapter.saveUserState(snapshot);
+    },
+
+    async getLatestSet(setId) {
+      if (typeof remoteAdapter.getLatestSet !== "function") return null;
+      return remoteAdapter.getLatestSet(setId);
     },
 
     async pickNativeSetFiles() {

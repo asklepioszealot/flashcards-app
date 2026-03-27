@@ -23,6 +23,7 @@ const LEGACY_KEYS = {
   selectedSets: "fc_selected_sets",
   legacyState: "flashcards_state_v6",
 };
+const USER_STUDY_STATE_KEY = "study_state_sync";
 
 const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
 const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
@@ -62,9 +63,20 @@ let editorState = {
   pendingScrollCardId: null,
 };
 
+const DESKTOP_UPDATE_DEFAULT_LABEL = "Güncellemeleri Kontrol Et";
+const desktopUpdateState = {
+  startupCheckScheduled: false,
+  startupCheckCompleted: false,
+  isChecking: false,
+  isInstalling: false,
+  buttonLabel: DESKTOP_UPDATE_DEFAULT_LABEL,
+};
+
 let tokenClient = null;
 let driveAccessToken = null;
 let pickerApiLoaded = false;
+let pendingRemoteStudyStateSnapshot = null;
+let remoteStudyStateSyncTimer = null;
 
 const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
@@ -85,6 +97,7 @@ const getLocalStorageText = (key) =>
   typeof storage.getLocalItem === "function" ? storage.getLocalItem(key) : storage.getItem(key);
 const setLocalStorageText = (key, value) =>
   typeof storage.setLocalItem === "function" ? storage.setLocalItem(key, value) : storage.setItem(key, value);
+const cloneData = (value) => JSON.parse(JSON.stringify(value));
 const normalizeSetCollection = (records) =>
   (Array.isArray(records) ? records : [])
     .map((record) => {
@@ -207,11 +220,352 @@ const MIN_EDITOR_FIELD_HEIGHTS = Object.freeze({
   question: 136,
   answer: 184,
 });
+const DEFAULT_EDITOR_SPLIT_RATIO = 56;
+const MIN_EDITOR_SPLIT_RATIO = 40;
+const MAX_EDITOR_SPLIT_RATIO = 60;
 
 const MAX_EDITOR_HISTORY_LENGTH = 120;
 
 function markAppReady() {
   document.body.classList.remove("app-booting");
+  scheduleStartupDesktopUpdateCheck();
+}
+
+function getTauriCoreApi() {
+  return window.__TAURI__?.core || null;
+}
+
+function isWindowsDesktopClient() {
+  if (!isDesktopRuntime() || typeof getTauriCoreApi()?.invoke !== "function") {
+    return false;
+  }
+
+  const runtimeFingerprint = `${navigator.userAgent || ""} ${navigator.platform || ""}`.toLowerCase();
+  return runtimeFingerprint.includes("win");
+}
+
+function syncDesktopUpdateButton() {
+  const button = document.getElementById("check-updates-btn");
+  if (!button) return;
+
+  if (!isWindowsDesktopClient()) {
+    button.hidden = true;
+    button.disabled = true;
+    return;
+  }
+
+  button.hidden = false;
+  button.disabled = desktopUpdateState.isChecking || desktopUpdateState.isInstalling;
+  button.textContent = desktopUpdateState.buttonLabel;
+}
+
+function setDesktopUpdateButtonLabel(label = DESKTOP_UPDATE_DEFAULT_LABEL) {
+  desktopUpdateState.buttonLabel = label;
+  syncDesktopUpdateButton();
+}
+
+async function closeDesktopUpdateResource(rid) {
+  const core = getTauriCoreApi();
+  if (!core || !Number.isInteger(rid)) return;
+
+  try {
+    await core.invoke("plugin:resources|close", { rid });
+  } catch {
+    // Best effort cleanup for declined or failed update checks.
+  }
+}
+
+function getDesktopUpdateNotes(updateMetadata) {
+  const rawNotes =
+    typeof updateMetadata?.body === "string" && updateMetadata.body.trim()
+      ? updateMetadata.body.trim()
+      : typeof updateMetadata?.rawJson?.notes === "string" && updateMetadata.rawJson.notes.trim()
+        ? updateMetadata.rawJson.notes.trim()
+        : "";
+
+  if (!rawNotes) return "";
+  return rawNotes.length > 600 ? `${rawNotes.slice(0, 600).trim()}...` : rawNotes;
+}
+
+function formatDesktopUpdatePrompt(updateMetadata) {
+  const notes = getDesktopUpdateNotes(updateMetadata);
+  const parts = [
+    `Yeni masaüstü sürümü hazır: v${updateMetadata.version}`,
+    `Mevcut sürüm: v${updateMetadata.currentVersion}`,
+  ];
+
+  if (notes) {
+    parts.push(`Sürüm notları:\n${notes}`);
+  }
+
+  parts.push("Şimdi indirip kurmak ister misin?");
+  return parts.join("\n\n");
+}
+
+function createDesktopUpdateChannel(onEvent) {
+  const Channel = getTauriCoreApi()?.Channel;
+  if (typeof Channel !== "function") return null;
+
+  const channel = new Channel();
+  channel.onmessage = onEvent;
+  return channel;
+}
+
+async function installDesktopUpdate(updateMetadata) {
+  const core = getTauriCoreApi();
+  if (!core) {
+    throw new Error("Tauri çekirdeği bulunamadı.");
+  }
+
+  let downloadedBytes = 0;
+  let contentLength = 0;
+  desktopUpdateState.isInstalling = true;
+  setDesktopUpdateButtonLabel("İndiriliyor...");
+
+  try {
+    const channel = createDesktopUpdateChannel((event) => {
+      if (!event || typeof event !== "object") return;
+
+      switch (event.event) {
+        case "Started":
+          contentLength = Number(event.data?.contentLength || 0);
+          setDesktopUpdateButtonLabel("İndiriliyor...");
+          break;
+        case "Progress":
+          downloadedBytes += Number(event.data?.chunkLength || 0);
+          if (contentLength > 0) {
+            const progress = Math.min(99, Math.max(1, Math.round((downloadedBytes / contentLength) * 100)));
+            setDesktopUpdateButtonLabel(`İndiriliyor %${progress}`);
+          } else {
+            setDesktopUpdateButtonLabel("İndiriliyor...");
+          }
+          break;
+        case "Finished":
+          setDesktopUpdateButtonLabel("Kuruluyor...");
+          break;
+        default:
+          break;
+      }
+    });
+
+    const args = { rid: updateMetadata.rid };
+    if (channel) args.onEvent = channel;
+
+    await core.invoke("plugin:updater|download_and_install", args);
+    setDesktopUpdateButtonLabel("Yeniden başlatılıyor...");
+    await core.invoke("plugin:process|restart");
+  } catch (error) {
+    await closeDesktopUpdateResource(updateMetadata.rid);
+    throw error;
+  } finally {
+    desktopUpdateState.isInstalling = false;
+    setDesktopUpdateButtonLabel();
+  }
+}
+
+async function checkDesktopForUpdates(source = "manual") {
+  const isManualCheck = source === "manual";
+
+  if (!isWindowsDesktopClient()) {
+    if (isManualCheck) {
+      alert("Masaüstü güncellemesi yalnızca Windows desktop sürümünde kullanılabilir.");
+    }
+    return false;
+  }
+
+  if (desktopUpdateState.isChecking || desktopUpdateState.isInstalling) {
+    if (isManualCheck) {
+      alert("Güncelleme kontrolü zaten sürüyor.");
+    }
+    return false;
+  }
+
+  desktopUpdateState.isChecking = true;
+  if (isManualCheck) {
+    setDesktopUpdateButtonLabel("Kontrol ediliyor...");
+  }
+
+  try {
+    const updateMetadata = await getTauriCoreApi().invoke("plugin:updater|check");
+    if (!updateMetadata) {
+      if (isManualCheck) {
+        alert("Yeni bir masaüstü sürümü bulunamadı.");
+      }
+      return false;
+    }
+
+    const shouldInstall = confirm(formatDesktopUpdatePrompt(updateMetadata));
+    if (!shouldInstall) {
+      await closeDesktopUpdateResource(updateMetadata.rid);
+      return false;
+    }
+
+    await installDesktopUpdate(updateMetadata);
+    return true;
+  } catch (error) {
+    console.error(error);
+    if (isManualCheck) {
+      alert(error.message || "Güncelleme kontrolü başarısız oldu.");
+    }
+    return false;
+  } finally {
+    desktopUpdateState.isChecking = false;
+    if (!desktopUpdateState.isInstalling) {
+      setDesktopUpdateButtonLabel();
+    }
+    if (source === "startup") {
+      desktopUpdateState.startupCheckCompleted = true;
+    }
+  }
+}
+
+function scheduleStartupDesktopUpdateCheck() {
+  if (
+    !isWindowsDesktopClient()
+    || desktopUpdateState.startupCheckScheduled
+    || desktopUpdateState.startupCheckCompleted
+  ) {
+    return;
+  }
+
+  desktopUpdateState.startupCheckScheduled = true;
+  window.setTimeout(() => {
+    void checkDesktopForUpdates("startup");
+  }, 0);
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
+  return {
+    selectedSetIds: Array.isArray(snapshot?.selectedSetIds)
+      ? snapshot.selectedSetIds.filter((setId) => typeof setId === "string" && setId.trim())
+      : Array.isArray(fallback.selectedSetIds)
+        ? fallback.selectedSetIds
+        : [],
+    assessments: isPlainObject(snapshot?.assessments)
+      ? cloneData(snapshot.assessments)
+      : isPlainObject(fallback.assessments)
+        ? cloneData(fallback.assessments)
+        : {},
+    session: isPlainObject(snapshot?.session)
+      ? cloneData(snapshot.session)
+      : isPlainObject(fallback.session)
+        ? cloneData(fallback.session)
+        : null,
+    autoAdvanceEnabled: snapshot?.autoAdvanceEnabled !== undefined
+      ? snapshot.autoAdvanceEnabled !== false
+      : fallback.autoAdvanceEnabled !== undefined
+        ? fallback.autoAdvanceEnabled !== false
+        : true,
+    updatedAt: snapshot?.updatedAt
+      ? String(snapshot.updatedAt)
+      : fallback.updatedAt
+        ? String(fallback.updatedAt)
+        : "",
+  };
+}
+
+function getLegacyStudyStateSnapshot() {
+  const storedSelected = getUserJson("selected_sets", []);
+  const storedAssessments = getUserJson("assessments", {});
+  const storedSession = getUserJson("session", null);
+  const autoAdvanceRaw = getUserText("auto_advance");
+  return normalizeStudyStateSnapshot({
+    selectedSetIds: Array.isArray(storedSelected) ? storedSelected : [],
+    assessments: isPlainObject(storedAssessments) ? storedAssessments : {},
+    session: isPlainObject(storedSession) ? storedSession : null,
+    autoAdvanceEnabled: autoAdvanceRaw === null ? true : autoAdvanceRaw === "1",
+    updatedAt: null,
+  });
+}
+
+function getPersistedStudyStateSnapshot() {
+  const syncedSnapshot = getUserJson(USER_STUDY_STATE_KEY, null);
+  if (isPlainObject(syncedSnapshot)) {
+    return normalizeStudyStateSnapshot(syncedSnapshot);
+  }
+  return getLegacyStudyStateSnapshot();
+}
+
+function buildCurrentStudyStateSnapshot(options = {}) {
+  const persistedSession = getPersistedStudyStateSnapshot().session;
+  const activeCard = filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
+  return normalizeStudyStateSnapshot({
+    selectedSetIds: [...selectedSets],
+    assessments,
+    session: {
+      currentCardIndex: activeCard ? currentCardIndex : Number.isInteger(persistedSession?.currentCardIndex) ? persistedSession.currentCardIndex : 0,
+      currentCardKey: activeCard ? getCardKey(activeCard) : typeof persistedSession?.currentCardKey === "string" ? persistedSession.currentCardKey : null,
+      topic: document.getElementById("topic-select")?.value || persistedSession?.topic || "hepsi",
+      activeFilter: activeFilter || persistedSession?.activeFilter || "all",
+      autoAdvanceEnabled,
+    },
+    autoAdvanceEnabled,
+    updatedAt: options.updatedAt || nowIso(),
+  });
+}
+
+function persistStudyStateSnapshot(snapshot) {
+  if (!currentUser) return;
+  const normalizedSnapshot = normalizeStudyStateSnapshot(snapshot);
+  setUserJson(USER_STUDY_STATE_KEY, normalizedSnapshot);
+  setUserJson("selected_sets", normalizedSnapshot.selectedSetIds);
+  setUserJson("assessments", normalizedSnapshot.assessments);
+  setUserText("auto_advance", normalizedSnapshot.autoAdvanceEnabled ? "1" : "0");
+  setUserJson("session", normalizedSnapshot.session);
+}
+
+function pickNewerStudyStateSnapshot(localSnapshot, remoteSnapshot) {
+  const normalizedLocal = localSnapshot ? normalizeStudyStateSnapshot(localSnapshot) : null;
+  const normalizedRemote = remoteSnapshot ? normalizeStudyStateSnapshot(remoteSnapshot) : null;
+  if (!normalizedLocal) return normalizedRemote;
+  if (!normalizedRemote) return normalizedLocal;
+
+  const localTime = Date.parse(normalizedLocal.updatedAt || "");
+  const remoteTime = Date.parse(normalizedRemote.updatedAt || "");
+  if (Number.isFinite(localTime) && Number.isFinite(remoteTime)) {
+    return remoteTime > localTime ? normalizedRemote : normalizedLocal;
+  }
+  if (Number.isFinite(remoteTime)) return normalizedRemote;
+  return normalizedLocal;
+}
+
+function applyStudyStateSnapshot(snapshot) {
+  const normalizedSnapshot = normalizeStudyStateSnapshot(snapshot);
+  selectedSets = normalizedSnapshot.selectedSetIds.length
+    ? new Set(normalizedSnapshot.selectedSetIds.filter((setId) => loadedSets[setId]))
+    : new Set(Object.keys(loadedSets));
+  assessments = isPlainObject(normalizedSnapshot.assessments) ? normalizedSnapshot.assessments : {};
+  if (!assessments || Array.isArray(assessments)) assessments = {};
+  autoAdvanceEnabled = normalizedSnapshot.autoAdvanceEnabled !== false;
+  syncAutoAdvanceToggleUI();
+}
+
+async function flushRemoteStudyStateSync() {
+  if (!currentUser || typeof platformAdapter.saveUserState !== "function" || !pendingRemoteStudyStateSnapshot) return;
+  const snapshotToSync = normalizeStudyStateSnapshot(pendingRemoteStudyStateSnapshot);
+  pendingRemoteStudyStateSnapshot = null;
+  try {
+    const remoteSnapshot = await platformAdapter.saveUserState(snapshotToSync);
+    if (remoteSnapshot) {
+      persistStudyStateSnapshot(remoteSnapshot);
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function scheduleRemoteStudyStateSync(snapshot) {
+  if (!currentUser || typeof platformAdapter.saveUserState !== "function") return;
+  pendingRemoteStudyStateSnapshot = normalizeStudyStateSnapshot(snapshot);
+  if (remoteStudyStateSyncTimer) clearTimeout(remoteStudyStateSyncTimer);
+  remoteStudyStateSyncTimer = setTimeout(() => {
+    remoteStudyStateSyncTimer = null;
+    void flushRemoteStudyStateSync();
+  }, 600);
 }
 
 function getDefaultEditorFieldHeight(field) {
@@ -230,6 +584,12 @@ function ensureEditorFieldHeightsState(fieldHeights = {}) {
     question: Number.isFinite(questionHeight) ? Math.max(Math.round(questionHeight), getEditorFieldMinimumHeight("question")) : getDefaultEditorFieldHeight("question"),
     answer: Number.isFinite(answerHeight) ? Math.max(Math.round(answerHeight), getEditorFieldMinimumHeight("answer")) : getDefaultEditorFieldHeight("answer"),
   };
+}
+
+function normalizeEditorSplitRatio(value) {
+  const parsedValue = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsedValue)) return DEFAULT_EDITOR_SPLIT_RATIO;
+  return Math.min(Math.max(parsedValue, MIN_EDITOR_SPLIT_RATIO), MAX_EDITOR_SPLIT_RATIO);
 }
 
 function createEditorFieldHistoryState(value = "") {
@@ -295,22 +655,16 @@ function showScreen(name) {
 
 function saveSelectedSets() {
   if (!currentUser) return;
-  setUserJson("selected_sets", [...selectedSets]);
+  const snapshot = buildCurrentStudyStateSnapshot();
+  persistStudyStateSnapshot(snapshot);
+  scheduleRemoteStudyStateSync(snapshot);
 }
 
 function saveStudyState() {
   if (!currentUser) return;
-  setUserJson("assessments", assessments);
-  setUserText("auto_advance", autoAdvanceEnabled ? "1" : "0");
-  const activeCard = filteredFlashcards.length > 0 ? filteredFlashcards[cardOrder[currentCardIndex]] : null;
-  setUserJson("session", {
-    currentCardIndex,
-    currentCardKey: activeCard ? getCardKey(activeCard) : null,
-    topic: document.getElementById("topic-select")?.value || "hepsi",
-    activeFilter,
-    autoAdvanceEnabled,
-  });
-  saveSelectedSets();
+  const snapshot = buildCurrentStudyStateSnapshot();
+  persistStudyStateSnapshot(snapshot);
+  scheduleRemoteStudyStateSync(snapshot);
 }
 
 function hydrateLoadedSets(records) {
@@ -330,6 +684,7 @@ function updateManagerUserChip() {
     chip.textContent = currentUser ? `Hesap: ${currentUser.email || currentUser.id} · ${runtimeLabel}` : "Hesap: oturum kapalı";
   }
   if (signOutButton) signOutButton.disabled = !currentUser;
+  syncDesktopUpdateButton();
 }
 
 function normalizeLegacySetRecord(setId, rawRecord) {
@@ -415,20 +770,36 @@ function migrateLegacyAssessmentsIfNeeded() {
   });
   if (changed) {
     assessments = migrated;
-    setUserJson("assessments", assessments);
+    const snapshot = buildCurrentStudyStateSnapshot();
+    persistStudyStateSnapshot(snapshot);
+    scheduleRemoteStudyStateSync(snapshot);
   }
 }
 
-function loadUserStudyState() {
-  const storedSelected = getUserJson("selected_sets", []);
-  selectedSets = Array.isArray(storedSelected) && storedSelected.length
-    ? new Set(storedSelected.filter((setId) => loadedSets[setId]))
-    : new Set(Object.keys(loadedSets));
-  assessments = getUserJson("assessments", {});
-  if (!assessments || typeof assessments !== "object" || Array.isArray(assessments)) assessments = {};
-  const autoAdvanceRaw = getUserText("auto_advance");
-  autoAdvanceEnabled = autoAdvanceRaw === null ? true : autoAdvanceRaw === "1";
-  syncAutoAdvanceToggleUI();
+async function loadUserStudyState() {
+  const localSnapshot = getPersistedStudyStateSnapshot();
+  let mergedSnapshot = localSnapshot;
+
+  if (currentUser && typeof platformAdapter.loadUserState === "function") {
+    try {
+      const remoteSnapshot = await platformAdapter.loadUserState();
+      if (remoteSnapshot) {
+        mergedSnapshot = pickNewerStudyStateSnapshot(localSnapshot, remoteSnapshot);
+        persistStudyStateSnapshot(mergedSnapshot);
+        const localTime = Date.parse(localSnapshot?.updatedAt || "");
+        const remoteTime = Date.parse(remoteSnapshot?.updatedAt || "");
+        if (Number.isFinite(localTime) && (!Number.isFinite(remoteTime) || localTime > remoteTime)) {
+          scheduleRemoteStudyStateSync(localSnapshot);
+        }
+      } else if (localSnapshot?.updatedAt) {
+        scheduleRemoteStudyStateSync(localSnapshot);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  applyStudyStateSnapshot(mergedSnapshot);
   migrateLegacyAssessmentsIfNeeded();
 }
 
@@ -439,7 +810,7 @@ async function loadUserWorkspace() {
     records = await platformAdapter.loadSets();
     hydrateLoadedSets(records);
   }
-  loadUserStudyState();
+  await loadUserStudyState();
   updateManagerUserChip();
   renderSetList();
 }
@@ -454,6 +825,9 @@ async function handleAuthStateChange(user, event = "unknown") {
   showEditorStatus("", "");
   updateManagerUserChip();
   if (!currentUser) {
+    if (remoteStudyStateSyncTimer) clearTimeout(remoteStudyStateSyncTimer);
+    remoteStudyStateSyncTimer = null;
+    pendingRemoteStudyStateSnapshot = null;
     loadedSets = {};
     selectedSets = new Set();
     removeCandidateSets.clear();
@@ -831,7 +1205,7 @@ function renderSetList() {
 }
 
 const getPersistedSession = () => {
-  const session = getUserJson("session", null);
+  const session = getPersistedStudyStateSnapshot().session;
   return session && typeof session === "object" ? session : null;
 };
 
@@ -1145,6 +1519,9 @@ function ensureEditorDraftUiState(draft) {
   draft.fieldHeights = Object.fromEntries(
     cards.map((card) => [card.id, ensureEditorFieldHeightsState(draft.fieldHeights?.[card.id])]),
   );
+  draft.splitRatios = Object.fromEntries(
+    cards.map((card) => [card.id, normalizeEditorSplitRatio(draft.splitRatios?.[card.id])]),
+  );
   draft.fieldHistory = Object.fromEntries(
     cards.map((card) => [
       card.id,
@@ -1203,9 +1580,11 @@ function createEditorDraft(setRecord, previousDraft = null) {
     toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? baseDraft.toolbarExpandedCardId ?? null,
     expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? baseDraft.expandedPreviewCardId ?? null,
     fieldHeights: previousDraft?.fieldHeights || {},
+    splitRatios: previousDraft?.splitRatios || {},
     fieldHistory: previousDraft?.fieldHistory || {},
     deleteSelectionMode: previousDraft?.deleteSelectionMode ?? false,
     deleteSelectionCardIds: Array.isArray(previousDraft?.deleteSelectionCardIds) ? [...previousDraft.deleteSelectionCardIds] : [],
+    baseUpdatedAt: setRecord?.updatedAt || nowIso(),
   });
 }
 
@@ -1521,6 +1900,7 @@ function renderEditorCardDetail(draft, card, index) {
   const questionHeight = getEditorFieldHeight(draft, card.id, "question");
   const answerHeight = getEditorFieldHeight(draft, card.id, "answer");
   const previewHeight = Math.max(answerHeight + 20, 240);
+  const splitRatio = getEditorSplitRatio(draft, card.id);
   return `
     <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${card.id}">
       <div class="editor-card-head">
@@ -1543,12 +1923,28 @@ function renderEditorCardDetail(draft, card, index) {
             style="height:${questionHeight}px;"
           >${escapeMarkup(card.question)}</textarea>
         </div>
-        <div class="editor-split">
+        <div
+          class="editor-split"
+          data-editor-split="${card.id}"
+          style="--editor-answer-fr:${splitRatio}fr; --editor-preview-fr:${100 - splitRatio}fr;"
+        >
           <div>
             <div class="field-group">
               <div class="editor-markdown-head">
                 <label>Açıklama (Markdown)</label>
-                <span class="status-pill">Araçlar üstte iki alan için ortaktır</span>
+                <div class="editor-split-control">
+                  <label class="editor-split-control-label" for="editor-split-ratio-${card.id}">Yerleşim</label>
+                  <input
+                    id="editor-split-ratio-${card.id}"
+                    class="editor-split-range"
+                    type="range"
+                    min="${MIN_EDITOR_SPLIT_RATIO}"
+                    max="${MAX_EDITOR_SPLIT_RATIO}"
+                    value="${splitRatio}"
+                    data-editor-split-ratio="${card.id}"
+                    aria-label="Açıklama ve önizleme genişlik oranı"
+                  />
+                </div>
               </div>
               <textarea
                 class="editor-input-answer"
@@ -1694,6 +2090,11 @@ function getEditorFieldNameFromElement(textarea) {
 function getEditorFieldHeight(draft, cardId, field) {
   ensureEditorDraftUiState(draft);
   return draft.fieldHeights?.[cardId]?.[field] || getDefaultEditorFieldHeight(field);
+}
+
+function getEditorSplitRatio(draft, cardId) {
+  ensureEditorDraftUiState(draft);
+  return normalizeEditorSplitRatio(draft.splitRatios?.[cardId]);
 }
 
 function getEditorFieldHistory(draft, cardId, field, currentValue = "") {
@@ -1910,6 +2311,18 @@ function bindEditorEvents(draft) {
       renderEditor();
     });
   });
+  document.querySelectorAll("[data-editor-split-ratio]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const cardId = input.getAttribute("data-editor-split-ratio");
+      const splitRatio = normalizeEditorSplitRatio(input.value);
+      draft.splitRatios[cardId] = splitRatio;
+      const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
+      if (splitElement) {
+        splitElement.style.setProperty("--editor-answer-fr", `${splitRatio}fr`);
+        splitElement.style.setProperty("--editor-preview-fr", `${100 - splitRatio}fr`);
+      }
+    });
+  });
   document.querySelectorAll('[data-editor-field="question"], [data-editor-field="answer"]').forEach((textarea) => {
     bindEditorTextareaState(draft, textarea);
   });
@@ -2025,6 +2438,24 @@ async function toggleEditorViewMode() {
   }
 }
 
+function formatEditorConflictTimestamp(isoValue) {
+  if (!isoValue) return "bilinmeyen bir zamanda";
+  const parsedDate = new Date(isoValue);
+  if (Number.isNaN(parsedDate.getTime())) return isoValue;
+  return parsedDate.toLocaleString("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function resolveEditorConflictDraft(draft, remoteRecord) {
+  loadedSets[remoteRecord.id] = remoteRecord;
+  const refreshedDraft = createEditorDraft(remoteRecord, draft);
+  refreshedDraft.viewMode = draft.viewMode;
+  if (refreshedDraft.viewMode === "raw") refreshedDraft.rawSource = remoteRecord.rawSource;
+  editorState.drafts[remoteRecord.id] = refreshedDraft;
+}
+
 async function saveEditorDrafts() {
   if (!editorState.draftOrder.length) return;
   try {
@@ -2033,9 +2464,41 @@ async function saveEditorDrafts() {
     for (const setId of editorState.draftOrder) {
       const draft = editorState.drafts[setId];
       const previousRecord = loadedSets[setId];
-      const nextRecord = resolveEditorDraftRecord(draft);
-      cleanupAssessmentsForSet(nextRecord, previousRecord);
-      const savedRecord = await platformAdapter.saveSet(nextRecord);
+      const nextRecord = {
+        ...resolveEditorDraftRecord(draft),
+        baseUpdatedAt: draft.baseUpdatedAt,
+      };
+      let savedRecord = null;
+
+      try {
+        savedRecord = await platformAdapter.saveSet(nextRecord);
+      } catch (error) {
+        if (error?.code !== "REMOTE_CONFLICT" || !error.remoteRecord) {
+          throw error;
+        }
+
+        const remoteRecord = normalizeSetRecord(error.remoteRecord, { previousRecord: error.remoteRecord });
+        remoteRecord.rawSource = backfillRawSource(remoteRecord);
+        const shouldLoadRemote = confirm(
+          `"${remoteRecord.setName}" setinin bulutta ${formatEditorConflictTimestamp(remoteRecord.updatedAt)} tarihinde kaydedilmiş daha yeni bir sürümü var.\n\nTamam: Buluttaki sürümü yükle\nİptal: Benim değişikliklerimle üzerine yaz`,
+        );
+
+        if (shouldLoadRemote) {
+          resolveEditorConflictDraft(draft, remoteRecord);
+          renderSetList();
+          renderEditor();
+          showEditorStatus("Buluttaki daha yeni sürüm yüklendi. İstersen bu sürüm üzerinde devam edebilirsin.", "success");
+          return;
+        }
+
+        savedRecord = await platformAdapter.saveSet({
+          ...nextRecord,
+          baseUpdatedAt: null,
+          forceOverwrite: true,
+        });
+      }
+
+      cleanupAssessmentsForSet(savedRecord, previousRecord);
       if (
         savedRecord?.sourcePath &&
         isDesktopRuntime() &&
@@ -2050,7 +2513,7 @@ async function saveEditorDrafts() {
       if (refreshedDraft.viewMode === "raw") refreshedDraft.rawSource = savedRecord.rawSource;
       editorState.drafts[setId] = refreshedDraft;
     }
-    setUserJson("assessments", assessments);
+    saveStudyState();
     renderSetList();
     renderEditor();
     showEditorStatus(
@@ -2198,6 +2661,7 @@ function bindStaticEvents() {
   document.getElementById("auth-remember-me")?.addEventListener("change", (event) => {
     setRememberMePreference(event.currentTarget?.checked !== false);
   });
+  document.getElementById("check-updates-btn")?.addEventListener("click", () => void checkDesktopForUpdates("manual"));
   document.getElementById("sign-out-btn")?.addEventListener("click", () => void signOut());
   document.getElementById("editor-back-btn")?.addEventListener("click", () => closeEditor());
   document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
@@ -2246,6 +2710,7 @@ function bindStaticEvents() {
     }
   });
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
+  syncDesktopUpdateButton();
 }
 
 function exposeWindowApi() {
@@ -2290,6 +2755,7 @@ async function bootstrap() {
   syncThemeControlsUI();
   syncRememberMeUi();
   bindStaticEvents();
+  updateManagerUserChip();
   exposeWindowApi();
   platformAdapter.subscribeAuthState((user, event) => {
     void handleAuthStateChange(user, event);
