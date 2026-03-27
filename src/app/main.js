@@ -2761,6 +2761,11 @@ function bindStaticEvents() {
       toggleFullscreen();
       return;
     }
+    if ((event.key === "s" || event.key === "S") && document.getElementById("app-container").style.display !== "none") {
+      event.preventDefault();
+      flipCard();
+      return;
+    }
     if (event.key === "Escape" && isFullscreen) {
       toggleFullscreen();
       return;
