@@ -83,6 +83,7 @@ function Get-HashOrMissing {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$localUpdaterOverridePath = $null
 
 Push-Location $repoRoot
 try {
@@ -108,8 +109,31 @@ try {
   $distIndexHash = Get-HashOrMissing -FilePath $distIndexPath
   $distMainHash = Get-HashOrMissing -FilePath $distMainPath
 
+  $defaultUpdaterKeyPath = Join-Path $HOME ".tauri\flashcards-app-updater.key"
+  if (
+    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY) -and
+    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PATH) -and
+    (Test-Path $defaultUpdaterKeyPath)
+  ) {
+    $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content -Raw $defaultUpdaterKeyPath)
+    Write-Host "[2/6] Using local updater key: $defaultUpdaterKeyPath"
+  }
+
+  $tauriBuildArgs = @("tauri", "build", "--bundles", "nsis")
+  if (
+    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY) -and
+    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PATH)
+  ) {
+    $localUpdaterOverridePath = Join-Path ([System.IO.Path]::GetTempPath()) ("flashcards-tauri-no-updater-" + [Guid]::NewGuid().ToString("N") + ".json")
+    @{ bundle = @{ createUpdaterArtifacts = $false } } |
+      ConvertTo-Json -Depth 5 |
+      Set-Content -Path $localUpdaterOverridePath -Encoding UTF8
+    $tauriBuildArgs += @("--config", $localUpdaterOverridePath)
+    Write-Warning "Updater imza anahtari bulunamadi. Local release build updater artefaktlari olmadan devam edecek."
+  }
+
   Write-Host "[2/6] Building desktop app (NSIS)..."
-  npx tauri build --bundles nsis
+  & npx @tauriBuildArgs
   if ($LASTEXITCODE -ne 0) {
     throw "npx tauri build --bundles nsis failed with exit code $LASTEXITCODE"
   }
@@ -259,5 +283,8 @@ try {
   Write-Host "Open-this marker: $openPortableInfoPath"
   Write-Host "Latest pointer: $latestPointerPath"
 } finally {
+  if ($localUpdaterOverridePath -and (Test-Path $localUpdaterOverridePath)) {
+    Remove-Item -Path $localUpdaterOverridePath -Force -ErrorAction SilentlyContinue
+  }
   Pop-Location
 }

@@ -23,3 +23,6 @@ runtime-config.local.json
 # Playwright artifacts
 playwright-report/
 test-results/
+
+# Manual Supabase backups
+backups/
