@@ -838,6 +838,8 @@ test("fullscreen toggle works and card navigation remains functional", async ({ 
 
     await fullscreenBtn.click();
     await expect(container).toHaveClass(/fullscreen-active/);
+    await expect(page.locator('#flashcard #fullscreen-card-counter')).toBeVisible();
+    await expect(page.locator('#fullscreen-nav-bar button')).toHaveCount(5);
 
     await page.locator('#flashcard').click();
     await expect(page.locator('#flashcard')).toHaveClass(/flipped/);
