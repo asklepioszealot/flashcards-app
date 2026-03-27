@@ -2006,11 +2006,7 @@
         }
 
         .set-list-tools-actions {
-          justify-content: stretch;
-        }
-
-        .set-list-tools-actions .btn {
-          flex: 1 1 calc(50% - 10px);
+          flex-basis: auto;
         }
       }
       /* SET MANAGER CSS */
@@ -2052,7 +2048,7 @@
 
       .set-list-panel {
         width: 100%;
-        max-width: 600px;
+        max-width: 900px;
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
         border-radius: 18px;
@@ -2161,11 +2157,15 @@
       }
 
       .set-list-tools-actions {
-        display: flex;
-        justify-content: flex-end;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
-        flex: 1 1 280px;
-        flex-wrap: wrap;
+        flex: 0 1 360px;
+        width: min(100%, 360px);
+      }
+
+      .set-list-tools-actions .btn {
+        width: 100%;
       }
 
       .set-actions-row {
@@ -2260,13 +2260,6 @@
       .set-bulk-toggle-meta {
         font-size: 12px;
         color: var(--color-text-secondary);
-      }
-
-      .mode-hint {
-        width: 100%;
-        text-align: left;
-        color: var(--color-text-secondary);
-        font-size: 13px;
       }
 
       .btn-danger {
@@ -2581,12 +2574,6 @@
           </div>
 
           <div class="set-list-tools-actions">
-            <button class="btn btn-small btn-secondary" id="delete-mode-btn" onclick="toggleDeleteMode()">
-              Silme Modu: Kapalı
-            </button>
-            <button class="btn btn-small btn-secondary" id="edit-mode-btn" onclick="toggleEditMode()">
-              Düzenleme Modu: Kapalı
-            </button>
             <button class="btn btn-small btn-danger" id="remove-selected-btn" onclick="removeSelectedSets()" disabled>
               Seçilileri Kaldır
             </button>
@@ -2594,8 +2581,6 @@
               Kartları Düzenle
             </button>
           </div>
-
-          <div class="mode-hint" id="mode-hint">Mod: Derse dahil edilecek setleri seçiyorsun.</div>
         </div>
 
         <div class="set-list" id="set-list">

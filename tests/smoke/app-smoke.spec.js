@@ -350,7 +350,8 @@ test.describe("Flashcards smoke", () => {
     });
 
     await expect(page.locator("#set-manager")).toBeVisible();
-    await page.locator("#edit-mode-btn").click();
+    await expect(page.locator("#edit-mode-btn")).toHaveCount(0);
+    await expect(page.locator("#delete-mode-btn")).toHaveCount(0);
     await expect(page.locator("#edit-selected-btn")).toBeEnabled();
 
     await page.locator("#edit-selected-btn").click();
@@ -426,7 +427,7 @@ test.describe("Flashcards smoke", () => {
       selectedSetIds: ["editor"],
     });
 
-    await page.locator("#edit-mode-btn").click();
+    await expect(page.locator("#edit-selected-btn")).toBeEnabled();
     await page.locator("#edit-selected-btn").click();
     await expect(page.locator("#editor-screen")).toBeVisible();
 
