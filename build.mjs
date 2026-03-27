@@ -7,6 +7,8 @@ const DIST_NOJEKYLL_PATH = path.join(DIST_DIR, ".nojekyll");
 const DIST_BUILD_INFO_PATH = path.join(DIST_DIR, "src", "generated", "build-info.js");
 const DIST_RUNTIME_CONFIG_PATH = path.join(DIST_DIR, "src", "generated", "runtime-config.js");
 const LOCAL_RUNTIME_CONFIG_PATH = "runtime-config.local.json";
+const ROOT_FAVICON_SOURCE = path.join("src-tauri", "icons", "icon.ico");
+const DIST_FAVICON_PATH = path.join(DIST_DIR, "favicon.ico");
 const SUPABASE_UMD_SOURCE = path.join(
   "node_modules",
   "@supabase",
@@ -161,6 +163,62 @@ function makeRuntimeConfig() {
   };
 }
 
+function appendBuildVersion(specifier, buildId) {
+  if (typeof specifier !== "string" || !specifier.startsWith(".")) {
+    return specifier;
+  }
+  if (specifier.includes("?v=")) {
+    return specifier;
+  }
+  const [base, hash = ""] = specifier.split("#");
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}v=${buildId}${hash ? `#${hash}` : ""}`;
+}
+
+function rewriteHtmlAssetUrls(filePath, buildId) {
+  const original = fs.readFileSync(filePath, "utf8");
+  const rewritten = original.replace(
+    /\b(src|href)="(\.\/[^"]+)"/g,
+    (_match, attrName, assetUrl) => `${attrName}="${appendBuildVersion(assetUrl, buildId)}"`,
+  );
+  fs.writeFileSync(filePath, rewritten, "utf8");
+}
+
+function rewriteModuleImports(filePath, buildId) {
+  const original = fs.readFileSync(filePath, "utf8");
+  const rewritten = original
+    .replace(
+      /\bfrom\s+(['"])(\.{1,2}\/[^'"]+)\1/g,
+      (_match, quote, specifier) => `from ${quote}${appendBuildVersion(specifier, buildId)}${quote}`,
+    )
+    .replace(
+      /\bimport\s*\(\s*(['"])(\.{1,2}\/[^'"]+)\1\s*\)/g,
+      (_match, quote, specifier) => `import(${quote}${appendBuildVersion(specifier, buildId)}${quote})`,
+    );
+  fs.writeFileSync(filePath, rewritten, "utf8");
+}
+
+function rewriteDistModuleGraph(buildId) {
+  rewriteHtmlAssetUrls(path.join(DIST_DIR, "index.html"), buildId);
+
+  const srcRoot = path.join(DIST_DIR, "src");
+  if (!fs.existsSync(srcRoot)) return;
+
+  const pending = [srcRoot];
+  while (pending.length > 0) {
+    const currentPath = pending.pop();
+    const stat = fs.statSync(currentPath);
+    if (stat.isDirectory()) {
+      const children = fs.readdirSync(currentPath).map((name) => path.join(currentPath, name));
+      pending.push(...children);
+      continue;
+    }
+    if (currentPath.endsWith(".js")) {
+      rewriteModuleImports(currentPath, buildId);
+    }
+  }
+}
+
 if (fs.existsSync(DIST_DIR)) {
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
 }
@@ -171,6 +229,10 @@ fs.writeFileSync(DIST_NOJEKYLL_PATH, "", "utf8");
 
 if (fs.existsSync(CNAME_PATH)) {
   fs.copyFileSync(CNAME_PATH, path.join(DIST_DIR, "CNAME"));
+}
+
+if (fs.existsSync(ROOT_FAVICON_SOURCE)) {
+  fs.copyFileSync(ROOT_FAVICON_SOURCE, DIST_FAVICON_PATH);
 }
 
 if (fs.existsSync("src")) {
@@ -198,5 +260,7 @@ if (fs.existsSync(SUPABASE_UMD_SOURCE)) {
   fs.mkdirSync(path.dirname(SUPABASE_UMD_DIST), { recursive: true });
   fs.copyFileSync(SUPABASE_UMD_SOURCE, SUPABASE_UMD_DIST);
 }
+
+rewriteDistModuleGraph(buildInfo.buildId);
 
 console.log(`Build complete. Build ID: ${buildInfo.buildId}`);
