@@ -1,3 +1,5 @@
+import { APP_CONFIG } from "../generated/runtime-config.js";
+
 const DEFAULT_CONFIG = Object.freeze({
   supabaseUrl: "",
   supabaseAnonKey: "",
@@ -6,14 +8,9 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 
 export function getRuntimeConfig() {
-  const runtimeConfig =
-    globalThis.__APP_CONFIG__ && typeof globalThis.__APP_CONFIG__ === "object"
-      ? globalThis.__APP_CONFIG__
-      : {};
-
   return Object.freeze({
     ...DEFAULT_CONFIG,
-    ...runtimeConfig,
+    ...APP_CONFIG,
   });
 }
 

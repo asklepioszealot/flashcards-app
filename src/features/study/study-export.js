@@ -1,4 +1,9 @@
-import { sanitizeHtml } from '../../core/security.js';
+import { zipSync } from "fflate";
+import initSqlJs from "sql.js/dist/sql-wasm.js";
+
+import { renderAnswerMarkdown } from "../../core/set-codec.js";
+import { sanitizeMarkdownHtml } from "../../core/security.js";
+import { resolveSqlWasmUrl } from "../../shared/sql-wasm.js";
 import { getAssessmentLevel } from './assessment.js';
 
 export function generateAnkiGuid(setId, cardId) {
@@ -23,8 +28,8 @@ export function generateExportSnapshot(cards, scope = 'all') {
       ankiGuid: generateAnkiGuid(setId, uniqueId),
       subject: card.subject || '',
       questionText: questionText,
-      questionHtml: sanitizeHtml(card.q || ''),
-      answerHtml: sanitizeHtml(card.a || ''),
+      questionHtml: renderAnswerMarkdown(card.q || ''),
+      answerHtml: sanitizeMarkdownHtml(card.a || ''),
       answerMarkdown: card.a || '',
       assessmentStatus: getAssessmentLevel(card) || 'unanswered'
     };
@@ -33,26 +38,9 @@ export function generateExportSnapshot(cards, scope = 'all') {
 
 export async function generateApkg(cards) {
   const snapshots = generateExportSnapshot(cards, 'all');
-  
-  let initSqlJs;
-  let fflate;
-  try {
-    const sqlJsModule = await import('../../../vendor/sql-wasm.js' + (window.__BUILD_INFO__ ? '' : '')); 
-    initSqlJs = sqlJsModule.default || window.initSqlJs;
-    fflate = await import('../../../vendor/fflate.js');
-  } catch (error) {
-    console.error("Export dependencies loading error:", error);
-    throw new Error('Export bağımlılıkları yüklenemedi. Lütfen internet bağlantınızı kontrol edin veya uygulamayı güncelleyin.');
-  }
-
-  if (!initSqlJs || !fflate) {
-    throw new Error('Bağımlılıklar başlatılamadı.');
-  }
-
-  const wasmUrl = new URL('../../../vendor/sql-wasm.wasm', window.location.href).href;
 
   const SQL = await initSqlJs({
-    locateFile: () => wasmUrl
+    locateFile: () => resolveSqlWasmUrl()
   });
 
   const db = new SQL.Database();
@@ -165,7 +153,7 @@ export async function generateApkg(cards) {
     'media': new TextEncoder().encode('{}')
   };
 
-  const zippedBytes = fflate.zipSync(zipData, { level: 0 });
+  const zippedBytes = zipSync(zipData, { level: 0 });
   
   return new Blob([zippedBytes], { type: 'application/apkg' });
 }

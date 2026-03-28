@@ -10,7 +10,9 @@ import {
   loadedSets,
   selectedSets, setSelectedSets,
   assessments, setAssessments,
+  reviewSchedule, setReviewSchedule,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
+  isAnalyticsVisible, setIsAnalyticsVisible,
   filteredFlashcards,
   cardOrder,
   currentCardIndex,
@@ -51,13 +53,17 @@ export { getUserJson, setUserJson, getUserText, setUserText, userScopedStorageKe
 export function getLegacyStudyStateSnapshot() {
   const storedSelected = getUserJson("selected_sets", []);
   const storedAssessments = getUserJson("assessments", {});
+  const storedReviewSchedule = getUserJson("review_schedule", {});
   const storedSession = getUserJson("session", null);
   const autoAdvanceRaw = getUserText("auto_advance");
+  const analyticsVisibleRaw = getUserText("analytics_visible");
   return normalizeStudyStateSnapshot({
     selectedSetIds: Array.isArray(storedSelected) ? storedSelected : [],
     assessments: isPlainObject(storedAssessments) ? storedAssessments : {},
+    reviewSchedule: isPlainObject(storedReviewSchedule) ? storedReviewSchedule : {},
     session: isPlainObject(storedSession) ? storedSession : null,
     autoAdvanceEnabled: autoAdvanceRaw === null ? true : autoAdvanceRaw === "1",
+    isAnalyticsVisible: analyticsVisibleRaw === "1",
     updatedAt: null,
   });
 }
@@ -76,6 +82,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
   return normalizeStudyStateSnapshot({
     selectedSetIds: [...selectedSets],
     assessments,
+    reviewSchedule,
     session: {
       currentCardIndex: activeCard ? currentCardIndex : Number.isInteger(persistedSession?.currentCardIndex) ? persistedSession.currentCardIndex : 0,
       currentCardKey: activeCard ? getCardKey(activeCard) : typeof persistedSession?.currentCardKey === "string" ? persistedSession.currentCardKey : null,
@@ -84,6 +91,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
       autoAdvanceEnabled,
     },
     autoAdvanceEnabled,
+    isAnalyticsVisible,
     updatedAt: options.updatedAt || nowIso(),
   });
 }
@@ -94,7 +102,9 @@ export function persistStudyStateSnapshot(snapshot) {
   setUserJson(USER_STUDY_STATE_KEY, normalizedSnapshot);
   setUserJson("selected_sets", normalizedSnapshot.selectedSetIds);
   setUserJson("assessments", normalizedSnapshot.assessments);
+  setUserJson("review_schedule", normalizedSnapshot.reviewSchedule);
   setUserText("auto_advance", normalizedSnapshot.autoAdvanceEnabled ? "1" : "0");
+  setUserText("analytics_visible", normalizedSnapshot.isAnalyticsVisible ? "1" : "0");
   setUserJson("session", normalizedSnapshot.session);
 }
 
@@ -123,8 +133,17 @@ export function applyStudyStateSnapshot(snapshot) {
   let newAssessments = isPlainObject(normalizedSnapshot.assessments) ? normalizedSnapshot.assessments : {};
   if (!newAssessments || Array.isArray(newAssessments)) newAssessments = {};
   setAssessments(newAssessments);
+  setReviewSchedule(isPlainObject(normalizedSnapshot.reviewSchedule) ? normalizedSnapshot.reviewSchedule : {});
   setAutoAdvanceEnabled(normalizedSnapshot.autoAdvanceEnabled !== false);
-  import("../study/study.js").then(({ syncAutoAdvanceToggleUI }) => syncAutoAdvanceToggleUI());
+  setIsAnalyticsVisible(normalizedSnapshot.isAnalyticsVisible === true);
+  import("../study/study.js").then(({ syncAutoAdvanceToggleUI, syncReviewScheduleUi }) => {
+    syncAutoAdvanceToggleUI();
+    syncReviewScheduleUi();
+  });
+  import("../analytics/analytics.js").then(({ syncAnalyticsDashboard, syncAnalyticsVisibility }) => {
+    syncAnalyticsVisibility();
+    syncAnalyticsDashboard();
+  });
 }
 
 export async function flushRemoteStudyStateSync() {

@@ -1,7 +1,7 @@
 -- Core public schema for flashcards-app recovery.
 -- This file captures the application-owned table that stores flashcard sets.
--- Study-state sync can run in a dedicated table, but that is optional and is
--- documented separately in `docs/SUPABASE_SYNC_SETUP.sql`.
+-- Study-state sync lives in `public.flashcard_user_state` and is documented in
+-- `docs/SUPABASE_SYNC_SETUP.sql` + `docs/SUPABASE_USER_STATE_MIGRATION.sql`.
 
 create table if not exists public.flashcard_sets (
   id text primary key,
@@ -9,7 +9,7 @@ create table if not exists public.flashcard_sets (
   slug text not null,
   set_name text not null,
   file_name text not null,
-  source_format text not null check (source_format in ('json', 'markdown', 'system')),
+  source_format text not null check (source_format in ('json', 'markdown')),
   raw_source text not null default '',
   cards_json jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default timezone('utc', now())

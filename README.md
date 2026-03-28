@@ -18,7 +18,7 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 - Değerlendirme bazlı filtreler: Tümü, Tekrar Göz At, Bilmiyorum, Değerlendirilmemiş
 - Karıştırma (shuffle), Açık/Koyu tema, Kart numarasına atlama
 - **Opsiyonel Otomatik Geçiş**: Değerlendirme sonrası bir sonraki karta otomatik geçişi giriş ekranından açıp kapatabilirsiniz (ayar kalıcıdır).
-- **Bulut Senkronu**: Aynı Supabase hesabında set değişiklikleri ve çalışma ilerlemesi cihazlar arasında paylaşılır. Ayrı bir ilerleme tablosu yoksa uygulama bunu mevcut set tablosunda görünmeyen küçük bir kayıtla otomatik sürdürür.
+- **Bulut Senkronu**: Aynı Supabase hesabında set değişiklikleri ve çalışma ilerlemesi cihazlar arasında paylaşılır. Çalışma ilerlemesi yalnızca `flashcard_user_state` tablosunda tutulur.
 - Klavye kısayolları
 - `localStorage` ile durum kaydı
 
@@ -35,10 +35,9 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 
 ## Supabase Notu
 
-- Yeni sürümlerde set ilerlemesi için ekstra SQL çalıştırmak zorunlu değil.
-- `flashcard_user_state` tablosu varsa uygulama onu kullanır.
-- Bu tablo yoksa ilerleme senkronu otomatik olarak `flashcard_sets` içinde gizli ve çok küçük bir sistem kaydıyla devam eder.
-- [`docs/SUPABASE_SYNC_SETUP.sql`](docs/SUPABASE_SYNC_SETUP.sql) dosyası halen kullanılabilir; bu sadece ayrık bir tablo tercih ediyorsanız opsiyoneldir.
+- Yeni sürümlerde set ilerlemesi için `flashcard_user_state` tablosu zorunludur.
+- Önce [`docs/SUPABASE_SYNC_SETUP.sql`](docs/SUPABASE_SYNC_SETUP.sql) dosyasını çalıştırın.
+- Ardından eski gizli state kayıtlarını güvenle taşımak için [`docs/SUPABASE_USER_STATE_MIGRATION.sql`](docs/SUPABASE_USER_STATE_MIGRATION.sql) dosyasını bir kez çalıştırın.
 - `flashcard_sets` için temel kurtarma şeması [`docs/SUPABASE_FLASHCARD_SETS_SETUP.sql`](docs/SUPABASE_FLASHCARD_SETS_SETUP.sql) içinde tutulur.
 - En kolay kişisel bulut yedeği için uygulama hesabınla giriş yapıp kendi verini dışa al:
 

@@ -7,6 +7,7 @@ import {
 import {
   MIN_EDITOR_SPLIT_RATIO, MAX_EDITOR_SPLIT_RATIO, MIN_EDITOR_RAW_HEIGHT, EDITOR_SPLIT_KEYBOARD_STEP,
 } from "../../shared/constants.js";
+import { escapeAttributeSelectorValue } from "../../shared/utils.js";
 import {
   getCurrentEditorDraft,
   ensureEditorDraftUiState,
@@ -62,19 +63,21 @@ export function setFocusedEditorField(textarea) {
 export function getFocusedEditorFieldElement(options = {}) {
   const focusedField = editorState.focusedField;
   if (!focusedField || focusedField.setId !== getCurrentEditorDraft()?.setId) return null;
-  const targetField = document.querySelector(`[data-editor-field="${focusedField.field}"][data-card-id="${focusedField.cardId}"]`);
+  const escapedCardId = escapeAttributeSelectorValue(focusedField.cardId);
+  const targetField = document.querySelector(`[data-editor-field="${focusedField.field}"][data-card-id="${escapedCardId}"]`);
   if (targetField && options.restoreSelection) restoreEditorFieldSelection(targetField);
   return targetField;
 }
 
 export function resolveEditorToolbarTarget(cardId) {
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
   const focusedField = getFocusedEditorFieldElement({ restoreSelection: true });
   if (focusedField && focusedField.getAttribute("data-card-id") === cardId) {
     return focusedField;
   }
 
-  return document.querySelector(`[data-editor-field="question"][data-card-id="${cardId}"]`)
-    || document.querySelector(`[data-editor-field="answer"][data-card-id="${cardId}"]`);
+  return document.querySelector(`[data-editor-field="question"][data-card-id="${escapedCardId}"]`)
+    || document.querySelector(`[data-editor-field="answer"][data-card-id="${escapedCardId}"]`);
 }
 
 export function getEditorFieldNameFromElement(textarea) {
@@ -114,11 +117,12 @@ export function setEditorSplitRatio(draft, cardId, value) {
 }
 
 export function updateEditorSplitElement(cardId, splitRatio) {
-  const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  const splitElement = document.querySelector(`[data-editor-split="${escapedCardId}"]`);
   if (!splitElement) return;
   splitElement.style.setProperty("--editor-answer-fr", `${splitRatio}fr`);
   splitElement.style.setProperty("--editor-preview-fr", `${100 - splitRatio}fr`);
-  const handle = splitElement.querySelector(`[data-editor-split-handle="${cardId}"]`);
+  const handle = splitElement.querySelector(`[data-editor-split-handle="${escapedCardId}"]`);
   if (handle) {
     handle.setAttribute("aria-valuenow", String(splitRatio));
     handle.setAttribute("aria-valuetext", `Açıklama %${splitRatio}, önizleme %${100 - splitRatio}`);
@@ -147,7 +151,8 @@ export function startEditorSplitDrag(draft, cardId, handle, event) {
   if (event.button !== undefined && event.button !== 0) return;
   stopEditorSplitDrag();
   persistFocusedEditorFieldState(draft);
-  const splitElement = document.querySelector(`[data-editor-split="${cardId}"]`);
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  const splitElement = document.querySelector(`[data-editor-split="${escapedCardId}"]`);
   if (!splitElement) return;
 
   const handlePointerMove = (moveEvent) => {
@@ -248,11 +253,13 @@ export function syncEditorFieldFromTextarea(draft, textarea, options = {}) {
 
   if (field === "question") {
     card.question = textarea.value;
-    const questionPreview = document.querySelector(`[data-editor-list-question="${card.id}"]`);
+    const escapedCardId = escapeAttributeSelectorValue(card.id);
+    const questionPreview = document.querySelector(`[data-editor-list-question="${escapedCardId}"]`);
     if (questionPreview) questionPreview.textContent = card.question.trim() || "Yeni kart";
   } else {
     card.explanationMarkdown = textarea.value;
-    const preview = document.querySelector(`[data-editor-preview="${card.id}"]`);
+    const escapedCardId = escapeAttributeSelectorValue(card.id);
+    const preview = document.querySelector(`[data-editor-preview="${escapedCardId}"]`);
     if (preview) preview.innerHTML = renderAnswerMarkdown(card.explanationMarkdown);
   }
 

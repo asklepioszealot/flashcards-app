@@ -14,7 +14,7 @@ module.exports = {
     ignoreHTTPSErrors: true,
   },
   webServer: {
-    command: "node tools/test-static-server.js",
+    command: `npx vite preview --host 127.0.0.1 --port ${testPort} --strictPort`,
     url: `http://127.0.0.1:${testPort}`,
     timeout: 30_000,
     reuseExistingServer: !process.env.CI,

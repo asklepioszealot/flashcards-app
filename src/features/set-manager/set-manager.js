@@ -25,7 +25,10 @@ import {
 } from "../../core/set-codec.js";
 import { isDesktopRuntime, hasSupabaseConfig } from "../../core/runtime-config.js";
 import { getAssessmentLevel } from "../study/assessment.js";
+import { parseApkgToSetRecord } from "../importers/apkg-import.js";
 import { showUndoToast } from "./undo-toast.js";
+import { renderIcon } from "../../ui/icons.js";
+import { syncAnalyticsDashboard, syncAnalyticsVisibility } from "../analytics/analytics.js";
 
 // ── Browser file handle IndexedDB persistence ──
 let browserFileHandleDbPromise = null;
@@ -143,6 +146,8 @@ function getBrowserFilePickerTypes() {
         "application/json": [".json"],
         "text/markdown": [".md"],
         "text/plain": [".txt"],
+        "application/octet-stream": [".apkg"],
+        "application/zip": [".apkg"],
       },
     },
   ];
@@ -368,21 +373,42 @@ export function findExistingSetMatch(fileName) {
   return Object.values(loadedSets).find((record) => record.fileName === fileName || record.slug === slug) || null;
 }
 
-export async function importSetFromText(text, fileName, sourcePath = "", webFileHandle = null) {
-  const existingRecord = sourcePath
+function shouldImportAsApkg(fileName) {
+  return /\.apkg$/i.test(String(fileName || ""));
+}
+
+function decodeBase64ToUint8Array(value) {
+  if (typeof Buffer !== "undefined") {
+    return Uint8Array.from(Buffer.from(String(value || ""), "base64"));
+  }
+  const binary = atob(String(value || ""));
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function resolveExistingImportRecord(sourcePath, fileName) {
+  return sourcePath
     ? Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
       || findExistingSetMatch(fileName)
     : findExistingSetMatch(fileName);
-  const nextRecord = parseSetText(text, fileName, existingRecord, existingRecord?.sourceFormat);
-  if (sourcePath) {
+}
+
+async function persistImportedRecord(nextRecord, existingRecord, options = {}) {
+  const sourcePath = String(options.sourcePath || "").trim();
+  const webFileHandle = options.webFileHandle || null;
+  const allowSourceLink = options.allowSourceLink !== false;
+
+  if (allowSourceLink && sourcePath) {
     nextRecord.sourcePath = sourcePath;
-  } else if (webFileHandle) {
-    nextRecord.sourcePath = existingRecord?.sourcePath || createWebFileSourcePath(fileName);
-  } else if (existingRecord?.sourcePath) {
+  } else if (allowSourceLink && webFileHandle) {
+    nextRecord.sourcePath = existingRecord?.sourcePath || createWebFileSourcePath(nextRecord.fileName || `${slugify(nextRecord.setName)}.json`);
+  } else if (allowSourceLink && existingRecord?.sourcePath) {
     nextRecord.sourcePath = existingRecord.sourcePath;
+  } else {
+    nextRecord.sourcePath = "";
   }
+
   const savedRecord = await platformAdapter.saveSet(nextRecord);
-  if (webFileHandle && savedRecord?.sourcePath) {
+  if (allowSourceLink && webFileHandle && savedRecord?.sourcePath) {
     bindBrowserFileHandle(savedRecord.sourcePath, webFileHandle);
   }
   loadedSets[savedRecord.id] = savedRecord;
@@ -392,6 +418,50 @@ export async function importSetFromText(text, fileName, sourcePath = "", webFile
   saveSelectedSets();
   renderSetList();
   return savedRecord;
+}
+
+export async function importSetFromText(text, fileName, sourcePath = "", webFileHandle = null) {
+  const existingRecord = resolveExistingImportRecord(sourcePath, fileName);
+  const nextRecord = parseSetText(text, fileName, existingRecord, existingRecord?.sourceFormat);
+  return persistImportedRecord(nextRecord, existingRecord, {
+    sourcePath,
+    webFileHandle,
+    allowSourceLink: true,
+  });
+}
+
+export async function importSetFromBinary(arrayBuffer, fileName) {
+  const existingRecord = resolveExistingImportRecord("", fileName);
+  const nextRecord = await parseApkgToSetRecord(arrayBuffer, fileName, existingRecord);
+  return persistImportedRecord(nextRecord, existingRecord, {
+    allowSourceLink: false,
+  });
+}
+
+async function importPickedFile(fileLike, sourcePath = "", webFileHandle = null) {
+  const fileName = String(fileLike?.name || "").trim();
+  if (!fileName) {
+    throw new Error("Dosya adı okunamadı.");
+  }
+
+  if (shouldImportAsApkg(fileName)) {
+    if (typeof fileLike.arrayBuffer === "function") {
+      return importSetFromBinary(await fileLike.arrayBuffer(), fileName);
+    }
+    if (typeof fileLike.binaryBase64 === "string" && fileLike.binaryBase64.trim()) {
+      const bytes = decodeBase64ToUint8Array(fileLike.binaryBase64);
+      return importSetFromBinary(bytes.buffer, fileName);
+    }
+    throw new Error("APKG dosyası ikili olarak okunamadı.");
+  }
+
+  if (typeof fileLike.text === "function") {
+    return importSetFromText(await fileLike.text(), fileName, sourcePath, webFileHandle);
+  }
+  if (typeof fileLike.contents === "string") {
+    return importSetFromText(fileLike.contents, fileName, sourcePath, webFileHandle);
+  }
+  throw new Error("Dosya içeriği okunamadı.");
 }
 
 export async function tryBrowserFileSystemImport() {
@@ -407,6 +477,8 @@ export async function tryBrowserFileSystemImport() {
             "application/json": [".json"],
             "text/markdown": [".md"],
             "text/plain": [".txt"],
+            "application/octet-stream": [".apkg"],
+            "application/zip": [".apkg"],
           },
         },
       ],
@@ -415,7 +487,7 @@ export async function tryBrowserFileSystemImport() {
     for (const handle of handles) {
       if (handle?.kind !== "file") continue;
       const file = await handle.getFile();
-      await importSetFromText(await file.text(), file.name, "", handle);
+      await importPickedFile(file, "", handle);
       showUndoToast(`"${file.name}" yüklendi.`);
     }
     return true;
@@ -433,7 +505,7 @@ export async function triggerSetImport() {
       const files = await platformAdapter.pickNativeSetFiles();
       if (!Array.isArray(files) || files.length === 0) return;
       for (const file of files) {
-        await importSetFromText(file.contents, file.name, file.path || "");
+        await importPickedFile(file, file.path || "");
         showUndoToast(`"${file.name}" yüklendi.`);
       }
     } catch (error) {
@@ -455,7 +527,7 @@ export async function handleFileSelect(event) {
   if (!files?.length) return;
   for (const file of files) {
     try {
-      await importSetFromText(await file.text(), file.name);
+      await importPickedFile(file);
       showUndoToast(`"${file.name}" yüklendi.`);
     } catch (error) {
       console.error(error);
@@ -567,6 +639,12 @@ export function updateSetListScrollState(listElement, setCount) {
   listElement.classList.add("set-list--scrollable");
 }
 
+function setActionButtonContent(button, iconName, label) {
+  if (!button) return;
+  const safeLabel = escapeMarkup(label);
+  button.innerHTML = `${renderIcon(iconName)}<span>${safeLabel}</span>`;
+}
+
 export function renderSetList() {
   const listElement = document.getElementById("set-list");
   const toolsElement = document.getElementById("set-list-tools");
@@ -584,19 +662,25 @@ export function renderSetList() {
     listElement.style.removeProperty("--set-list-max-height");
     if (toolsElement) toolsElement.style.display = "none";
     if (startButton) startButton.disabled = true;
-    if (removeSelectedButton) removeSelectedButton.disabled = true;
+    if (removeSelectedButton) {
+      removeSelectedButton.disabled = true;
+      setActionButtonContent(removeSelectedButton, "trash-2", "Seçilileri Kaldır (0)");
+    }
     if (editSelectedButton) editSelectedButton.disabled = true;
+    if (editSelectedButton) setActionButtonContent(editSelectedButton, "edit", "Kartları Düzenle (0)");
+    syncAnalyticsVisibility();
+    syncAnalyticsDashboard();
     return;
   }
   if (toolsElement) toolsElement.style.display = "flex";
   if (startButton) startButton.disabled = selectedSets.size === 0;
   if (removeSelectedButton) {
     removeSelectedButton.disabled = selectedSets.size === 0;
-    removeSelectedButton.textContent = `Seçilileri Kaldır (${selectedSets.size})`;
+    setActionButtonContent(removeSelectedButton, "trash-2", `Seçilileri Kaldır (${selectedSets.size})`);
   }
   if (editSelectedButton) {
     editSelectedButton.disabled = selectedSets.size === 0;
-    editSelectedButton.textContent = `Kartları Düzenle (${selectedSets.size})`;
+    setActionButtonContent(editSelectedButton, "edit", `Kartları Düzenle (${selectedSets.size})`);
   }
   const selectionCount = selectedSets.size;
   const selectionLabel = "DERS SEÇİMİ";
@@ -630,24 +714,26 @@ export function renderSetList() {
     const total = setRecord.cards.length;
     const assessed = know + review + dunno;
     const isSelected = selectedSets.has(setId);
+    const setIdAttr = escapeMarkup(setId);
+    const setName = escapeMarkup(setRecord.setName);
     const row = document.createElement("div");
     row.className = "set-item";
     row.innerHTML = `
-      <div class="set-info" data-set-select="${setId}">
+      <div class="set-info" data-set-select="${setIdAttr}">
         <input
           type="checkbox"
           ${isSelected ? "checked" : ""}
-          data-set-checkbox="${setId}"
-          name="set-selection-${setId}"
-          aria-label="${escapeMarkup(setRecord.setName)} seçim kutusu"
+          data-set-checkbox="${setIdAttr}"
+          name="set-selection-${setIdAttr}"
+          aria-label="${setName} seçim kutusu"
         >
         <div class="set-details">
-          <div class="set-title">${setRecord.setName}</div>
+          <div class="set-title">${setName}</div>
           <div class="set-stats">${total} kart — ${assessed}/${total} (%${total ? Math.round((assessed / total) * 100) : 0}) tamam</div>
         </div>
       </div>
       <div class="set-actions-row">
-        <button class="btn-delete-circle" title="Seti kaldır" data-set-delete="${setId}">-</button>
+        <button class="btn-delete-circle" title="Seti kaldır" aria-label="Seti kaldır" data-set-delete="${setIdAttr}">${renderIcon("trash-2")}</button>
       </div>`;
     listElement.appendChild(row);
   });
@@ -667,4 +753,6 @@ export function renderSetList() {
     });
   });
   updateSetListScrollState(listElement, setIds.length);
+  syncAnalyticsVisibility();
+  syncAnalyticsDashboard();
 }

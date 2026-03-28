@@ -9,7 +9,7 @@ import {
   driveAccessToken, setDriveAccessToken,
   pickerApiLoaded, setPickerApiLoaded,
 } from "../../app/state.js";
-import { importSetFromText } from "../set-manager/set-manager.js";
+import { importSetFromBinary, importSetFromText } from "../set-manager/set-manager.js";
 import { showUndoToast } from "../set-manager/undo-toast.js";
 
 export function initGoogleDrive() {
@@ -45,7 +45,7 @@ export function launchDrivePicker() {
     alert("Tauri masaüstü sürümünde Google Picker penceresi desteklenmiyor.");
     return;
   }
-  const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes("application/json,text/markdown,text/plain");
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS).setMimeTypes("application/json,text/markdown,text/plain,application/octet-stream,application/zip");
   const picker = new google.picker.PickerBuilder()
     .addView(view)
     .setOAuthToken(driveAccessToken)
@@ -70,7 +70,11 @@ export async function downloadAndLoadDriveFile(fileId, fileName) {
       headers: { Authorization: `Bearer ${driveAccessToken}` },
     });
     if (!response.ok) throw new Error(`İndirme hatası: ${response.statusText}`);
-    await importSetFromText(await response.text(), fileName);
+    if (/\.apkg$/i.test(String(fileName || ""))) {
+      await importSetFromBinary(await response.arrayBuffer(), fileName);
+    } else {
+      await importSetFromText(await response.text(), fileName);
+    }
     showUndoToast(`"${fileName}" yüklendi.`);
   } catch (error) {
     console.error(error);
