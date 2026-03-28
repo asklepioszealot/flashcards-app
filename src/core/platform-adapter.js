@@ -3,6 +3,8 @@ import {
   backfillRawSource,
   normalizeSetRecord,
 } from "./set-codec.js";
+import { DEFAULT_REVIEW_PREFERENCES } from "../shared/constants.js";
+import { normalizeReviewPreferences } from "../shared/utils.js";
 import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime-config.js";
 
 const APP_NAMESPACE = "fc_v2";
@@ -86,6 +88,7 @@ function mapFallbackSetRowToSnapshot(row) {
       session: stateJson.session,
       autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
       isAnalyticsVisible: stateJson.isAnalyticsVisible,
+      reviewPreferences: stateJson.reviewPreferences,
       updatedAt: row?.updated_at || stateJson.updatedAt,
     },
     row?.updated_at || nowIso(),
@@ -230,13 +233,14 @@ function normalizeSetCollection(records) {
     : [];
 }
 
-function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso()) {
+export function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso()) {
   const selectedSetIds = Array.isArray(snapshot?.selectedSetIds)
     ? snapshot.selectedSetIds.filter((setId) => typeof setId === "string" && setId.trim())
     : [];
   const assessments = isPlainObject(snapshot?.assessments) ? clone(snapshot.assessments) : {};
   const reviewSchedule = isPlainObject(snapshot?.reviewSchedule) ? clone(snapshot.reviewSchedule) : {};
   const session = isPlainObject(snapshot?.session) ? clone(snapshot.session) : null;
+  const reviewPreferences = normalizeReviewPreferences(snapshot?.reviewPreferences, DEFAULT_REVIEW_PREFERENCES);
 
   return {
     selectedSetIds,
@@ -245,6 +249,7 @@ function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso()) {
     session,
     autoAdvanceEnabled: snapshot?.autoAdvanceEnabled !== false,
     isAnalyticsVisible: snapshot?.isAnalyticsVisible === true,
+    reviewPreferences,
     updatedAt: String(snapshot?.updatedAt || fallbackUpdatedAt),
   };
 }
@@ -462,6 +467,7 @@ function createSupabaseAdapter(config, storage) {
         session: stateJson.session,
         autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
         isAnalyticsVisible: stateJson.isAnalyticsVisible,
+        reviewPreferences: stateJson.reviewPreferences,
         updatedAt: row?.updated_at || stateJson.updatedAt,
       },
       row?.updated_at || nowIso(),
@@ -479,6 +485,7 @@ function createSupabaseAdapter(config, storage) {
         session: normalizedSnapshot.session,
         autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
         isAnalyticsVisible: normalizedSnapshot.isAnalyticsVisible,
+        reviewPreferences: normalizedSnapshot.reviewPreferences,
         updatedAt: normalizedSnapshot.updatedAt,
       },
       updated_at: normalizedSnapshot.updatedAt,

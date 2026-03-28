@@ -10,6 +10,7 @@ import {
   currentCardIndex,
   autoAdvanceEnabled,
   activeFilter, setActiveFilter,
+  reviewPreferences,
 } from "../../app/state.js";
 import { scheduleNextReview } from "./scheduler.js";
 
@@ -120,7 +121,7 @@ export function assessCard(level) {
     assessments[cardKey] = level;
     setReviewSchedule({
       ...reviewSchedule,
-      [cardKey]: scheduleNextReview(level, currentReviewState),
+      [cardKey]: scheduleNextReview(level, currentReviewState, new Date(), reviewPreferences),
     });
   }
   updateAssessmentButtons(level);

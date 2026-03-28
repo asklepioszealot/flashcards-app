@@ -5,11 +5,17 @@ import {
   reviewSchedule,
   isAnalyticsVisible,
   setIsAnalyticsVisible,
+  reviewPreferences,
+  setReviewPreferences,
 } from "../../app/state.js";
+import {
+  DEFAULT_REVIEW_PREFERENCES,
+  REVIEW_INTERVAL_MULTIPLIER_OPTIONS,
+  REVIEW_MEMORY_TARGET_OPTIONS,
+} from "../../shared/constants.js";
+import { normalizeReviewPreferences } from "../../shared/utils.js";
 import { buildCardKey, getCardKey, legacyCardId } from "../study/assessment.js";
 import { getReviewUrgency } from "../study/scheduler.js";
-
-const RETENTION_TARGET = 85;
 const MANAGER_DASHBOARD_ID = "analytics-dashboard-manager";
 const MANAGER_GRID_ID = "analytics-grid-manager";
 const MANAGER_SUMMARY_ID = "analytics-summary-manager";
@@ -72,7 +78,7 @@ function getAnalyticsElements() {
 function syncAnalyticsToggleUi(toggleButton, visible) {
   if (!toggleButton) return;
   toggleButton.setAttribute("aria-expanded", visible ? "true" : "false");
-  toggleButton.setAttribute("title", visible ? "Analytics panelini gizle" : "Analytics panelini göster");
+  toggleButton.setAttribute("title", visible ? "İstatistikler panelini gizle" : "İstatistikler panelini göster");
   toggleButton.classList.toggle("is-active", visible);
 }
 
@@ -94,8 +100,68 @@ function buildDailyBuckets(nowDate) {
   return buckets;
 }
 
-export function buildAnalyticsSnapshot(cards = [], assessmentsMap = {}, reviewScheduleMap = {}, now = new Date()) {
+function formatTempoLabel(multiplier) {
+  return `x${Number(multiplier).toFixed(2)}`;
+}
+
+function renderPreferenceOptions(values, currentValue, formatter = (value) => String(value)) {
+  return values
+    .map((value) => `<option value="${value}" ${Number(value) === Number(currentValue) ? "selected" : ""}>${formatter(value)}</option>`)
+    .join("");
+}
+
+function renderReviewPreferencesCard(preferences) {
+  return renderAnalyticsCard(
+    "Tekrar Ayarları",
+    "Yeni değerlendirmeler için kaydedilir ve tüm cihazlarda senkron kalır",
+    `
+      <div class="analytics-settings">
+        <label class="analytics-setting">
+          <span class="analytics-setting-title">Bellek Hedefi</span>
+          <select class="analytics-setting-select" data-analytics-preference="memoryTargetPercent" aria-label="Bellek hedefi">
+            ${renderPreferenceOptions(REVIEW_MEMORY_TARGET_OPTIONS, preferences.memoryTargetPercent, (value) => `%${value}`)}
+          </select>
+          <span class="analytics-setting-hint">Hedef hatırlama düzeyi yükseldikçe aralıklar daha temkinli büyür.</span>
+        </label>
+        <label class="analytics-setting">
+          <span class="analytics-setting-title">Tekrar Temposu</span>
+          <select class="analytics-setting-select" data-analytics-preference="intervalMultiplier" aria-label="Tekrar temposu">
+            ${renderPreferenceOptions(REVIEW_INTERVAL_MULTIPLIER_OPTIONS, preferences.intervalMultiplier, formatTempoLabel)}
+          </select>
+          <span class="analytics-setting-hint">Tüm yeni tekrar hesaplarına genel hız çarpanı uygular.</span>
+        </label>
+      </div>
+    `,
+  );
+}
+
+function bindAnalyticsControls() {
+  document.querySelectorAll("[data-analytics-preference]").forEach((control) => {
+    control.addEventListener("change", () => {
+      const key = control.getAttribute("data-analytics-preference");
+      if (!key) return;
+
+      const nextPreferences = normalizeReviewPreferences({
+        ...reviewPreferences,
+        [key]: control.value,
+      });
+
+      setReviewPreferences(nextPreferences);
+      syncAnalyticsDashboard();
+      import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
+    });
+  });
+}
+
+export function buildAnalyticsSnapshot(
+  cards = [],
+  assessmentsMap = {},
+  reviewScheduleMap = {},
+  now = new Date(),
+  preferences = DEFAULT_REVIEW_PREFERENCES,
+) {
   const safeNow = now instanceof Date ? now : new Date(now);
+  const normalizedPreferences = normalizeReviewPreferences(preferences);
   const cardEntries = cards
     .map((card) => ({ card, cardKey: getCardKey(card) }))
     .filter((entry) => entry.card);
@@ -137,7 +203,7 @@ export function buildAnalyticsSnapshot(cards = [], assessmentsMap = {}, reviewSc
     dailyActivity: dailyBuckets,
     retention: {
       rate: retentionRate,
-      target: RETENTION_TARGET,
+      target: normalizedPreferences.memoryTargetPercent,
       trackedCount: trackedEntries.length,
       dueCount,
       stableCount,
@@ -202,7 +268,7 @@ function renderRetentionChart(retention) {
   const target = clamp(retention.target, 0, 100);
 
   return `
-    <div class="analytics-bullet" role="img" aria-label="Retention hedef karşılaştırması">
+    <div class="analytics-bullet" role="img" aria-label="Bellek hedef karşılaştırması">
       <div class="analytics-bullet-track">
         <span class="analytics-bullet-range is-low"></span>
         <span class="analytics-bullet-range is-mid"></span>
@@ -242,9 +308,20 @@ export function syncAnalyticsDashboard() {
   const { grid, summary } = getAnalyticsElements();
   if (!grid) return;
 
-  const snapshot = buildAnalyticsSnapshot(resolveAnalyticsCards(), assessments, reviewSchedule, new Date());
+  const normalizedPreferences = normalizeReviewPreferences(reviewPreferences);
+  const snapshot = buildAnalyticsSnapshot(
+    resolveAnalyticsCards(),
+    assessments,
+    reviewSchedule,
+    new Date(),
+    normalizedPreferences,
+  );
   if (!snapshot.totalCards) {
-    grid.innerHTML = `<div class="analytics-empty-state">Analitikler, seçili setlerde ilerleme oluştukça burada görünecek.</div>`;
+    grid.innerHTML = [
+      renderReviewPreferencesCard(normalizedPreferences),
+      `<div class="analytics-empty-state">İstatistikler, seçili setlerde ilerleme oluştukça burada görünecek.</div>`,
+    ].join("");
+    bindAnalyticsControls();
     if (summary) summary.textContent = "Henüz seçili set verisi yok.";
     return;
   }
@@ -254,6 +331,7 @@ export function syncAnalyticsDashboard() {
   }
 
   grid.innerHTML = [
+    renderReviewPreferencesCard(normalizedPreferences),
     renderAnalyticsCard(
       "Günlük Aktivite",
       `Son 7 gün · ${snapshot.dailyActivity.reduce((total, day) => total + day.count, 0)} tekrar`,
@@ -265,11 +343,12 @@ export function syncAnalyticsDashboard() {
       renderSuccessBreakdown(snapshot),
     ),
     renderAnalyticsCard(
-      "Retention",
+      "Bellek",
       `${snapshot.retention.trackedCount} takip edilen kart · hedef %${snapshot.retention.target}`,
       renderRetentionChart(snapshot.retention),
     ),
   ].join("");
+  bindAnalyticsControls();
 }
 
 export function setAnalyticsVisibility(isVisible, options = {}) {

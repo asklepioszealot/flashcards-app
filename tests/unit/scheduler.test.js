@@ -34,6 +34,25 @@ describe("Study scheduler", () => {
     expect(failed.intervalDays).toBeLessThanOrEqual(1);
   });
 
+  it("should scale future intervals with memory target and tempo preferences", () => {
+    const baseline = scheduleNextReview("know", null, "2026-03-01T09:00:00.000Z");
+    const conservative = scheduleNextReview(
+      "know",
+      null,
+      "2026-03-01T09:00:00.000Z",
+      { memoryTargetPercent: 95, intervalMultiplier: 0.8 },
+    );
+    const faster = scheduleNextReview(
+      "know",
+      null,
+      "2026-03-01T09:00:00.000Z",
+      { memoryTargetPercent: 75, intervalMultiplier: 1.3 },
+    );
+
+    expect(conservative.intervalDays).toBeLessThan(baseline.intervalDays);
+    expect(faster.intervalDays).toBeGreaterThan(baseline.intervalDays);
+  });
+
   it("should summarize due, upcoming and new cards", () => {
     const now = "2026-03-10T12:00:00.000Z";
     const summary = summarizeReviewSchedule(

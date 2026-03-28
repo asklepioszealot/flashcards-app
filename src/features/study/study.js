@@ -31,7 +31,7 @@ import { showScreen } from "../../app/screen.js";
 import { saveStudyState, getPersistedStudyStateSnapshot } from "../study-state/study-state.js";
 import { escapeMarkup } from "../../shared/utils.js";
 import { formatRelativeReviewLabel, getReviewUrgency, summarizeReviewSchedule } from "./scheduler.js";
-import { setButtonIcon } from "../../ui/icons.js";
+import { renderIcon, setButtonIcon } from "../../ui/icons.js";
 
 // Register nextCard as the advance callback to break the circular import
 // (assessment.js needs nextCard but cannot import from study.js)
@@ -41,7 +41,11 @@ export function syncAutoAdvanceToggleUI() {
   const toggle = document.getElementById("auto-advance-toggle-manager");
   const status = document.getElementById("auto-advance-status");
   if (toggle) toggle.checked = autoAdvanceEnabled;
-  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE AÇIK" : "OTOMATİK İLERLE KAPALI";
+  if (status) {
+    status.innerHTML = `${renderIcon(autoAdvanceEnabled ? "check-circle" : "x-circle")}<span>OTOMATİK İLERLE</span>`;
+    status.setAttribute("aria-label", autoAdvanceEnabled ? "Otomatik ilerle açık" : "Otomatik ilerle kapalı");
+    status.dataset.state = autoAdvanceEnabled ? "enabled" : "disabled";
+  }
 }
 
 function getStudyCardKeys() {

@@ -3,6 +3,7 @@
 
 import { allMarkdownActions } from "../../shared/constants.js";
 import { escapeMarkup } from "../../shared/utils.js";
+import { renderIcon } from "../../ui/icons.js";
 
 export function applyMarkdownSnippet(textarea, action) {
   const { restoreEditorFieldSelection, rememberEditorFieldSelection } = require_editor_events();
@@ -76,6 +77,14 @@ export function applyMarkdownSnippet(textarea, action) {
     replacement = "| Başlık | Değer |\n| --- | --- |\n| Satır | Açıklama |";
     selectionOffsetStart = replacement.indexOf("Başlık");
     selectionOffsetEnd = selectionOffsetStart + "Başlık".length;
+  } else if (action === "attachment-image") {
+    replacement = "![Açıklama](https://example.com/gorsel.png)";
+    selectionOffsetStart = replacement.indexOf("https://");
+    selectionOffsetEnd = replacement.length - 1;
+  } else if (action === "attachment-audio") {
+    replacement = '<audio controls src="https://example.com/ses.mp3"></audio>';
+    selectionOffsetStart = replacement.indexOf("https://");
+    selectionOffsetEnd = replacement.indexOf('"', selectionOffsetStart);
   }
 
   textarea.setRangeText(replacement, selectionStart, selectionEnd, "end");
@@ -88,10 +97,53 @@ export function applyMarkdownSnippet(textarea, action) {
 export function renderEditorToolbarButtons(actions, cardId) {
   const cardIdAttr = escapeMarkup(cardId);
   return actions
-    .map(
-      (action) =>
-        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardIdAttr}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
-    )
+    .map((action) => {
+      const iconMarkup = action.icon ? renderIcon(action.icon) : "";
+      if (action.id === "attachment") {
+        const menuId = `editor-attachment-menu-${cardIdAttr}`;
+        return `
+          <div class="editor-attachment-shell">
+            <button
+              type="button"
+              class="btn btn-small btn-secondary editor-tool-btn editor-tool-btn--icon"
+              data-editor-attachment-toggle="${cardIdAttr}"
+              data-card-id="${cardIdAttr}"
+              title="${action.title}"
+              aria-label="${action.title}"
+              aria-controls="${menuId}"
+              aria-expanded="false"
+            >${iconMarkup}</button>
+            <div class="editor-attachment-menu" id="${menuId}" hidden>
+              <button
+                type="button"
+                class="btn btn-small btn-secondary editor-tool-btn"
+                data-md-action="attachment-image"
+                data-card-id="${cardIdAttr}"
+                title="Görsel bağlantısı ekle"
+                aria-label="Görsel bağlantısı ekle"
+              >Görsel</button>
+              <button
+                type="button"
+                class="btn btn-small btn-secondary editor-tool-btn"
+                data-md-action="attachment-audio"
+                data-card-id="${cardIdAttr}"
+                title="Ses bağlantısı ekle"
+                aria-label="Ses bağlantısı ekle"
+              >Ses</button>
+            </div>
+          </div>`;
+      }
+
+      return `
+        <button
+          type="button"
+          class="btn btn-small btn-secondary editor-tool-btn ${action.iconOnly ? "editor-tool-btn--icon" : ""}"
+          data-md-action="${action.id}"
+          data-card-id="${cardIdAttr}"
+          title="${action.title}"
+          aria-label="${action.title}"
+        >${action.iconOnly ? iconMarkup : `${iconMarkup}${action.label}`}</button>`;
+    })
     .join("");
 }
 

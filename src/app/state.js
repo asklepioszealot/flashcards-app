@@ -31,6 +31,7 @@ export let activeFilter = "all";
 export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
 export let isAnalyticsVisible = false;
+export let reviewPreferences = { memoryTargetPercent: 85, intervalMultiplier: 1 };
 export let authStateToken = 0;
 export let currentScreen = "auth";
 
@@ -45,6 +46,14 @@ export function setActiveFilter(v) { activeFilter = v; }
 export function setIsFullscreen(v) { isFullscreen = v; }
 export function setAutoAdvanceEnabled(v) { autoAdvanceEnabled = Boolean(v); }
 export function setIsAnalyticsVisible(v) { isAnalyticsVisible = Boolean(v); }
+export function setReviewPreferences(v) {
+  reviewPreferences = v && typeof v === "object" && !Array.isArray(v)
+    ? {
+        memoryTargetPercent: Number(v.memoryTargetPercent) || 85,
+        intervalMultiplier: Number(v.intervalMultiplier) || 1,
+      }
+    : { memoryTargetPercent: 85, intervalMultiplier: 1 };
+}
 export function incrementAuthStateToken() { authStateToken += 1; return authStateToken; }
 export function setCurrentScreen(v) { currentScreen = v; }
 
