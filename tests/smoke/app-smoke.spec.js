@@ -1395,4 +1395,57 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await page.keyboard.press('f');
     await expect(container).not.toHaveClass(/fullscreen-active/);
   });
+
+  test("export modal opens and csv download works", async ({ page }) => {
+    page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
+    await seedLocalSets(page, {
+      sets: {
+        exportSet: {
+          setName: "Export Demo",
+          fileName: "export-demo.json",
+          cards: [
+            { id: "export-1", q: "Soru 1", a: "Cevap 1", subject: "Genel" }
+          ],
+        },
+      },
+      selectedSetIds: ["exportSet"],
+    });
+    
+    await page.locator("#start-btn").click();
+    await expect(page.locator(".card-container")).toBeVisible();
+    
+    // Açılışta modal gizli olmalı
+    await expect(page.locator("#export-modal")).toBeHidden();
+    
+    // Dışa Aktar butonuna tıkla
+    await page.getByRole("button", { name: "🖨️ Dışa Aktar" }).click();
+    await expect(page.locator("#export-modal")).toBeVisible();
+    
+    // Formatları kontrol et
+    const formatSelect = page.locator("#export-format");
+    await expect(formatSelect).toBeVisible();
+    await expect(formatSelect.locator("option")).toHaveCount(5);
+    
+    // APKG seçildiğinde uyarı çıkar
+    await formatSelect.selectOption("apkg");
+    await expect(page.locator("#export-warning")).toBeVisible();
+    
+    // CSV seç
+    await formatSelect.selectOption("csv");
+    await expect(page.locator("#export-warning")).toBeHidden();
+    
+    // İndirmeyi başlat ve yakala
+    const downloadPromise = page.waitForEvent('download', { timeout: 10000 }).catch(e => null);
+    await page.locator("#export-submit-btn").click();
+    
+    const download = await downloadPromise;
+    if (!download) {
+      const errorText = await page.locator("#export-error").textContent();
+      throw new Error("Download failed! Error visible in UI: " + errorText);
+    }
+    expect(download.suggestedFilename()).toMatch(/flashcards_export_.*\.csv$/);
+    
+    // İndirme sonrası modal gizlenmeli
+    await expect(page.locator("#export-modal")).toBeHidden();
+  });
 });

@@ -268,3 +268,83 @@ export function showSetManager() {
     });
   });
 }
+
+// ---- Export Modal Functions ----
+
+export function openExportModal() {
+  const modal = document.getElementById('export-modal');
+  if (modal) modal.style.display = 'block';
+  toggleExportWarning();
+}
+
+export function toggleExportWarning() {
+  const format = document.getElementById('export-format')?.value;
+  const warning = document.getElementById('export-warning');
+  if (warning) {
+    warning.style.display = format === 'apkg' ? 'block' : 'none';
+  }
+}
+
+export async function executeExport() {
+  const scope = document.getElementById('export-scope')?.value || 'all';
+  const format = document.getElementById('export-format')?.value || 'print';
+  const errorEl = document.getElementById('export-error');
+  const btn = document.getElementById('export-submit-btn');
+  
+  if (errorEl) errorEl.style.display = 'none';
+  
+  let cardsToExport = [];
+  if (scope === 'filtered') {
+    cardsToExport = filteredFlashcards;
+  } else {
+    cardsToExport = allFlashcards;
+  }
+  
+  if (!cardsToExport || cardsToExport.length === 0) {
+    if (errorEl) {
+      errorEl.textContent = 'Dışa aktarılacak kart bulunamadı.';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+
+  try {
+    if (btn) btn.disabled = true;
+
+    if (format === 'print') {
+      printCards();
+      document.getElementById('export-modal').style.display = 'none';
+    } else if (format === 'apkg' || format === 'csv' || format === 'markdown' || format === 'html') {
+      const btnOriginalText = btn.textContent;
+      btn.textContent = "Hazırlanıyor...";
+      try {
+        const { generateApkg, generateCsv, generateMarkdown, generateHtml, downloadBlob } = await import('./study-export.js');
+        let blob;
+        let ext = format;
+        if (format === 'apkg') blob = await generateApkg(cardsToExport);
+        else if (format === 'csv') blob = generateCsv(cardsToExport);
+        else if (format === 'markdown') { blob = generateMarkdown(cardsToExport); ext = 'md'; }
+        else if (format === 'html') blob = generateHtml(cardsToExport);
+        
+        const filename = `flashcards_export_${new Date().toISOString().split('T')[0]}.${ext}`;
+        downloadBlob(blob, filename);
+        document.getElementById('export-modal').style.display = 'none';
+      } finally {
+        btn.textContent = btnOriginalText;
+      }
+    } else {
+      if (errorEl) {
+        errorEl.textContent = 'Bu format şu an aktif değil, sonraki aşamada eklenecektir.';
+        errorEl.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error("Export error:", err);
+    if (errorEl) {
+      errorEl.textContent = err.message || 'Dışa aktarma sırasında bir hata oluştu.';
+      errorEl.style.display = 'block';
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}

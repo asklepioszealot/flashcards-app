@@ -19,7 +19,9 @@
     "test:smoke": "node ./tools/run-smoke.js",
     "test:smoke:headed": "node ./tools/run-smoke.js --headed",
     "test:smoke:install": "npx playwright install chromium",
-    "test": "npm run test:smoke"
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test": "npm run test:smoke && npm run test:unit"
   },
   "repository": {
     "type": "git",
@@ -35,11 +37,16 @@
   "homepage": "https://github.com/asklepioszealot/flashcards-app#readme",
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "@tauri-apps/cli": "^2.10.1"
+    "@tauri-apps/cli": "^2.10.1",
+    "jsdom": "^29.0.1",
+    "vitest": "^4.1.2"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
     "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-updater": "^2.10.0"
+    "@tauri-apps/plugin-updater": "^2.10.0",
+    "dompurify": "^3.3.3",
+    "fflate": "^0.8.2",
+    "sql.js": "^1.14.1"
   }
 }
