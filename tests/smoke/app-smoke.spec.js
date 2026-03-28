@@ -594,6 +594,82 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     expect(relinkState.writeCalls.at(-1)).toContain("Relink ile güncellenen soru");
   });
 
+  test("browser save prompts for a local file when a synced set has no source path", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        remote: {
+          setName: "Remote Demo",
+          fileName: "remote-demo.md",
+          sourcePath: "",
+          sourceFormat: "markdown",
+          rawSource: "# Remote Demo\n\n### İlk soru\n\nİlk açıklama",
+          cards: [{ id: "card-1", q: "İlk soru", a: "İlk açıklama", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: ["remote"],
+    });
+
+    await page.evaluate(() => {
+      delete window.FileSystemFileHandle;
+      window.__browserWriteCalls = [];
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [{
+          kind: "file",
+          async getFile() {
+            return new File(
+              [["# Remote Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+              "remote-demo.md",
+              { type: "text/markdown" },
+            );
+          },
+          async queryPermission() {
+            return "granted";
+          },
+          async requestPermission() {
+            return "granted";
+          },
+          async createWritable() {
+            return {
+              async write(content) {
+                window.__browserWriteCalls.push(String(content));
+              },
+              async close() {},
+            };
+          },
+        }];
+      };
+    });
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    await page.locator('[data-editor-field="question"]').fill("Bağ kurularak kaydedilen soru");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("bağlı yerel dosyalara yazıldı");
+
+    const saveState = await page.evaluate(({ storageKey, sourcePathKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const sourcePaths = JSON.parse(localStorage.getItem(sourcePathKey) || "{}");
+      return {
+        pickerCalls: window.__pickerCalls || 0,
+        writeCalls: window.__browserWriteCalls || [],
+        records,
+        sourcePaths,
+      };
+    }, {
+      storageKey: userScopedKey(DEMO_USER.id, "set_records"),
+      sourcePathKey: userScopedKey(DEMO_USER.id, "set_source_paths"),
+    });
+
+    expect(saveState.records).toHaveLength(1);
+    expect(saveState.records[0].sourcePath).toMatch(/^webfile:\/\//);
+    expect(saveState.sourcePaths.remote).toBe(saveState.records[0].sourcePath);
+    expect(saveState.pickerCalls).toBeGreaterThan(0);
+    expect(saveState.writeCalls.at(-1)).toContain("Bağ kurularak kaydedilen soru");
+  });
+
   test("browser-linked source path survives reload when the loaded set payload omits it", async ({ page }) => {
     await clearStorage(page);
     await continueWithDemo(page);
@@ -764,6 +840,39 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
         },
       },
       selectedSetIds: ["editor"],
+    });
+
+    await page.evaluate(() => {
+      delete window.FileSystemFileHandle;
+      window.__browserWriteCalls = [];
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [{
+          kind: "file",
+          async getFile() {
+            return new File(
+              [["# Editor Navigation Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+              "editor-navigation-demo.md",
+              { type: "text/markdown" },
+            );
+          },
+          async queryPermission() {
+            return "granted";
+          },
+          async requestPermission() {
+            return "granted";
+          },
+          async createWritable() {
+            return {
+              async write(content) {
+                window.__browserWriteCalls.push(String(content));
+              },
+              async close() {},
+            };
+          },
+        }];
+      };
     });
 
     await expect(page.locator("#edit-selected-btn")).toBeEnabled();

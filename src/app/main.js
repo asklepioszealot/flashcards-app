@@ -336,6 +336,41 @@ async function primeBrowserLinkedSaveTargets(records) {
   };
 }
 
+async function prepareBrowserSaveTargets(savePlan) {
+  if (!Array.isArray(savePlan) || !savePlan.length) {
+    return {
+      ready: true,
+      sourcePath: null,
+    };
+  }
+
+  if (!isDesktopRuntime() && supportsBrowserFileAccess()) {
+    for (const planEntry of savePlan) {
+      const nextRecord = planEntry?.nextRecord;
+      if (!nextRecord) continue;
+      if (String(nextRecord.sourcePath || "").trim()) continue;
+
+      const handle = await promptBrowserFileHandle();
+      if (!handle) {
+        return {
+          ready: false,
+          sourcePath: "",
+        };
+      }
+
+      const fallbackBaseName = slugify(nextRecord.setName || "set") || "set";
+      const fallbackExtension = nextRecord.sourceFormat === "markdown" ? "md" : "json";
+      const fallbackFileName = `${fallbackBaseName}.${fallbackExtension}`;
+      const nextFileName = String(nextRecord.fileName || fallbackFileName).trim() || fallbackFileName;
+      const sourcePath = createWebFileSourcePath(nextFileName);
+      nextRecord.sourcePath = sourcePath;
+      bindBrowserFileHandle(sourcePath, handle);
+    }
+  }
+
+  return primeBrowserLinkedSaveTargets(savePlan.map((entry) => entry?.nextRecord));
+}
+
 async function ensureBrowserFileWritePermission(handle) {
   if (!handle || typeof handle.queryPermission !== "function") return false;
   const permissionOptions = { mode: "readwrite" };
@@ -3001,9 +3036,7 @@ async function saveEditorDrafts() {
         },
       };
     });
-    const browserLinkPreparation = await primeBrowserLinkedSaveTargets(
-      savePlan.map((entry) => entry.nextRecord),
-    );
+    const browserLinkPreparation = await prepareBrowserSaveTargets(savePlan);
     if (!browserLinkPreparation.ready) {
       showEditorStatus("Kaydetme iptal edildi. Bağlı dosyayı seçmeden aynı dosyaya yazılamaz.", "error");
       return;
