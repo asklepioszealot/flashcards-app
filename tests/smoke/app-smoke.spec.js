@@ -545,6 +545,33 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#card-counter")).toHaveText("1 / 1");
   });
 
+  test("mobile viewport disables sticky header over the flashcard", async ({ page }) => {
+    await page.setViewportSize({ width: 430, height: 932 });
+    await loadFixtureAndStart(page);
+    await expect(page.locator("#app-container")).toBeVisible();
+
+    const headerPosition = await page.locator(".header").evaluate((node) =>
+      window.getComputedStyle(node).position,
+    );
+    expect(headerPosition).toBe("static");
+  });
+
+  test("desktop viewport keeps sticky header for the flashcard controls", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await loadFixtureAndStart(page);
+    await expect(page.locator("#app-container")).toBeVisible();
+
+    const headerStyles = await page.locator(".header").evaluate((node) => {
+      const styles = window.getComputedStyle(node);
+      return {
+        position: styles.position,
+        top: styles.top,
+      };
+    });
+    expect(headerStyles.position).toBe("sticky");
+    expect(headerStyles.top).toBe("20px");
+  });
+
   test("jump input keeps Enter navigation and no longer shows a Git button", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
