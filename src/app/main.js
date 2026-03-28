@@ -24,6 +24,7 @@ const LEGACY_KEYS = {
   legacyState: "flashcards_state_v6",
 };
 const USER_STUDY_STATE_KEY = "study_state_sync";
+const USER_SET_SOURCE_PATHS_KEY = "set_source_paths";
 const WEB_FILE_SOURCE_PREFIX = "webfile://";
 const BROWSER_FILE_HANDLE_DB_NAME = `${APP_NAMESPACE}::browser-file-handles`;
 const BROWSER_FILE_HANDLE_STORE = "handles";
@@ -113,6 +114,40 @@ const normalizeSetCollection = (records) =>
       if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) return rightTime - leftTime;
       return leftValue.setName.localeCompare(rightValue.setName, "tr");
     });
+
+function normalizePersistedSetSourcePathMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(
+        ([setId, sourcePath]) =>
+          typeof setId === "string"
+          && setId.trim()
+          && typeof sourcePath === "string"
+          && sourcePath.trim(),
+      )
+      .map(([setId, sourcePath]) => [setId.trim(), sourcePath.trim()]),
+  );
+}
+
+function getPersistedSetSourcePathMap() {
+  return normalizePersistedSetSourcePathMap(getUserJson(USER_SET_SOURCE_PATHS_KEY, {}));
+}
+
+function syncPersistedSetSourcePaths() {
+  if (!currentUser) return;
+  const currentMap = getPersistedSetSourcePathMap();
+  const nextMap = {};
+
+  Object.entries(loadedSets).forEach(([setId, record]) => {
+    const sourcePath = String(record?.sourcePath || currentMap[setId] || "").trim();
+    if (sourcePath) nextMap[setId] = sourcePath;
+  });
+
+  if (JSON.stringify(currentMap) !== JSON.stringify(nextMap)) {
+    setUserJson(USER_SET_SOURCE_PATHS_KEY, nextMap);
+  }
+}
 
 function supportsBrowserFileAccess() {
   return !isDesktopRuntime()
@@ -918,17 +953,24 @@ function saveStudyState() {
 
 function hydrateLoadedSets(records) {
   const previousLoadedSets = loadedSets;
+  const persistedSourcePaths = getPersistedSetSourcePathMap();
   loadedSets = {};
   normalizeSetCollection(records).forEach((record) => {
     const previousRecord = previousLoadedSets[record.id];
-    loadedSets[record.id] =
-      previousRecord?.sourcePath && !record.sourcePath
-        ? {
-            ...record,
-            sourcePath: previousRecord.sourcePath,
-          }
-        : record;
+    const resolvedSourcePath = String(
+      record.sourcePath
+      || previousRecord?.sourcePath
+      || persistedSourcePaths[record.id]
+      || "",
+    ).trim();
+    loadedSets[record.id] = resolvedSourcePath
+      ? {
+          ...record,
+          sourcePath: resolvedSourcePath,
+        }
+      : record;
   });
+  syncPersistedSetSourcePaths();
 }
 
 function updateManagerUserChip() {
@@ -1212,6 +1254,7 @@ async function importSetFromText(text, fileName, sourcePath = "", webFileHandle 
     bindBrowserFileHandle(savedRecord.sourcePath, webFileHandle);
   }
   loadedSets[savedRecord.id] = savedRecord;
+  syncPersistedSetSourcePaths();
   selectedSets.add(savedRecord.id);
   saveSelectedSets();
   renderSetList();
@@ -1319,6 +1362,7 @@ async function removeSets(setIds) {
       delete loadedSets[entry.setId];
       selectedSets.delete(entry.setId);
     });
+    syncPersistedSetSourcePaths();
     saveSelectedSets();
     renderSetList();
     lastRemovedSets = removedEntries;
@@ -1378,6 +1422,7 @@ async function undoLastRemoval() {
       loadedSets[savedRecord.id] = savedRecord;
       if (entry.wasSelected) selectedSets.add(savedRecord.id);
     }
+    syncPersistedSetSourcePaths();
     saveSelectedSets();
     renderSetList();
     document.getElementById("undo-toast").style.display = "none";
@@ -2932,6 +2977,7 @@ function formatEditorConflictTimestamp(isoValue) {
 
 function resolveEditorConflictDraft(draft, remoteRecord) {
   loadedSets[remoteRecord.id] = remoteRecord;
+  syncPersistedSetSourcePaths();
   const refreshedDraft = createEditorDraft(remoteRecord, draft);
   refreshedDraft.viewMode = draft.viewMode;
   if (refreshedDraft.viewMode === "raw") refreshedDraft.rawSource = remoteRecord.rawSource;
@@ -3022,6 +3068,7 @@ async function saveEditorDrafts() {
       if (refreshedDraft.viewMode === "raw") refreshedDraft.rawSource = savedRecord.rawSource;
       editorState.drafts[setId] = refreshedDraft;
     }
+    syncPersistedSetSourcePaths();
     saveStudyState();
     renderSetList();
     renderEditor();
