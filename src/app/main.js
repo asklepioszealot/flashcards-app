@@ -270,6 +270,30 @@ async function resolveBrowserFileHandle(sourcePath) {
   return pickedHandle;
 }
 
+async function primeBrowserLinkedSaveTargets(records) {
+  const pendingSourcePaths = [...new Set(
+    (Array.isArray(records) ? records : [])
+      .map((record) => record?.sourcePath)
+      .filter((sourcePath) => isWebLinkedSourcePath(sourcePath) && !getBrowserFileHandle(sourcePath)),
+  )];
+
+  for (const sourcePath of pendingSourcePaths) {
+    const handle = await promptBrowserFileHandle();
+    if (!handle) {
+      return {
+        ready: false,
+        sourcePath,
+      };
+    }
+    bindBrowserFileHandle(sourcePath, handle);
+  }
+
+  return {
+    ready: true,
+    sourcePath: null,
+  };
+}
+
 async function ensureBrowserFileWritePermission(handle) {
   if (!handle || typeof handle.queryPermission !== "function") return false;
   const permissionOptions = { mode: "readwrite" };
@@ -2912,15 +2936,29 @@ async function saveEditorDrafts() {
   try {
     persistCurrentEditorUiState(getCurrentEditorDraft());
     showEditorStatus("Değişiklikler kaydediliyor...");
+    const savePlan = editorState.draftOrder.map((setId) => {
+      const draft = editorState.drafts[setId];
+      return {
+        setId,
+        draft,
+        previousRecord: loadedSets[setId],
+        nextRecord: {
+          ...resolveEditorDraftRecord(draft),
+          baseUpdatedAt: draft.baseUpdatedAt,
+        },
+      };
+    });
+    const browserLinkPreparation = await primeBrowserLinkedSaveTargets(
+      savePlan.map((entry) => entry.nextRecord),
+    );
+    if (!browserLinkPreparation.ready) {
+      showEditorStatus("Kaydetme iptal edildi. Bağlı dosyayı seçmeden aynı dosyaya yazılamaz.", "error");
+      return;
+    }
     let sourceWriteCount = 0;
     let browserRelinkCount = 0;
-    for (const setId of editorState.draftOrder) {
-      const draft = editorState.drafts[setId];
-      const previousRecord = loadedSets[setId];
-      const nextRecord = {
-        ...resolveEditorDraftRecord(draft),
-        baseUpdatedAt: draft.baseUpdatedAt,
-      };
+    for (const planEntry of savePlan) {
+      const { setId, draft, previousRecord, nextRecord } = planEntry;
       let savedRecord = null;
 
       try {

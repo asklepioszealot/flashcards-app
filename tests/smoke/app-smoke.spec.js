@@ -372,6 +372,17 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(298);
     expect(editorChrome.sidebarBase).not.toContain("15, 23, 42");
     expect(editorChrome.sidebarPanelBase).not.toContain("15, 23, 42");
+    await page.selectOption("#theme-select-editor", "dark");
+    const darkEditorChrome = await page.evaluate(() => {
+      const rootStyles = getComputedStyle(document.documentElement);
+      return {
+        sidebarBase: rootStyles.getPropertyValue("--editor-sidebar-base").trim(),
+        sidebarPanelBase: rootStyles.getPropertyValue("--editor-sidebar-panel-base").trim(),
+      };
+    });
+    expect(darkEditorChrome.sidebarBase).toContain("15, 23, 42");
+    expect(darkEditorChrome.sidebarPanelBase).toContain("15, 23, 42");
+    await page.selectOption("#theme-select-editor", "light");
 
     await page.locator("#editor-view-toggle-btn").click();
     const rawInput = page.locator("#editor-raw-input");
@@ -504,30 +515,34 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
 
     await page.evaluate(() => {
       window.__browserWriteCalls = [];
-      window.showOpenFilePicker = async () => [{
-        kind: "file",
-        async getFile() {
-          return new File(
-            [["# Relink Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
-            "relink-demo.md",
-            { type: "text/markdown" },
-          );
-        },
-        async queryPermission() {
-          return "granted";
-        },
-        async requestPermission() {
-          return "granted";
-        },
-        async createWritable() {
-          return {
-            async write(content) {
-              window.__browserWriteCalls.push(String(content));
-            },
-            async close() {},
-          };
-        },
-      }];
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [{
+          kind: "file",
+          async getFile() {
+            return new File(
+              [["# Relink Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+              "relink-demo.md",
+              { type: "text/markdown" },
+            );
+          },
+          async queryPermission() {
+            return "granted";
+          },
+          async requestPermission() {
+            return "granted";
+          },
+          async createWritable() {
+            return {
+              async write(content) {
+                window.__browserWriteCalls.push(String(content));
+              },
+              async close() {},
+            };
+          },
+        }];
+      };
     });
 
     await page.locator("#edit-selected-btn").click();
@@ -540,6 +555,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     const relinkState = await page.evaluate(({ storageKey }) => {
       const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
       return {
+        pickerCalls: window.__pickerCalls || 0,
         records,
         writeCalls: window.__browserWriteCalls || [],
       };
@@ -547,6 +563,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
 
     expect(relinkState.records).toHaveLength(1);
     expect(relinkState.records[0].sourcePath).toBe("webfile://source/relink-demo");
+    expect(relinkState.pickerCalls).toBeGreaterThan(0);
     expect(relinkState.writeCalls.at(-1)).toContain("Relink ile güncellenen soru");
   });
 
