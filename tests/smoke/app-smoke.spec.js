@@ -360,6 +360,18 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#editor-screen")).not.toContainText("Soru ve açıklama için ortak araçlar");
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
     await expect(page.locator("#editor-add-card-btn")).toBeVisible();
+    const editorChrome = await page.evaluate(() => {
+      const subjectShell = document.querySelector(".editor-subject-shell");
+      const rootStyles = getComputedStyle(document.documentElement);
+      return {
+        subjectWidth: Math.round(subjectShell?.getBoundingClientRect().width || 0),
+        sidebarBase: rootStyles.getPropertyValue("--editor-sidebar-base").trim(),
+        sidebarPanelBase: rootStyles.getPropertyValue("--editor-sidebar-panel-base").trim(),
+      };
+    });
+    expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(298);
+    expect(editorChrome.sidebarBase).not.toContain("15, 23, 42");
+    expect(editorChrome.sidebarPanelBase).not.toContain("15, 23, 42");
 
     await page.locator("#editor-view-toggle-btn").click();
     const rawInput = page.locator("#editor-raw-input");
@@ -473,6 +485,69 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     expect(savedState.records[0].sourcePath).toMatch(/^webfile:\/\//);
     expect(savedState.writeCalls.length).toBeGreaterThan(0);
     expect(savedState.writeCalls.at(-1)).toContain("Güncellenmiş Chromium sorusu");
+  });
+
+  test("browser-linked save can relink a missing file handle during save", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        relink: {
+          setName: "Relink Demo",
+          fileName: "relink-demo.md",
+          sourcePath: "webfile://source/relink-demo",
+          sourceFormat: "markdown",
+          rawSource: "# Relink Demo\n\n### İlk soru\n\nİlk açıklama",
+          cards: [{ id: "card-1", q: "İlk soru", a: "İlk açıklama", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: ["relink"],
+    });
+
+    await page.evaluate(() => {
+      window.__browserWriteCalls = [];
+      window.showOpenFilePicker = async () => [{
+        kind: "file",
+        async getFile() {
+          return new File(
+            [["# Relink Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+            "relink-demo.md",
+            { type: "text/markdown" },
+          );
+        },
+        async queryPermission() {
+          return "granted";
+        },
+        async requestPermission() {
+          return "granted";
+        },
+        async createWritable() {
+          return {
+            async write(content) {
+              window.__browserWriteCalls.push(String(content));
+            },
+            async close() {},
+          };
+        },
+      }];
+    });
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    await page.locator('[data-editor-field="question"]').fill("Relink ile güncellenen soru");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("bağlı yerel dosyalara yazıldı");
+
+    const relinkState = await page.evaluate(({ storageKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return {
+        records,
+        writeCalls: window.__browserWriteCalls || [],
+      };
+    }, { storageKey: userScopedKey(DEMO_USER.id, "set_records") });
+
+    expect(relinkState.records).toHaveLength(1);
+    expect(relinkState.records[0].sourcePath).toBe("webfile://source/relink-demo");
+    expect(relinkState.writeCalls.at(-1)).toContain("Relink ile güncellenen soru");
   });
 
   test("editor uses a question list, preserves tables, and supports add/delete", async ({ page }) => {
