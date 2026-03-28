@@ -25,6 +25,8 @@ const LEGACY_KEYS = {
 };
 const USER_STUDY_STATE_KEY = "study_state_sync";
 const WEB_FILE_SOURCE_PREFIX = "webfile://";
+const BROWSER_FILE_HANDLE_DB_NAME = `${APP_NAMESPACE}::browser-file-handles`;
+const BROWSER_FILE_HANDLE_STORE = "handles";
 
 const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
 const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
@@ -77,6 +79,7 @@ let pendingRemoteStudyStateSnapshot = null;
 let remoteStudyStateSyncTimer = null;
 let editorSplitDragState = null;
 const browserFileHandles = new Map();
+let browserFileHandleDbPromise = null;
 
 const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
@@ -125,13 +128,146 @@ function createWebFileSourcePath(fileName) {
   return `${WEB_FILE_SOURCE_PREFIX}${generateId("source")}/${safeName}`;
 }
 
+function supportsBrowserFileHandlePersistence() {
+  return !isDesktopRuntime() && typeof window.indexedDB !== "undefined";
+}
+
+function openBrowserFileHandleDb() {
+  if (!supportsBrowserFileHandlePersistence()) return Promise.resolve(null);
+  if (browserFileHandleDbPromise) return browserFileHandleDbPromise;
+
+  browserFileHandleDbPromise = new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(BROWSER_FILE_HANDLE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(BROWSER_FILE_HANDLE_STORE)) {
+        database.createObjectStore(BROWSER_FILE_HANDLE_STORE, { keyPath: "sourcePath" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Dosya eşleme veritabanı açılamadı."));
+  }).catch((error) => {
+    console.warn("Browser file handle DB unavailable:", error);
+    browserFileHandleDbPromise = null;
+    return null;
+  });
+
+  return browserFileHandleDbPromise;
+}
+
+async function persistBrowserFileHandle(sourcePath, handle) {
+  const database = await openBrowserFileHandleDb();
+  if (!database || !sourcePath || !handle) return false;
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_FILE_HANDLE_STORE, "readwrite");
+    transaction.oncomplete = () => resolve(true);
+    transaction.onerror = () => reject(transaction.error || new Error("Dosya bağlantısı saklanamadı."));
+    transaction.objectStore(BROWSER_FILE_HANDLE_STORE).put({
+      sourcePath,
+      handle,
+      updatedAt: nowIso(),
+    });
+  }).catch((error) => {
+    console.warn("Browser file handle persist failed:", error);
+    return false;
+  });
+}
+
+async function readPersistedBrowserFileHandle(sourcePath) {
+  const database = await openBrowserFileHandleDb();
+  if (!database || !sourcePath) return null;
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_FILE_HANDLE_STORE, "readonly");
+    const request = transaction.objectStore(BROWSER_FILE_HANDLE_STORE).get(sourcePath);
+    request.onsuccess = () => resolve(request.result?.handle || null);
+    request.onerror = () => reject(request.error || transaction.error || new Error("Dosya bağlantısı okunamadı."));
+  }).catch((error) => {
+    console.warn("Browser file handle restore failed:", error);
+    return null;
+  });
+}
+
+async function deletePersistedBrowserFileHandle(sourcePath) {
+  const database = await openBrowserFileHandleDb();
+  if (!database || !sourcePath) return false;
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_FILE_HANDLE_STORE, "readwrite");
+    transaction.oncomplete = () => resolve(true);
+    transaction.onerror = () => reject(transaction.error || new Error("Dosya bağlantısı silinemedi."));
+    transaction.objectStore(BROWSER_FILE_HANDLE_STORE).delete(sourcePath);
+  }).catch((error) => {
+    console.warn("Browser file handle delete failed:", error);
+    return false;
+  });
+}
+
 function bindBrowserFileHandle(sourcePath, handle) {
   if (!sourcePath || !handle) return;
   browserFileHandles.set(sourcePath, handle);
+  void persistBrowserFileHandle(sourcePath, handle);
 }
 
 function getBrowserFileHandle(sourcePath) {
   return sourcePath ? browserFileHandles.get(sourcePath) || null : null;
+}
+
+async function restoreBrowserFileHandle(sourcePath) {
+  if (!sourcePath) return null;
+  const activeHandle = getBrowserFileHandle(sourcePath);
+  if (activeHandle) return activeHandle;
+  const persistedHandle = await readPersistedBrowserFileHandle(sourcePath);
+  if (persistedHandle) browserFileHandles.set(sourcePath, persistedHandle);
+  return persistedHandle;
+}
+
+async function restoreBrowserFileHandles(records) {
+  const sourcePaths = (Array.isArray(records) ? records : [])
+    .map((record) => record?.sourcePath)
+    .filter((sourcePath) => isWebLinkedSourcePath(sourcePath));
+
+  for (const sourcePath of sourcePaths) {
+    await restoreBrowserFileHandle(sourcePath);
+  }
+}
+
+function getBrowserFilePickerTypes() {
+  return [
+    {
+      description: "Flashcard setleri",
+      accept: {
+        "application/json": [".json"],
+        "text/markdown": [".md"],
+        "text/plain": [".txt"],
+      },
+    },
+  ];
+}
+
+async function promptBrowserFileHandle() {
+  if (!supportsBrowserFileAccess()) return null;
+
+  try {
+    const handles = await window.showOpenFilePicker({
+      multiple: false,
+      types: getBrowserFilePickerTypes(),
+    });
+    const [handle] = Array.isArray(handles) ? handles : [];
+    return handle?.kind === "file" ? handle : null;
+  } catch (error) {
+    if (error?.name === "AbortError") return null;
+    throw error;
+  }
+}
+
+async function resolveBrowserFileHandle(sourcePath) {
+  const activeHandle = await restoreBrowserFileHandle(sourcePath);
+  if (activeHandle) return activeHandle;
+  const pickedHandle = await promptBrowserFileHandle();
+  if (pickedHandle && sourcePath) bindBrowserFileHandle(sourcePath, pickedHandle);
+  return pickedHandle;
 }
 
 async function ensureBrowserFileWritePermission(handle) {
@@ -142,8 +278,10 @@ async function ensureBrowserFileWritePermission(handle) {
 }
 
 async function writeBrowserLinkedSourceFile(sourcePath, rawSource) {
-  const handle = getBrowserFileHandle(sourcePath);
-  if (!handle || typeof handle.createWritable !== "function") return false;
+  const handle = await resolveBrowserFileHandle(sourcePath);
+  if (!handle || typeof handle.createWritable !== "function") {
+    return { wrote: false, relinkRequired: true };
+  }
   const permissionGranted = await ensureBrowserFileWritePermission(handle);
   if (!permissionGranted) {
     throw new Error("Tarayıcı aynı dosyaya yazma izni vermedi. Dışa Aktar ile kopya alabilirsin.");
@@ -154,7 +292,7 @@ async function writeBrowserLinkedSourceFile(sourcePath, rawSource) {
   } finally {
     await writable.close();
   }
-  return true;
+  return { wrote: true, relinkRequired: false };
 }
 
 function buildCardKey(setId, card, index) {
@@ -894,9 +1032,11 @@ async function loadUserStudyState() {
 async function loadUserWorkspace() {
   let records = await platformAdapter.loadSets();
   hydrateLoadedSets(records);
+  await restoreBrowserFileHandles(Object.values(loadedSets));
   if (await migrateLegacyLocalData()) {
     records = await platformAdapter.loadSets();
     hydrateLoadedSets(records);
+    await restoreBrowserFileHandles(Object.values(loadedSets));
   }
   await loadUserStudyState();
   updateManagerUserChip();
@@ -1143,6 +1283,7 @@ async function removeSets(setIds) {
     removedEntries.forEach((entry) => {
       if (isWebLinkedSourcePath(entry.setData?.sourcePath)) {
         browserFileHandles.delete(entry.setData.sourcePath);
+        void deletePersistedBrowserFileHandle(entry.setData.sourcePath);
       }
       delete loadedSets[entry.setId];
       selectedSets.delete(entry.setId);
@@ -2772,6 +2913,7 @@ async function saveEditorDrafts() {
     persistCurrentEditorUiState(getCurrentEditorDraft());
     showEditorStatus("Değişiklikler kaydediliyor...");
     let sourceWriteCount = 0;
+    let browserRelinkCount = 0;
     for (const setId of editorState.draftOrder) {
       const draft = editorState.drafts[setId];
       const previousRecord = loadedSets[setId];
@@ -2818,12 +2960,14 @@ async function saveEditorDrafts() {
           await platformAdapter.writeSetSourceFile(savedRecord.sourcePath, savedRecord.rawSource);
           sourceWriteCount += 1;
         } else if (isWebLinkedSourcePath(savedRecord.sourcePath)) {
-          const browserWriteSucceeded = await writeBrowserLinkedSourceFile(
+          const browserWriteResult = await writeBrowserLinkedSourceFile(
             savedRecord.sourcePath,
             savedRecord.rawSource,
           );
-          if (browserWriteSucceeded) {
+          if (browserWriteResult.wrote) {
             sourceWriteCount += 1;
+          } else if (browserWriteResult.relinkRequired) {
+            browserRelinkCount += 1;
           }
         }
       }
@@ -2837,7 +2981,9 @@ async function saveEditorDrafts() {
     renderSetList();
     renderEditor();
     showEditorStatus(
-      sourceWriteCount > 0
+      browserRelinkCount > 0
+        ? "Değişiklikler kaydedildi. Dış dosyaya yeniden bağlanmak için dosyayı seçmelisin."
+        : sourceWriteCount > 0
         ? "Değişiklikler kaydedildi ve bağlı yerel dosyalara yazıldı."
         : "Değişiklikler kaydedildi.",
       "success",
