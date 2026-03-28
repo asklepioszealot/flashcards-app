@@ -450,7 +450,7 @@ function createSupabaseAdapter(config, storage) {
       set_name: normalized.setName,
       file_name: normalized.fileName,
       source_format: normalized.sourceFormat,
-      raw_source: "",
+      raw_source: normalized.rawSource,
       cards_json: normalized.cards,
       updated_at: normalized.updatedAt,
     };
