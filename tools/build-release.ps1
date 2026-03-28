@@ -87,10 +87,10 @@ $localUpdaterOverridePath = $null
 
 Push-Location $repoRoot
 try {
-  Write-Host "[1/6] Building dist from index.html..."
-  node build.mjs
+  Write-Host "[1/6] Building dist with Vite..."
+  npm run build
   if ($LASTEXITCODE -ne 0) {
-    throw "node build.mjs failed with exit code $LASTEXITCODE"
+    throw "npm run build failed with exit code $LASTEXITCODE"
   }
 
   $sourceIndexPath = Join-Path $repoRoot "index.html"
@@ -133,9 +133,10 @@ try {
   }
 
   Write-Host "[2/6] Building desktop app (NSIS)..."
-  & npx @tauriBuildArgs
+  $npxCmd = "npx " + ($tauriBuildArgs -join " ")
+  cmd.exe /c $npxCmd
   if ($LASTEXITCODE -ne 0) {
-    throw "npx tauri build --bundles nsis failed with exit code $LASTEXITCODE"
+    throw "cmd.exe /c $npxCmd failed with exit code $LASTEXITCODE"
   }
 
   $portableSource = Join-Path $repoRoot "src-tauri\target\release\app.exe"

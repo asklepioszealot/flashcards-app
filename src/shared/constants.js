@@ -36,12 +36,12 @@ export const MIN_EDITOR_RAW_HEIGHT = 240;
 export const MAX_EDITOR_HISTORY_LENGTH = 120;
 
 export const primaryMarkdownActions = [
-  { id: "undo", label: "↶", title: "Geri al" },
-  { id: "redo", label: "↷", title: "İleri al" },
+  { id: "undo", label: "Geri", title: "Geri al" },
+  { id: "redo", label: "İleri", title: "İleri al" },
   { id: "bold", label: "B", title: "Kalın" },
   { id: "critical", label: "!!", title: "Kritik vurgu" },
-  { id: "warning", label: "⚠", title: "Uyarı kutusu" },
-  { id: "bulletList", label: "• Liste", title: "Madde işaretli liste" },
+  { id: "warning", label: "Uyarı", title: "Uyarı kutusu" },
+  { id: "bulletList", label: "Liste", title: "Madde işaretli liste" },
   { id: "numberList", label: "1. Liste", title: "Numaralı liste" },
 ];
 
@@ -49,10 +49,10 @@ export const overflowMarkdownActions = [
   { id: "italic", label: "I", title: "İtalik" },
   { id: "strike", label: "S", title: "Üstü çizili" },
   { id: "heading", label: "H2", title: "Başlık" },
-  { id: "quote", label: "> Alıntı", title: "Alıntı" },
+  { id: "quote", label: "Alıntı", title: "Alıntı" },
   { id: "link", label: "Link", title: "Bağlantı ekle" },
   { id: "code", label: "</>", title: "Kod" },
-  { id: "divider", label: "---", title: "Ayraç" },
+  { id: "divider", label: "Ayraç", title: "Ayraç" },
   { id: "table", label: "Tablo", title: "Tablo şablonu" },
 ];
 

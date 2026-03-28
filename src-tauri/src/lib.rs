@@ -4,6 +4,8 @@ use std::{
   time::{SystemTime, UNIX_EPOCH},
 };
 
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
@@ -47,7 +49,10 @@ struct SyncOperation {
 struct NativePickedFile {
   path: String,
   name: String,
-  contents: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  contents: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  binary_base64: Option<String>,
 }
 
 fn safe_segment(value: &str) -> String {
@@ -116,11 +121,25 @@ fn file_name_for_path(path: &Path) -> String {
 }
 
 fn read_native_file(path: &Path) -> Result<NativePickedFile, String> {
-  let contents = fs::read_to_string(path).map_err(|error| error.to_string())?;
+  let extension = path
+    .extension()
+    .and_then(|value| value.to_str())
+    .map(|value| value.to_ascii_lowercase())
+    .unwrap_or_default();
+
+  let (contents, binary_base64) = if extension == "apkg" {
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    (None, Some(BASE64_STANDARD.encode(bytes)))
+  } else {
+    let contents = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    (Some(contents), None)
+  };
+
   Ok(NativePickedFile {
     path: path.to_string_lossy().into_owned(),
     name: file_name_for_path(path),
     contents,
+    binary_base64,
   })
 }
 

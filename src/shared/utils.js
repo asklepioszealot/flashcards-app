@@ -22,6 +22,13 @@ export const escapeMarkup = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+export const escapeAttributeSelectorValue = (value) =>
+  String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r/g, "\\D ")
+    .replace(/\n/g, "\\A ");
+
 export function summarizeMarkdownText(value, maxLength = 160) {
   const normalized = String(value ?? "")
     .replace(/[`*_~>#|[\]()-]/g, " ")
@@ -33,6 +40,34 @@ export function summarizeMarkdownText(value, maxLength = 160) {
 
 export function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function normalizeReviewScheduleEntry(entry) {
+  if (!isPlainObject(entry)) return null;
+
+  return {
+    dueAt: typeof entry.dueAt === "string" ? entry.dueAt : "",
+    lastReviewedAt: typeof entry.lastReviewedAt === "string" ? entry.lastReviewedAt : "",
+    intervalDays: Number.isFinite(Number(entry.intervalDays)) ? Math.max(Number(entry.intervalDays), 0) : 0,
+    easeFactor: Number.isFinite(Number(entry.easeFactor)) ? Number(entry.easeFactor) : 2.5,
+    repetition: Number.isInteger(entry.repetition) ? Math.max(entry.repetition, 0) : 0,
+    lapses: Number.isInteger(entry.lapses) ? Math.max(entry.lapses, 0) : 0,
+    difficulty: Number.isFinite(Number(entry.difficulty)) ? Number(entry.difficulty) : 5,
+    stability: Number.isFinite(Number(entry.stability)) ? Math.max(Number(entry.stability), 0) : 0,
+    lastAssessment:
+      entry.lastAssessment === "know" || entry.lastAssessment === "review" || entry.lastAssessment === "dunno"
+        ? entry.lastAssessment
+        : null,
+  };
+}
+
+export function normalizeReviewScheduleMap(value, fallback = {}) {
+  const source = isPlainObject(value) ? value : isPlainObject(fallback) ? fallback : {};
+  return Object.fromEntries(
+    Object.entries(source)
+      .map(([cardKey, entry]) => [cardKey, normalizeReviewScheduleEntry(entry)])
+      .filter(([cardKey, entry]) => typeof cardKey === "string" && cardKey.trim() && entry),
+  );
 }
 
 export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
@@ -47,6 +82,11 @@ export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
       : isPlainObject(fallback.assessments)
         ? cloneData(fallback.assessments)
         : {},
+    reviewSchedule: isPlainObject(snapshot?.reviewSchedule)
+      ? normalizeReviewScheduleMap(snapshot.reviewSchedule)
+      : isPlainObject(fallback.reviewSchedule)
+        ? normalizeReviewScheduleMap(fallback.reviewSchedule)
+        : {},
     session: isPlainObject(snapshot?.session)
       ? cloneData(snapshot.session)
       : isPlainObject(fallback.session)
@@ -57,6 +97,11 @@ export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
       : fallback.autoAdvanceEnabled !== undefined
         ? fallback.autoAdvanceEnabled !== false
         : true,
+    isAnalyticsVisible: snapshot?.isAnalyticsVisible !== undefined
+      ? snapshot.isAnalyticsVisible === true
+      : fallback.isAnalyticsVisible !== undefined
+        ? fallback.isAnalyticsVisible === true
+        : false,
     updatedAt: snapshot?.updatedAt
       ? String(snapshot.updatedAt)
       : fallback.updatedAt

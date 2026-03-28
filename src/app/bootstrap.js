@@ -2,10 +2,13 @@
 // Application bootstrap: theme init, static event binding, window API exposure.
 
 import { storage, setStorage, setPlatformAdapter } from "./state.js";
+import { AppStorage } from "../core/storage.js";
+import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
 import { hasSupabaseConfig } from "../core/runtime-config.js";
 import { handleAuthStateChange, syncRememberMeUi, showAuthStatus } from "../features/auth/auth.js";
+import { ThemeManager } from "../ui/theme.js";
 import { showScreen } from "./screen.js";
 import { scheduleStartupDesktopUpdateCheck, syncDesktopUpdateButton } from "../features/desktop-update/desktop-update.js";
 import { initGoogleDrive } from "../features/google-drive/google-drive.js";
@@ -17,7 +20,7 @@ export function markAppReady() {
 }
 
 export function syncThemeControlsUI() {
-  const themeName = window.ThemeManager.getCurrentTheme();
+  const themeName = ThemeManager.getCurrentTheme();
   THEME_CONTROL_IDS.forEach((controlId) => {
     const control = document.getElementById(controlId);
     if (control) control.value = themeName;
@@ -25,7 +28,7 @@ export function syncThemeControlsUI() {
 }
 
 export function toggleTheme(themeName) {
-  window.ThemeManager.setTheme({
+  ThemeManager.setTheme({
     themeName,
     controlIds: THEME_CONTROL_IDS,
     storageKey: THEME_KEY,
@@ -48,7 +51,7 @@ function shouldShowBuildMeta() {
 
 function renderBuildMeta() {
   const metaElement = document.getElementById("build-meta");
-  const buildInfo = window.__BUILD_INFO__;
+  const buildInfo = BUILD_INFO;
   if (!metaElement || !buildInfo || !shouldShowBuildMeta()) {
     if (metaElement) {
       metaElement.textContent = "";
@@ -60,38 +63,112 @@ function renderBuildMeta() {
   metaElement.style.display = "block";
 }
 
+function bindEvent(target, eventName, handler) {
+  target?.addEventListener(eventName, handler);
+}
+
+function bindAll(selector, eventName, handler) {
+  document.querySelectorAll(selector).forEach((target) => {
+    target.addEventListener(eventName, handler);
+  });
+}
+
+function closeDriveModal() {
+  const modal = document.getElementById("drive-modal");
+  if (modal) modal.style.display = "none";
+}
+
 export function bindStaticEvents() {
-  // Import feature functions lazily to avoid circular deps
+  THEME_CONTROL_IDS.forEach((controlId) => {
+    bindEvent(document.getElementById(controlId), "change", (event) => {
+      toggleTheme(event.currentTarget?.value);
+    });
+  });
+
   import("../features/auth/auth.js").then(({ attemptAuth, handleDemoAuth, signOut, setRememberMePreference }) => {
-    document.getElementById("auth-signin-btn")?.addEventListener("click", () => void attemptAuth("signin"));
-    document.getElementById("auth-signup-btn")?.addEventListener("click", () => void attemptAuth("signup"));
-    document.getElementById("auth-demo-btn")?.addEventListener("click", () => void handleDemoAuth());
-    document.getElementById("auth-remember-me")?.addEventListener("change", (event) => {
+    bindEvent(document.getElementById("auth-signin-btn"), "click", () => void attemptAuth("signin"));
+    bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
+    bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
+    bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
       setRememberMePreference(event.currentTarget?.checked !== false);
     });
-    document.getElementById("sign-out-btn")?.addEventListener("click", () => void signOut());
+    bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
   });
 
   import("../features/desktop-update/desktop-update.js").then(({ checkDesktopForUpdates }) => {
-    document.getElementById("check-updates-btn")?.addEventListener("click", () => void checkDesktopForUpdates("manual"));
+    bindEvent(document.getElementById("check-updates-btn"), "click", () => void checkDesktopForUpdates("manual"));
   });
 
   import("../features/editor/editor-state.js").then(({ closeEditor, toggleEditorViewMode, openEditorForSelectedSets }) => {
-    document.getElementById("editor-back-btn")?.addEventListener("click", () => closeEditor());
-    document.getElementById("editor-view-toggle-btn")?.addEventListener("click", () => void toggleEditorViewMode());
+    bindEvent(document.getElementById("editor-back-btn"), "click", () => closeEditor());
+    bindEvent(document.getElementById("editor-view-toggle-btn"), "click", () => void toggleEditorViewMode());
+    bindEvent(document.getElementById("edit-selected-btn"), "click", () => void openEditorForSelectedSets());
   });
 
   import("../features/editor/editor-save.js").then(({ saveEditorDrafts, exportActiveEditorDraft }) => {
-    document.getElementById("editor-export-btn")?.addEventListener("click", () => exportActiveEditorDraft());
-    document.getElementById("editor-save-btn")?.addEventListener("click", () => void saveEditorDrafts());
+    bindEvent(document.getElementById("editor-export-btn"), "click", () => exportActiveEditorDraft());
+    bindEvent(document.getElementById("editor-save-btn"), "click", () => void saveEditorDrafts());
   });
 
-  import("../features/study/study.js").then(({ jumpToCard, flipCard, toggleFullscreen, previousCard, nextCard, assessCard: _a }) => {
-    document.getElementById("jump-input")?.addEventListener("keydown", (event) => {
+  import("../features/google-drive/google-drive.js").then(({ authGoogleDrive }) => {
+    bindEvent(document.getElementById("drive-import-btn"), "click", () => authGoogleDrive());
+  });
+
+  import("../features/set-manager/set-manager.js").then(({ triggerSetImport, handleFileSelect, removeSelectedSets, toggleBulkSetSelection }) => {
+    bindEvent(document.getElementById("set-import-btn"), "click", () => void triggerSetImport());
+    bindEvent(document.getElementById("file-picker"), "change", (event) => void handleFileSelect(event));
+    bindEvent(document.getElementById("remove-selected-btn"), "click", () => void removeSelectedSets());
+    bindEvent(document.getElementById("set-bulk-toggle"), "click", () => toggleBulkSetSelection());
+  });
+
+  import("../features/analytics/analytics.js").then(({ toggleAnalyticsVisibility, closeAnalyticsDashboard }) => {
+    bindEvent(document.getElementById("analytics-toggle-btn"), "click", () => toggleAnalyticsVisibility());
+    bindEvent(document.getElementById("analytics-close-btn"), "click", () => closeAnalyticsDashboard());
+  });
+
+  import("../features/study/study.js").then(({ jumpToCard, flipCard, toggleFullscreen, previousCard, nextCard, startStudy, setAutoAdvance, filterByTopic, setFilter, showSetManager, shuffleCards, openExportModal, toggleExportWarning, executeExport, closeExportModal }) => {
+    bindEvent(document.getElementById("jump-input"), "keydown", (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
       jumpToCard();
     });
+    bindEvent(document.getElementById("start-btn"), "click", () => startStudy());
+    bindEvent(document.getElementById("auto-advance-toggle-manager"), "change", (event) => {
+      setAutoAdvance(event.currentTarget?.checked);
+    });
+    bindEvent(document.getElementById("topic-select"), "change", () => filterByTopic());
+    bindEvent(document.getElementById("show-set-manager-btn"), "click", () => showSetManager());
+    bindEvent(document.getElementById("shuffle-btn"), "click", () => shuffleCards());
+    bindEvent(document.getElementById("open-export-btn"), "click", () => openExportModal());
+    bindEvent(document.getElementById("flashcard"), "click", (event) => {
+      if (event.target.closest("a, button")) return;
+      flipCard();
+    });
+    bindEvent(document.getElementById("fullscreen-toggle-btn"), "click", (event) => {
+      event.stopPropagation();
+      toggleFullscreen();
+    });
+    bindEvent(document.getElementById("export-format"), "change", () => toggleExportWarning());
+    bindEvent(document.getElementById("export-submit-btn"), "click", () => void executeExport());
+    bindAll("[data-export-close]", "click", () => closeExportModal());
+    bindAll("[data-filter-value]", "click", (event) => {
+      setFilter(event.currentTarget?.dataset.filterValue || "all");
+    });
+    bindAll("[data-nav-direction='previous']", "click", () => previousCard());
+    bindAll("[data-nav-direction='next']", "click", () => nextCard());
+  });
+
+  import("../features/study/assessment.js").then(({ assessCard, resetProgress }) => {
+    bindEvent(document.getElementById("reset-progress-btn"), "click", () => resetProgress());
+    bindAll("[data-assessment-value]", "click", (event) => {
+      assessCard(event.currentTarget?.dataset.assessmentValue);
+    });
+  });
+
+  bindEvent(document.getElementById("drive-close-btn"), "click", closeDriveModal);
+  bindEvent(document.getElementById("undo-toast-btn"), "click", async () => {
+    const { undoLastRemoval } = await import("../features/set-manager/undo-toast.js");
+    undoLastRemoval();
   });
 
   // Global keyboard handler
@@ -152,59 +229,16 @@ export function bindStaticEvents() {
   syncDesktopUpdateButton();
 }
 
-export function exposeWindowApi() {
-  // All window API functions are dynamically imported to avoid circular deps at top level
-  const lazy = (modulePromise, fnName) => (...args) => modulePromise.then((mod) => mod[fnName](...args));
-
-  const studyMod = import("../features/study/study.js");
-  const assessMod = import("../features/study/assessment.js");
-  const setMgrMod = import("../features/set-manager/set-manager.js");
-  const undoToastMod = import("../features/set-manager/undo-toast.js");
-  const editorStateMod = import("../features/editor/editor-state.js");
-
-  Object.assign(window, {
-    assessCard: (...args) => assessMod.then((m) => m.assessCard(...args)),
-    authGoogleDrive: () => import("../features/google-drive/google-drive.js").then((m) => m.authGoogleDrive()),
-    clearSetSelection: () => setMgrMod.then((m) => m.clearSetSelection()),
-    deleteSet: (...args) => setMgrMod.then((m) => m.deleteSet(...args)),
-    filterByTopic: (...args) => studyMod.then((m) => m.filterByTopic(...args)),
-    flipCard: () => studyMod.then((m) => m.flipCard()),
-    handleFileSelect: (...args) => setMgrMod.then((m) => m.handleFileSelect(...args)),
-    jumpToCard: () => studyMod.then((m) => m.jumpToCard()),
-    nextCard: () => studyMod.then((m) => m.nextCard()),
-    openExportModal: () => studyMod.then((m) => m.openExportModal()),
-    toggleExportWarning: () => studyMod.then((m) => m.toggleExportWarning()),
-    executeExport: () => studyMod.then((m) => m.executeExport()),
-    openEditorForSelectedSets: () => editorStateMod.then((m) => m.openEditorForSelectedSets()),
-    previousCard: () => studyMod.then((m) => m.previousCard()),
-    printCards: () => studyMod.then((m) => m.printCards()),
-    removeSelectedSets: () => setMgrMod.then((m) => m.removeSelectedSets()),
-    resetProgress: () => assessMod.then((m) => m.resetProgress()),
-    selectAllSets: () => setMgrMod.then((m) => m.selectAllSets()),
-    setAutoAdvance: (...args) => studyMod.then((m) => m.setAutoAdvance(...args)),
-    setFilter: (...args) => studyMod.then((m) => m.setFilter(...args)),
-    showSetManager: () => studyMod.then((m) => m.showSetManager()),
-    shuffleCards: () => studyMod.then((m) => m.shuffleCards()),
-    startStudy: () => studyMod.then((m) => m.startStudy()),
-    triggerSetImport: () => setMgrMod.then((m) => m.triggerSetImport()),
-    toggleBulkSetSelection: () => setMgrMod.then((m) => m.toggleBulkSetSelection()),
-    toggleFullscreen: () => studyMod.then((m) => m.toggleFullscreen()),
-    toggleSetCheck: (...args) => setMgrMod.then((m) => m.toggleSetCheck(...args)),
-    toggleTheme: (...args) => Promise.resolve(toggleTheme(...args)),
-    undoLastRemoval: () => undoToastMod.then((m) => m.undoLastRemoval()),
-  });
-}
-
 export async function bootstrap() {
   // Initialize storage and platform adapter
-  const appStorage = window.AppStorage;
+  const appStorage = AppStorage;
   setStorage(appStorage);
   const adapter = createPlatformAdapter(appStorage);
   setPlatformAdapter(adapter);
 
   renderBuildMeta();
-  window.ThemeManager.renderThemeOptions(THEME_CONTROL_IDS);
-  window.ThemeManager.initThemeFromStorage({
+  ThemeManager.renderThemeOptions(THEME_CONTROL_IDS);
+  ThemeManager.initThemeFromStorage({
     storageKey: THEME_KEY,
     storageApi: appStorage,
     controlIds: THEME_CONTROL_IDS,
@@ -213,7 +247,6 @@ export async function bootstrap() {
   syncRememberMeUi();
   bindStaticEvents();
   updateManagerUserChip();
-  exposeWindowApi();
   adapter.subscribeAuthState((user, event) => {
     void handleAuthStateChange(user, event);
   });

@@ -199,10 +199,10 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#auth-screen")).toBeVisible();
     await expect(page.locator("#theme-select-auth")).toBeVisible();
     await expect(page.locator("#theme-select-auth option")).toHaveText([
-      "☀️⛅ AYDINLIK",
-      "🌑🌃 KARANLIK",
-      "🟫🟧 AMBER",
-      "🟦🟪 MAVİ",
+      "Aydınlık",
+      "Karanlık",
+      "Amber",
+      "Mavi",
     ]);
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
@@ -213,6 +213,8 @@ test.describe("Flashcards smoke", () => {
     const setManagerHint = setManager.locator(".kbd-hint");
 
     await expect(setManager).toBeVisible();
+    await expect(page.locator("#analytics-toggle-btn")).toBeVisible();
+    await expect(page.locator("#analytics-dashboard-manager")).toBeHidden();
     await expect(setManagerHint).toBeVisible();
     await expect(setManagerHint).toContainText("Space");
     await expect(setManagerHint).toContainText("S");
@@ -250,7 +252,37 @@ test.describe("Flashcards smoke", () => {
     await startButton.click();
     await expect(appContainer).toBeVisible();
     await expect(setManager).toBeHidden();
+    await expect(page.locator("#analytics-dashboard")).toHaveCount(0);
     await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
+  });
+
+  test("analytics panel opens in set manager and persists visibility per account", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        analytics: {
+          setName: "Analytics Demo",
+          fileName: "analytics-demo.json",
+          cards: [
+            { q: "Kart 1", a: "Cevap 1", subject: "Genel" },
+            { q: "Kart 2", a: "Cevap 2", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["analytics"],
+    });
+
+    await expect(page.locator("#analytics-dashboard-manager")).toBeHidden();
+    await page.locator("#analytics-toggle-btn").click();
+    await expect(page.locator("#analytics-dashboard-manager")).toBeVisible();
+    await expect(page.locator("#analytics-summary-manager")).toContainText("2 kart");
+    await expect.poll(async () => readUserScopedText(page, "analytics_visible")).toBe("1");
+
+    await page.reload();
+    await expect(page.locator("#analytics-dashboard-manager")).toBeVisible();
+
+    await page.locator("#analytics-close-btn").click();
+    await expect(page.locator("#analytics-dashboard-manager")).toBeHidden();
+    await expect.poll(async () => readUserScopedText(page, "analytics_visible")).toBe("0");
   });
 
   test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
@@ -1207,7 +1239,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     });
 
     await setManagerAutoAdvance(page, false);
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ✕");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE KAPALI");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("0");
 
     await page.locator("#start-btn").click();
@@ -1215,7 +1247,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#card-counter")).toHaveText("1 / 2");
 
     await page.reload();
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ✕");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE KAPALI");
     await setManagerAutoAdvance(page, false);
 
     await page.locator("#start-btn").click();
@@ -1226,7 +1258,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
       .locator("button.btn-small.btn-secondary", { hasText: "Setlere Dön" })
       .click();
     await setManagerAutoAdvance(page, true);
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE ✓");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE AÇIK");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("1");
 
     await page.locator("#start-btn").click();
@@ -1418,7 +1450,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#export-modal")).toBeHidden();
     
     // Dışa Aktar butonuna tıkla
-    await page.getByRole("button", { name: "🖨️ Dışa Aktar" }).click();
+    await page.getByRole("button", { name: "Dışa Aktar" }).click();
     await expect(page.locator("#export-modal")).toBeVisible();
     
     // Formatları kontrol et

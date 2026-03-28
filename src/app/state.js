@@ -26,9 +26,11 @@ export let allFlashcards = [];
 export let filteredFlashcards = [];
 export let cardOrder = [];
 export let assessments = {};
+export let reviewSchedule = {};
 export let activeFilter = "all";
 export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
+export let isAnalyticsVisible = false;
 export let authStateToken = 0;
 export let currentScreen = "auth";
 
@@ -38,9 +40,11 @@ export function setAllFlashcards(v) { allFlashcards = v; }
 export function setFilteredFlashcards(v) { filteredFlashcards = v; }
 export function setCardOrder(v) { cardOrder = v; }
 export function setAssessments(v) { assessments = v; }
+export function setReviewSchedule(v) { reviewSchedule = v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
 export function setActiveFilter(v) { activeFilter = v; }
 export function setIsFullscreen(v) { isFullscreen = v; }
 export function setAutoAdvanceEnabled(v) { autoAdvanceEnabled = Boolean(v); }
+export function setIsAnalyticsVisible(v) { isAnalyticsVisible = Boolean(v); }
 export function incrementAuthStateToken() { authStateToken += 1; return authStateToken; }
 export function setCurrentScreen(v) { currentScreen = v; }
 

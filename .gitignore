@@ -26,3 +26,8 @@ test-results/
 
 # Manual Supabase backups
 backups/
+
+# Local scratch files
+temp.js
+vite-*.log
+~/.tauri/

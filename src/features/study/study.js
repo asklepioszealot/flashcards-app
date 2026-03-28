@@ -10,6 +10,7 @@ import {
   isFullscreen, setIsFullscreen,
   selectedSets,
   loadedSets,
+  reviewSchedule,
   activeFilter, setActiveFilter,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
   editorState,
@@ -18,14 +19,19 @@ import {
   buildCardKey,
   getCardKey,
   getAssessmentLevel,
+  getReviewScheduleEntry,
   updateAssessmentButtons,
   showAssessmentPanel,
   updateScoreDisplay,
   setAssessmentAdvanceCallback,
 } from "./assessment.js";
 import { renderAnswerMarkdown } from "../../core/set-codec.js";
+import { sanitizeMarkdownHtml } from "../../core/security.js";
 import { showScreen } from "../../app/screen.js";
 import { saveStudyState, getPersistedStudyStateSnapshot } from "../study-state/study-state.js";
+import { escapeMarkup } from "../../shared/utils.js";
+import { formatRelativeReviewLabel, getReviewUrgency, summarizeReviewSchedule } from "./scheduler.js";
+import { setButtonIcon } from "../../ui/icons.js";
 
 // Register nextCard as the advance callback to break the circular import
 // (assessment.js needs nextCard but cannot import from study.js)
@@ -35,14 +41,49 @@ export function syncAutoAdvanceToggleUI() {
   const toggle = document.getElementById("auto-advance-toggle-manager");
   const status = document.getElementById("auto-advance-status");
   if (toggle) toggle.checked = autoAdvanceEnabled;
-  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE ✓" : "OTOMATİK İLERLE ✕";
+  if (status) status.textContent = autoAdvanceEnabled ? "OTOMATİK İLERLE AÇIK" : "OTOMATİK İLERLE KAPALI";
+}
+
+function getStudyCardKeys() {
+  return allFlashcards
+    .map((card) => getCardKey(card))
+    .filter((cardKey) => typeof cardKey === "string" && cardKey.trim());
+}
+
+export function syncReviewScheduleUi() {
+  const summaryElement = document.getElementById("review-due-summary");
+  const currentCardElement = document.getElementById("review-current-card");
+  const summary = summarizeReviewSchedule(getStudyCardKeys(), reviewSchedule);
+
+  if (summaryElement) {
+    summaryElement.textContent = `Tekrar Planı: ${summary.dueCount} bugün · ${summary.upcomingCount} yakında · ${summary.newCount} yeni`;
+    summaryElement.dataset.state = summary.dueCount > 0
+      ? "due"
+      : summary.upcomingCount > 0
+        ? "upcoming"
+        : summary.newCount > 0
+          ? "new"
+          : "scheduled";
+  }
+
+  if (!currentCardElement) return;
+  if (!filteredFlashcards.length) {
+    currentCardElement.textContent = "Bu kart: planlı tekrar yok";
+    currentCardElement.dataset.state = "empty";
+    return;
+  }
+
+  const currentCard = filteredFlashcards[cardOrder[currentCardIndex]];
+  const entry = getReviewScheduleEntry(currentCard);
+  currentCardElement.textContent = `Bu kart: ${formatRelativeReviewLabel(entry)}`;
+  currentCardElement.dataset.state = getReviewUrgency(entry);
 }
 
 export function displayCard() {
   if (!filteredFlashcards.length) return;
   const card = filteredFlashcards[cardOrder[currentCardIndex]];
   document.getElementById("question-text").innerHTML = renderAnswerMarkdown(card.q);
-  document.getElementById("answer-text").innerHTML = card.a;
+  document.getElementById("answer-text").innerHTML = sanitizeMarkdownHtml(card.a || "");
   document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
   document.getElementById("fullscreen-card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
   document.getElementById("subject-display-front").textContent = card.subject;
@@ -54,6 +95,7 @@ export function displayCard() {
   }
   showAssessmentPanel(false);
   updateAssessmentButtons(getAssessmentLevel(card) || null);
+  syncReviewScheduleUi();
   saveStudyState();
 }
 
@@ -87,10 +129,8 @@ export function populateTopicFilter() {
 export function applyAssessmentFilter(options = {}) {
   const preferredCardKey = typeof options.preferredCardKey === "string" ? options.preferredCardKey : null;
   const fallbackIndex = Number.isInteger(options.fallbackIndex) ? options.fallbackIndex : null;
-  document.querySelectorAll(".filter-btn").forEach((button) => button.classList.remove("active"));
-  const labels = { all: "📋 Tümü", know: "✅ Biliyorum", review: "🔄 Tekrar Göz At", dunno: "❌ Bilmiyorum", unanswered: "⬜ Değerlendirilmemiş" };
   document.querySelectorAll(".filter-btn").forEach((button) => {
-    if (button.textContent.trim() === labels[activeFilter]) button.classList.add("active");
+    button.classList.toggle("active", button.dataset.filterValue === activeFilter);
   });
   const selectedTopic = document.getElementById("topic-select").value;
   const baseCards = selectedTopic === "hepsi" ? [...allFlashcards] : allFlashcards.filter((card) => card.subject === selectedTopic);
@@ -119,6 +159,7 @@ export function applyAssessmentFilter(options = {}) {
     document.getElementById("fullscreen-card-counter").textContent = "0 / 0";
     document.getElementById("subject-display-front").textContent = "";
     showAssessmentPanel(false);
+    syncReviewScheduleUi();
   }
   updateScoreDisplay();
 }
@@ -198,16 +239,18 @@ export function shuffleCards() {
 }
 
 export function printCards() {
-  const statusIcons = { know: "✅", review: "🔄", dunno: "❌" };
+  const statusLabels = { know: "Tamam", review: "Tekrar", dunno: "Bilmiyorum" };
   const cardsMarkup = allFlashcards.map((card, index) => {
     const status = getAssessmentLevel(card);
-    const badge = status ? `<span style="float:right;font-size:18px">${statusIcons[status]}</span>` : "";
+    const badge = status
+      ? `<span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:999px; background:#e2f7ef; color:#116149; font-size:12px; font-weight:700;">${escapeMarkup(statusLabels[status])}</span>`
+      : "";
     return `<div style="page-break-inside:avoid; border:1px solid #ddd; border-radius:10px; padding:20px 24px; margin-bottom:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${index + 1} — ${card.subject}</span>${badge}
+        <span style="font-weight:700; color:#2f7a56; font-size:14px;">Kart ${index + 1} — ${escapeMarkup(card.subject)}</span>${badge}
       </div>
       <div style="font-size:15px; font-weight:600; margin-bottom:12px; color:#21302a;">${renderAnswerMarkdown(card.q)}</div>
-      <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px;">${card.a}</div>
+      <div style="font-size:14px; line-height:1.7; color:#333; border-top:1px solid #eee; padding-top:12px;">${sanitizeMarkdownHtml(card.a || "")}</div>
     </div>`;
   }).join("");
   let know = 0;
@@ -223,7 +266,7 @@ export function printCards() {
   const assessed = know + review + dunno;
   const percentage = total ? Math.round((assessed / total) * 100) : 0;
   const popup = window.open("", "_blank");
-  popup.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Flashcards — Yazdır</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:800px;margin:0 auto;padding:30px 20px;color:#21302a}h1{font-size:22px;margin-bottom:4px}.summary{font-size:14px;color:#5f6d66;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #2f7a56}@media print{body{padding:10px}}</style></head><body><h1>Flashcards</h1><div class="summary">Toplam: ${total} kart | ✅ ${know} | 🔄 ${review} | ❌ ${dunno} | İlerleme: %${percentage}</div>${cardsMarkup}</body></html>`);
+  popup.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Flashcards — Yazdır</title><style>body{font-family:'Noto Sans','Segoe UI',sans-serif;max-width:800px;margin:0 auto;padding:30px 20px;color:#21302a}h1{font-family:'Figtree','Segoe UI',sans-serif;font-size:22px;margin-bottom:4px}.summary{font-size:14px;color:#5f6d66;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #2f7a56}@media print{body{padding:10px}}</style></head><body><h1>Flashcards</h1><div class="summary">Toplam: ${total} kart | Tamam: ${know} | Tekrar: ${review} | Bilmiyorum: ${dunno} | İlerleme: %${percentage}</div>${cardsMarkup}</body></html>`);
   popup.document.close();
   popup.onload = () => popup.print();
 }
@@ -237,15 +280,19 @@ export function toggleFullscreen() {
     container.classList.add("fullscreen-active");
     document.body.style.overflow = "hidden";
     if (fullscreenToggleButton) {
-      fullscreenToggleButton.textContent = "✕";
-      fullscreenToggleButton.title = "Tam ekrandan çık (ESC / F)";
+      setButtonIcon(fullscreenToggleButton, "minimize", {
+        label: "Tam ekrandan çık",
+        title: "Tam ekrandan çık (ESC / F)",
+      });
     }
   } else {
     container.classList.remove("fullscreen-active");
     document.body.style.overflow = "auto";
     if (fullscreenToggleButton) {
-      fullscreenToggleButton.textContent = "⛶";
-      fullscreenToggleButton.title = "Tam ekran (F)";
+      setButtonIcon(fullscreenToggleButton, "maximize", {
+        label: "Tam ekranı aç",
+        title: "Tam ekran (F)",
+      });
     }
   }
   fullscreenToggleButton?.blur();
@@ -275,6 +322,11 @@ export function openExportModal() {
   const modal = document.getElementById('export-modal');
   if (modal) modal.style.display = 'block';
   toggleExportWarning();
+}
+
+export function closeExportModal() {
+  const modal = document.getElementById('export-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 export function toggleExportWarning() {
@@ -313,7 +365,7 @@ export async function executeExport() {
 
     if (format === 'print') {
       printCards();
-      document.getElementById('export-modal').style.display = 'none';
+      closeExportModal();
     } else if (format === 'apkg' || format === 'csv' || format === 'markdown' || format === 'html') {
       const btnOriginalText = btn.textContent;
       btn.textContent = "Hazırlanıyor...";
@@ -328,7 +380,7 @@ export async function executeExport() {
         
         const filename = `flashcards_export_${new Date().toISOString().split('T')[0]}.${ext}`;
         downloadBlob(blob, filename);
-        document.getElementById('export-modal').style.display = 'none';
+        closeExportModal();
       } finally {
         btn.textContent = btnOriginalText;
       }

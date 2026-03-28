@@ -3,7 +3,7 @@
 
 import { editorState } from "../../app/state.js";
 import { MIN_EDITOR_SPLIT_RATIO, MAX_EDITOR_SPLIT_RATIO } from "../../shared/constants.js";
-import { escapeMarkup } from "../../shared/utils.js";
+import { escapeAttributeSelectorValue, escapeMarkup } from "../../shared/utils.js";
 import { renderAnswerMarkdown } from "../../core/set-codec.js";
 import {
   getCurrentEditorDraft,
@@ -11,6 +11,7 @@ import {
   getEditorActiveCard,
   ensureEditorRawState,
 } from "./editor-state.js";
+import { renderIcon } from "../../ui/icons.js";
 import {
   bindEditorEvents,
   stopEditorSplitDrag,
@@ -56,7 +57,7 @@ export function renderEditorTabs() {
   select.innerHTML = editorState.draftOrder
     .map((setId) => {
       const draft = editorState.drafts[setId];
-      return `<option value="${setId}">${escapeMarkup(draft.setName)}${draft.dirty ? " *" : ""}</option>`;
+      return `<option value="${escapeMarkup(setId)}">${escapeMarkup(draft.setName)}${draft.dirty ? " *" : ""}</option>`;
     })
     .join("");
   const fallbackSetId = editorState.draftOrder[0] || "";
@@ -76,10 +77,11 @@ export function renderEditorTabs() {
 }
 
 function renderEditorToolbarButtons(actions, cardId) {
+  const cardIdAttr = escapeMarkup(cardId);
   return actions
     .map(
       (action) =>
-        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardId}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
+        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardIdAttr}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
     )
     .join("");
 }
@@ -94,6 +96,7 @@ export function renderEditorCardList(draft) {
           const questionPreview = card.question.trim() || "Yeni kart";
           const isActiveCard = draft.activeCardIndex === index;
           const isSelectedForDelete = selectedDeleteIds.has(card.id);
+          const cardIdAttr = escapeMarkup(card.id);
           return `
             <div class="editor-list-row ${isDeleteSelectionMode ? "is-selection-enabled" : ""}">
               ${
@@ -102,7 +105,7 @@ export function renderEditorCardList(draft) {
                       <input
                         type="checkbox"
                         class="editor-list-check"
-                        data-editor-delete-select="${card.id}"
+                        data-editor-delete-select="${cardIdAttr}"
                         aria-label="Kart ${index + 1} silmek için seç"
                         ${isSelectedForDelete ? "checked" : ""}
                       />
@@ -112,11 +115,11 @@ export function renderEditorCardList(draft) {
               <button
                 type="button"
                 class="editor-list-select ${isActiveCard ? "active" : ""}"
-                data-editor-select-card="${card.id}"
+                data-editor-select-card="${cardIdAttr}"
                 aria-pressed="${isActiveCard}"
               >
                 <span class="editor-list-index">Kart ${index + 1}</span>
-                <span class="editor-list-question" data-editor-list-question="${card.id}">${escapeMarkup(questionPreview)}</span>
+                <span class="editor-list-question" data-editor-list-question="${cardIdAttr}">${escapeMarkup(questionPreview)}</span>
               </button>
             </div>`;
         })
@@ -155,28 +158,32 @@ export function renderEditorCardList(draft) {
 }
 
 export function renderEditorCardDetail(draft, card, index) {
+  const cardIdAttr = escapeMarkup(card.id);
   const subjectFieldId = `editor-subject-${card.id}`;
   const questionFieldId = `editor-question-${card.id}`;
   const answerFieldId = `editor-answer-${card.id}`;
+  const subjectFieldIdAttr = escapeMarkup(subjectFieldId);
+  const questionFieldIdAttr = escapeMarkup(questionFieldId);
+  const answerFieldIdAttr = escapeMarkup(answerFieldId);
   const questionHeight = getEditorFieldHeight(draft, "question");
   const answerHeight = getEditorFieldHeight(draft, "answer");
   const previewHeight = getEditorFieldHeight(draft, "preview");
   const splitRatio = getEditorSplitRatio(draft);
   return `
-    <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${card.id}">
+    <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${cardIdAttr}">
       <div class="editor-card-head">
         <div class="editor-card-head-main">
           <div class="editor-card-title">Kart No ${index + 1}</div>
         </div>
         <div class="editor-card-head-side">
-          <label class="status-pill editor-subject-shell" for="${subjectFieldId}">
+          <label class="status-pill editor-subject-shell" for="${subjectFieldIdAttr}">
             <span class="editor-subject-prefix">Konu</span>
             <input
               type="text"
-              id="${subjectFieldId}"
+              id="${subjectFieldIdAttr}"
               class="editor-subject-input"
-              data-editor-subject-input="${card.id}"
-              name="editor-subject-${card.id}"
+              data-editor-subject-input="${cardIdAttr}"
+              name="editor-subject-${cardIdAttr}"
               value="${escapeMarkup(card.subject)}"
               placeholder="Genel"
               spellcheck="false"
@@ -185,36 +192,36 @@ export function renderEditorCardDetail(draft, card, index) {
           </label>
         </div>
       </div>
-      <div class="editor-card-body" data-editor-card-body="${card.id}">
+      <div class="editor-card-body" data-editor-card-body="${cardIdAttr}">
         ${renderEditorFormattingToolbar(card.id)}
         <div class="field-group">
-          <label for="${questionFieldId}">Soru</label>
+          <label for="${questionFieldIdAttr}">Soru</label>
           <textarea
-            id="${questionFieldId}"
+            id="${questionFieldIdAttr}"
             class="editor-input-question"
             data-editor-field="question"
-            data-card-id="${card.id}"
-            name="editor-question-${card.id}"
+            data-card-id="${cardIdAttr}"
+            name="editor-question-${cardIdAttr}"
             placeholder="Soruyu yaz..."
             style="height:${questionHeight}px;"
           >${escapeMarkup(card.question)}</textarea>
         </div>
         <div
           class="editor-split"
-          data-editor-split="${card.id}"
+          data-editor-split="${cardIdAttr}"
           style="--editor-answer-fr:${splitRatio}fr; --editor-preview-fr:${100 - splitRatio}fr;"
         >
           <div class="editor-split-pane">
             <div class="field-group">
               <div class="editor-markdown-head">
-                <label for="${answerFieldId}">Açıklama (Markdown)</label>
+                <label for="${answerFieldIdAttr}">Açıklama (Markdown)</label>
               </div>
               <textarea
-                id="${answerFieldId}"
+                id="${answerFieldIdAttr}"
                 class="editor-input-answer"
                 data-editor-field="answer"
-                data-card-id="${card.id}"
-                name="editor-answer-${card.id}"
+                data-card-id="${cardIdAttr}"
+                name="editor-answer-${cardIdAttr}"
                 placeholder="Markdown açıklamasını yaz..."
                 style="height:${answerHeight}px;"
               >${escapeMarkup(card.explanationMarkdown)}</textarea>
@@ -223,7 +230,7 @@ export function renderEditorCardDetail(draft, card, index) {
           <button
             type="button"
             class="editor-split-handle"
-            data-editor-split-handle="${card.id}"
+            data-editor-split-handle="${cardIdAttr}"
             role="slider"
             aria-label="Açıklama ve önizleme genişliğini ayarla"
             aria-valuemin="${MIN_EDITOR_SPLIT_RATIO}"
@@ -238,7 +245,7 @@ export function renderEditorCardDetail(draft, card, index) {
               </div>
               <div
                 class="editor-preview editor-preview-answer"
-                data-editor-preview="${card.id}"
+                data-editor-preview="${cardIdAttr}"
                 data-editor-height-field="preview"
                 style="height:${previewHeight}px;"
               >${renderAnswerMarkdown(card.explanationMarkdown)}</div>
@@ -265,7 +272,7 @@ export function renderEditorForm(draft) {
           aria-label="${isListOpen ? "Kart listesini kapat" : "Kart listesini aç"}"
           title="${isListOpen ? "Kart listesini kapat" : "Kart listesini aç"}"
         >
-          <span class="editor-list-handle-icon">${isListOpen ? "←" : "→"}</span>
+          <span class="editor-list-handle-icon">${renderIcon(isListOpen ? "chevron-left" : "chevron-right")}</span>
           <span class="editor-list-handle-text">${isListOpen ? "Listeyi Daralt" : "Kartlar"}</span>
         </button>
         <div class="editor-list-drawer">
@@ -285,12 +292,13 @@ export function renderEditorForm(draft) {
 const renderEditorRaw = (draft) => {
   const rawEditorState = ensureEditorRawState(draft.rawEditorState);
   const rawHeightStyle = Number.isFinite(rawEditorState.height) ? ` style="height:${rawEditorState.height}px;"` : "";
-  return `<div class="field-group"><label for="editor-raw-input">Raw Code</label><textarea id="editor-raw-input" name="editor-raw-input" class="editor-raw" spellcheck="false"${rawHeightStyle}>${draft.rawSource}</textarea></div>`;
+  return `<div class="field-group"><label for="editor-raw-input">Raw Code</label><textarea id="editor-raw-input" name="editor-raw-input" class="editor-raw" spellcheck="false"${rawHeightStyle}>${escapeMarkup(draft.rawSource)}</textarea></div>`;
 };
 
 export function flushEditorPendingScroll() {
   if (!editorState.pendingScrollCardId) return;
-  const targetCard = document.querySelector(`[data-editor-card-root="${editorState.pendingScrollCardId}"]`);
+  const escapedCardId = escapeAttributeSelectorValue(editorState.pendingScrollCardId);
+  const targetCard = document.querySelector(`[data-editor-card-root="${escapedCardId}"]`);
   editorState.pendingScrollCardId = null;
   if (!targetCard) return;
   targetCard.scrollIntoView({ block: "nearest", behavior: "auto" });

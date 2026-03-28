@@ -4,13 +4,16 @@
   "description": "Modüler, JSON-tabanlı ve dinamik set yönetimli pediatri çalışma uygulaması.   Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz.",
   "main": "index.js",
   "scripts": {
-    "build:dist": "node build.mjs",
-    "serve:dist": "node tools/test-static-server.js",
-    "web": "npm run build:dist && npm run serve:dist",
+    "dev": "vite",
+    "build": "vite build",
+    "build:dist": "npm run build",
+    "preview": "vite preview",
+    "serve:dist": "npm run preview -- --host 127.0.0.1 --port 4173 --strictPort",
+    "web": "npm run dev",
     "backup:cloud-user": "node ./tools/backup-cloud-user.mjs",
     "backup:supabase": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1",
     "backup:supabase:dry": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1 -DryRun",
-    "build:desktop": "npx tauri build --bundles nsis",
+    "build:desktop": "node ./node_modules/@tauri-apps/cli/tauri.js build --bundles nsis",
     "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "release:with-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1",
@@ -39,6 +42,7 @@
     "@playwright/test": "^1.58.2",
     "@tauri-apps/cli": "^2.10.1",
     "jsdom": "^29.0.1",
+    "vite": "^8.0.3",
     "vitest": "^4.1.2"
   },
   "dependencies": {

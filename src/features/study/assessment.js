@@ -3,6 +3,7 @@
 
 import {
   assessments, setAssessments,
+  reviewSchedule, setReviewSchedule,
   allFlashcards,
   filteredFlashcards,
   cardOrder,
@@ -10,6 +11,7 @@ import {
   autoAdvanceEnabled,
   activeFilter, setActiveFilter,
 } from "../../app/state.js";
+import { scheduleNextReview } from "./scheduler.js";
 
 // ── advance callback (set by study.js to avoid circular import) ──
 let _nextCardFn = null;
@@ -45,6 +47,11 @@ export function getAssessmentLevel(card, fallbackSetId, fallbackIndex) {
   const cardKey = getCardKey(card, fallbackSetId, fallbackIndex);
   if (cardKey && assessments[cardKey]) return assessments[cardKey];
   return assessments[legacyCardId(card)] || null;
+}
+
+export function getReviewScheduleEntry(card, fallbackSetId, fallbackIndex) {
+  const cardKey = getCardKey(card, fallbackSetId, fallbackIndex);
+  return cardKey ? reviewSchedule[cardKey] || null : null;
 }
 
 export function updateAssessmentButtons(level) {
@@ -85,6 +92,7 @@ export function updateScoreDisplay() {
   document.getElementById("progress-fill-know").style.width = `${total ? (know / total) * 100 : 0}%`;
   document.getElementById("progress-fill-review").style.width = `${total ? (review / total) * 100 : 0}%`;
   document.getElementById("progress-fill-dunno").style.width = `${total ? (dunno / total) * 100 : 0}%`;
+  import("../analytics/analytics.js").then(({ syncAnalyticsDashboard }) => syncAnalyticsDashboard());
 }
 
 export function assessCard(level) {
@@ -92,18 +100,32 @@ export function assessCard(level) {
   const card = filteredFlashcards[cardOrder[currentCardIndex]];
   const cardKey = getCardKey(card);
   const currentLevel = getAssessmentLevel(card);
+  const currentReviewState = cardKey ? reviewSchedule[cardKey] || null : null;
   if (cardKey && currentLevel === level) {
     delete assessments[cardKey];
     delete assessments[legacyCardId(card)];
+    if (reviewSchedule[cardKey]) {
+      const nextReviewSchedule = { ...reviewSchedule };
+      delete nextReviewSchedule[cardKey];
+      setReviewSchedule(nextReviewSchedule);
+    }
     updateAssessmentButtons(null);
     updateScoreDisplay();
+    import("../study/study.js").then(({ syncReviewScheduleUi }) => syncReviewScheduleUi());
     // saveStudyState called via dynamic import to avoid circular
     import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
     return;
   }
-  if (cardKey) assessments[cardKey] = level;
+  if (cardKey) {
+    assessments[cardKey] = level;
+    setReviewSchedule({
+      ...reviewSchedule,
+      [cardKey]: scheduleNextReview(level, currentReviewState),
+    });
+  }
   updateAssessmentButtons(level);
   updateScoreDisplay();
+  import("../study/study.js").then(({ syncReviewScheduleUi }) => syncReviewScheduleUi());
   import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
   if (autoAdvanceEnabled) {
     setTimeout(() => {
@@ -116,12 +138,15 @@ export function assessCard(level) {
 
 export function resetProgress() {
   if (!confirm("Seçili set(ler)deki tüm ilerlemen sıfırlanacak. Emin misin?")) return;
+  const nextReviewSchedule = { ...reviewSchedule };
   allFlashcards.forEach((card) => {
     const cardKey = getCardKey(card);
     if (cardKey) delete assessments[cardKey];
+    if (cardKey) delete nextReviewSchedule[cardKey];
     delete assessments[legacyCardId(card)];
   });
   setAssessments(assessments);
+  setReviewSchedule(nextReviewSchedule);
   setActiveFilter("all");
   import("../study/study.js").then(({ applyAssessmentFilter }) => {
     applyAssessmentFilter();
@@ -131,8 +156,17 @@ export function resetProgress() {
 
 export function cleanupAssessmentsForSet(nextRecord, previousRecord) {
   const allowedKeys = new Set(nextRecord.cards.map((card, index) => buildCardKey(nextRecord.id, card, index)));
+  let reviewScheduleChanged = false;
+  const nextReviewSchedule = { ...reviewSchedule };
   Object.keys(assessments).forEach((key) => {
     if (key.startsWith(`set:${nextRecord.id}::`) && !allowedKeys.has(key)) delete assessments[key];
   });
+  Object.keys(nextReviewSchedule).forEach((key) => {
+    if (key.startsWith(`set:${nextRecord.id}::`) && !allowedKeys.has(key)) {
+      delete nextReviewSchedule[key];
+      reviewScheduleChanged = true;
+    }
+  });
   previousRecord?.cards?.forEach((card) => delete assessments[legacyCardId(card)]);
+  if (reviewScheduleChanged) setReviewSchedule(nextReviewSchedule);
 }

@@ -2,6 +2,7 @@
 // Markdown formatting toolbar: snippet application, toolbar button rendering.
 
 import { allMarkdownActions } from "../../shared/constants.js";
+import { escapeMarkup } from "../../shared/utils.js";
 
 export function applyMarkdownSnippet(textarea, action) {
   const { restoreEditorFieldSelection, rememberEditorFieldSelection } = require_editor_events();
@@ -26,8 +27,8 @@ export function applyMarkdownSnippet(textarea, action) {
     selectionOffsetStart = 2;
     selectionOffsetEnd = replacement.length - 2;
   } else if (action === "warning") {
-    replacement = `> ⚠️ ${selectedText || "Dikkat edilmesi gereken nokta"}`;
-    selectionOffsetStart = 5;
+    replacement = `> Dikkat: ${selectedText || "Dikkat edilmesi gereken nokta"}`;
+    selectionOffsetStart = 11;
     selectionOffsetEnd = replacement.length;
   } else if (action === "quote") {
     replacement = `> ${selectedText || "Alıntı veya not"}`;
@@ -85,10 +86,11 @@ export function applyMarkdownSnippet(textarea, action) {
 }
 
 export function renderEditorToolbarButtons(actions, cardId) {
+  const cardIdAttr = escapeMarkup(cardId);
   return actions
     .map(
       (action) =>
-        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardId}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
+        `<button type="button" class="btn btn-small btn-secondary editor-tool-btn" data-md-action="${action.id}" data-card-id="${cardIdAttr}" title="${action.title}" aria-label="${action.title}">${action.label}</button>`,
     )
     .join("");
 }

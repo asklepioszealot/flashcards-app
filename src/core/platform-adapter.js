@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import {
   backfillRawSource,
   normalizeSetRecord,
@@ -10,6 +11,8 @@ const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
 const STUDY_STATE_FALLBACK_SET_ID_PREFIX = `${APP_NAMESPACE}::system::study-state::`;
 const STUDY_STATE_FALLBACK_SLUG = "__system-study-state__";
 const STUDY_STATE_FALLBACK_SET_NAME = "__system_study_state__";
+const USER_STATE_SETUP_DOC_PATH = "docs/SUPABASE_SYNC_SETUP.sql";
+const USER_STATE_MIGRATION_DOC_PATH = "docs/SUPABASE_USER_STATE_MIGRATION.sql";
 
 function nowIso() {
   return new Date().toISOString();
@@ -48,6 +51,14 @@ function isNoRowsError(error) {
   return error?.code === "PGRST116";
 }
 
+function createMissingUserStateTableError() {
+  const error = new Error(
+    `flashcard_user_state tablosu bulunamadi. Once ${USER_STATE_SETUP_DOC_PATH} sonra ${USER_STATE_MIGRATION_DOC_PATH} calistirilmalidir.`,
+  );
+  error.code = "MISSING_USER_STATE_TABLE";
+  return error;
+}
+
 function normalizeUserEmail(value) {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -71,40 +82,14 @@ function mapFallbackSetRowToSnapshot(row) {
     {
       selectedSetIds: stateJson.selectedSetIds,
       assessments: stateJson.assessments,
+      reviewSchedule: stateJson.reviewSchedule,
       session: stateJson.session,
       autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
+      isAnalyticsVisible: stateJson.isAnalyticsVisible,
       updatedAt: row?.updated_at || stateJson.updatedAt,
     },
     row?.updated_at || nowIso(),
   );
-}
-
-function buildFallbackSetRow(userId, snapshot) {
-  const normalizedSnapshot = normalizeSyncedUserState(snapshot);
-  return {
-    id: getStudyStateFallbackRecordId(userId),
-    user_id: userId,
-    slug: STUDY_STATE_FALLBACK_SLUG,
-    set_name: STUDY_STATE_FALLBACK_SET_NAME,
-    file_name: "study-state.sync.json",
-    // Keep fallback rows compatible with older deployments that only allow
-    // json/markdown in the source_format check constraint.
-    source_format: "json",
-    raw_source: "",
-    cards_json: [
-      {
-        type: "study_state_sync",
-        payload: {
-          selectedSetIds: normalizedSnapshot.selectedSetIds,
-          assessments: normalizedSnapshot.assessments,
-          session: normalizedSnapshot.session,
-          autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
-          updatedAt: normalizedSnapshot.updatedAt,
-        },
-      },
-    ],
-    updated_at: normalizedSnapshot.updatedAt,
-  };
 }
 
 function createUserFromEmail(email, provider = "mock") {
@@ -250,15 +235,31 @@ function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso()) {
     ? snapshot.selectedSetIds.filter((setId) => typeof setId === "string" && setId.trim())
     : [];
   const assessments = isPlainObject(snapshot?.assessments) ? clone(snapshot.assessments) : {};
+  const reviewSchedule = isPlainObject(snapshot?.reviewSchedule) ? clone(snapshot.reviewSchedule) : {};
   const session = isPlainObject(snapshot?.session) ? clone(snapshot.session) : null;
 
   return {
     selectedSetIds,
     assessments,
+    reviewSchedule,
     session,
     autoAdvanceEnabled: snapshot?.autoAdvanceEnabled !== false,
+    isAnalyticsVisible: snapshot?.isAnalyticsVisible === true,
     updatedAt: String(snapshot?.updatedAt || fallbackUpdatedAt),
   };
+}
+
+function pickNewerSyncedUserState(leftSnapshot, rightSnapshot) {
+  if (!leftSnapshot) return rightSnapshot || null;
+  if (!rightSnapshot) return leftSnapshot || null;
+
+  const leftTime = Date.parse(leftSnapshot.updatedAt || "");
+  const rightTime = Date.parse(rightSnapshot.updatedAt || "");
+  if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+    return rightTime > leftTime ? rightSnapshot : leftSnapshot;
+  }
+  if (Number.isFinite(rightTime)) return rightSnapshot;
+  return leftSnapshot;
 }
 
 function createMockAdapter(config, storage) {
@@ -393,11 +394,6 @@ function createMockAdapter(config, storage) {
 }
 
 function createSupabaseAdapter(config, storage) {
-  const createClient = globalThis.supabase?.createClient;
-  if (typeof createClient !== "function") {
-    throw new Error("Supabase istemcisi yüklenemedi.");
-  }
-
   const authSessionStorage = createAuthSessionStorage(storage);
   const client = createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
@@ -462,12 +458,31 @@ function createSupabaseAdapter(config, storage) {
       {
         selectedSetIds: stateJson.selectedSetIds,
         assessments: stateJson.assessments,
+        reviewSchedule: stateJson.reviewSchedule,
         session: stateJson.session,
         autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
+        isAnalyticsVisible: stateJson.isAnalyticsVisible,
         updatedAt: row?.updated_at || stateJson.updatedAt,
       },
       row?.updated_at || nowIso(),
     );
+  }
+
+  function mapSnapshotToStateRow(userId, snapshot) {
+    const normalizedSnapshot = normalizeSyncedUserState(snapshot);
+    return {
+      user_id: userId,
+      state_json: {
+        selectedSetIds: normalizedSnapshot.selectedSetIds,
+        assessments: normalizedSnapshot.assessments,
+        reviewSchedule: normalizedSnapshot.reviewSchedule,
+        session: normalizedSnapshot.session,
+        autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
+        isAnalyticsVisible: normalizedSnapshot.isAnalyticsVisible,
+        updatedAt: normalizedSnapshot.updatedAt,
+      },
+      updated_at: normalizedSnapshot.updatedAt,
+    };
   }
 
   async function queryLatestSet(userId, setId) {
@@ -489,6 +504,24 @@ function createSupabaseAdapter(config, storage) {
     return data ? normalizeSetCollection([mapRowToRecord(data)])[0] : null;
   }
 
+  async function queryUserStateRow(userId) {
+    const { data, error } = await client
+      .from("flashcard_user_state")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingRelationError(error)) {
+        throw createMissingUserStateTableError();
+      }
+      if (isNoRowsError(error)) return null;
+      throw error;
+    }
+
+    return data || null;
+  }
+
   async function queryFallbackStateRow(userId) {
     const { data, error } = await client
       .from("flashcard_sets")
@@ -505,21 +538,47 @@ function createSupabaseAdapter(config, storage) {
     return data || null;
   }
 
-  async function loadUserStateFallback(userId) {
-    const row = await queryFallbackStateRow(userId);
-    return row ? mapFallbackSetRowToSnapshot(row) : null;
-  }
-
-  async function saveUserStateFallback(userId, snapshot) {
-    const row = buildFallbackSetRow(userId, snapshot);
+  async function upsertUserStateRow(userId, snapshot) {
+    const row = mapSnapshotToStateRow(userId, snapshot);
     const { data, error } = await client
-      .from("flashcard_sets")
-      .upsert(row, { onConflict: "id" })
+      .from("flashcard_user_state")
+      .upsert(row, { onConflict: "user_id" })
       .select("*")
       .single();
 
-    if (error) throw error;
-    return mapFallbackSetRowToSnapshot(data);
+    if (error) {
+      if (isMissingRelationError(error)) {
+        throw createMissingUserStateTableError();
+      }
+      throw error;
+    }
+    return mapStateRowToSnapshot(data);
+  }
+
+  async function deleteFallbackStateRow(userId) {
+    const { error } = await client
+      .from("flashcard_sets")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", getStudyStateFallbackRecordId(userId));
+
+    if (error && !isNoRowsError(error)) {
+      throw error;
+    }
+  }
+
+  async function migrateLegacyFallbackState(userId, stateRow = null) {
+    const dedicatedSnapshot = stateRow ? mapStateRowToSnapshot(stateRow) : null;
+    const fallbackRow = await queryFallbackStateRow(userId);
+    if (!fallbackRow) {
+      return dedicatedSnapshot;
+    }
+
+    const fallbackSnapshot = mapFallbackSetRowToSnapshot(fallbackRow);
+    const mergedSnapshot = pickNewerSyncedUserState(dedicatedSnapshot, fallbackSnapshot);
+    const savedSnapshot = await upsertUserStateRow(userId, mergedSnapshot);
+    await deleteFallbackStateRow(userId);
+    return savedSnapshot;
   }
 
   async function refreshCurrentUser() {
@@ -632,13 +691,16 @@ function createSupabaseAdapter(config, storage) {
     async loadUserState() {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      return loadUserStateFallback(user.id);
+      const stateRow = await queryUserStateRow(user.id);
+      return migrateLegacyFallbackState(user.id, stateRow);
     },
 
     async saveUserState(snapshot) {
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      return saveUserStateFallback(user.id, snapshot);
+      const savedSnapshot = await upsertUserStateRow(user.id, snapshot);
+      await deleteFallbackStateRow(user.id);
+      return savedSnapshot;
     },
 
     async pickNativeSetFiles() {

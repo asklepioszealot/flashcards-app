@@ -9,6 +9,7 @@ import {
   loadedSets, setLoadedSets,
   selectedSets, setSelectedSets,
   assessments, setAssessments,
+  setIsAnalyticsVisible,
   pendingRemoteStudyStateSnapshot, setPendingRemoteStudyStateSnapshot,
   remoteStudyStateSyncTimer, setRemoteStudyStateSyncTimer,
   storage,
@@ -125,6 +126,7 @@ export async function handleAuthStateChange(user, event = "unknown") {
     setLoadedSets({});
     setSelectedSets(new Set());
     setAssessments({});
+    setIsAnalyticsVisible(false);
     resetEditorState();
     renderSetList();
     syncRememberMeUi();

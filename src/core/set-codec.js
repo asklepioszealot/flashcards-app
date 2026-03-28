@@ -1,9 +1,13 @@
+import { sanitizeMarkdownHtml, sanitizeMediaSource } from "./security.js";
+
 const CRITICAL_PATTERN = /==([^=]+)==/g;
 const BOLD_PATTERN = /\*\*([^*]+)\*\*/g;
 const STRIKE_PATTERN = /~~([^~]+)~~/g;
 const ITALIC_PATTERN = /(^|[^*])\*([^*\n]+)\*(?!\*)/g;
 const INLINE_CODE_PATTERN = /`([^`\n]+)`/g;
+const MEDIA_PATTERN = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 const LINK_PATTERN = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const WARNING_PREFIX_PATTERN = /^(?:\u26A0(?:\uFE0F)?\s*|Dikkat:\s*)/i;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -12,6 +16,15 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function decodeHtmlEntities(value) {
+  return String(value ?? "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
 }
 
 function stripTags(value) {
@@ -57,6 +70,7 @@ function renderInlineMarkdown(text) {
   });
 
   escaped = escaped
+    .replace(MEDIA_PATTERN, (_, rawAltText, rawSource) => renderMarkdownMedia(rawAltText, rawSource))
     .replace(LINK_PATTERN, '<a href="$2" target="_blank" rel="noreferrer noopener">$1</a>')
     .replace(CRITICAL_PATTERN, "<strong class=\"highlight-critical\">$1</strong>")
     .replace(BOLD_PATTERN, "<strong>$1</strong>")
@@ -68,6 +82,30 @@ function renderInlineMarkdown(text) {
   });
 
   return escaped;
+}
+
+function resolveMediaLabel(rawAltText, fallbackLabel) {
+  const normalizedAltText = decodeHtmlEntities(rawAltText).trim();
+  return normalizedAltText || fallbackLabel;
+}
+
+function renderMarkdownMedia(rawAltText, rawSource) {
+  const normalizedAltText = decodeHtmlEntities(rawAltText).trim();
+  const normalizedSource = decodeHtmlEntities(rawSource).trim();
+  const isAudio = /^audio\s*:/i.test(normalizedAltText) || /^ses\s*:/i.test(normalizedAltText);
+  const mediaLabel = normalizedAltText.replace(/^(audio|ses)\s*:\s*/i, "").trim();
+
+  if (isAudio) {
+    const safeSource = sanitizeMediaSource(normalizedSource, "audio");
+    const label = resolveMediaLabel(mediaLabel, "Ses kaydı");
+    if (!safeSource) return label ? `<span class="markdown-media-caption">${escapeHtml(label)}</span>` : "";
+    return `<span class="markdown-audio"><audio controls preload="metadata" src="${escapeHtml(safeSource)}" aria-label="${escapeHtml(label)}"></audio>${label ? `<span class="markdown-media-caption">${escapeHtml(label)}</span>` : ""}</span>`;
+  }
+
+  const safeSource = sanitizeMediaSource(normalizedSource, "image");
+  const label = resolveMediaLabel(normalizedAltText, "Kart görseli");
+  if (!safeSource) return label ? `<span class="markdown-media-caption">${escapeHtml(label)}</span>` : "";
+  return `<figure class="markdown-media"><img src="${escapeHtml(safeSource)}" alt="${escapeHtml(label)}" loading="lazy" />${normalizedAltText ? `<figcaption class="markdown-media-caption">${escapeHtml(label)}</figcaption>` : ""}</figure>`;
 }
 
 function parseTableCells(line) {
@@ -141,7 +179,7 @@ function renderMarkdownBlock(block) {
 
   if (lines.every((line) => /^\s*>\s?/.test(line))) {
     const quoteLines = lines.map((line) => line.replace(/^\s*>\s?/, ""));
-    const quoteClass = quoteLines.every((line) => line.trim().startsWith("⚠️"))
+    const quoteClass = quoteLines.every((line) => WARNING_PREFIX_PATTERN.test(line.trim()))
       ? ' class="markdown-callout warning"'
       : "";
     return `<blockquote${quoteClass}>${quoteLines.map((line) => renderInlineMarkdown(line)).join("<br>")}</blockquote>`;
@@ -152,10 +190,12 @@ function renderMarkdownBlock(block) {
 
 export function renderAnswerMarkdown(markdownText) {
   const normalizedText = String(markdownText ?? "").trim() || "Açıklama bulunamadı.";
-  return normalizedText
-    .split(/\n{2,}/)
-    .map((block) => renderMarkdownBlock(block))
-    .join("");
+  return sanitizeMarkdownHtml(
+    normalizedText
+      .split(/\n{2,}/)
+      .map((block) => renderMarkdownBlock(block))
+      .join(""),
+  );
 }
 
 function fallbackHtmlToEditableMarkdown(htmlText) {
@@ -166,8 +206,8 @@ function fallbackHtmlToEditableMarkdown(htmlText) {
       "==$1==",
     )
     .replace(
-      /<span\s+class=['"]highlight-important['"]>\s*⚠️(.*?)<\/span>/gi,
-      "> ⚠️$1",
+      /<span\s+class=['"]highlight-important['"]>\s*\u26A0(?:\uFE0F)?(.*?)<\/span>/gi,
+      "> Dikkat: $1",
     )
     .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
     .replace(/<br\s*\/?>/gi, "\n")
@@ -211,6 +251,27 @@ function inlineNodeToMarkdown(node) {
   if (tagName === "br") return "\n";
   if (tagName === "strong" && node.classList.contains("highlight-critical")) {
     return `==${stringifyInlineNodes(node.childNodes)}==`;
+  }
+  if (tagName === "figure") {
+    const image = node.querySelector("img");
+    if (image) {
+      const src = image.getAttribute("src") || "";
+      const alt = image.getAttribute("alt") || node.querySelector("figcaption")?.textContent || "Görsel";
+      return `![${alt}](${src})`;
+    }
+  }
+  if (tagName === "img") {
+    const src = node.getAttribute("src") || "";
+    const alt = node.getAttribute("alt") || "Görsel";
+    return `![${alt}](${src})`;
+  }
+  if (tagName === "audio") {
+    const src = node.getAttribute("src") || node.querySelector("source")?.getAttribute("src") || "";
+    const label = node.getAttribute("aria-label") || node.getAttribute("title") || "Ses kaydı";
+    return src ? `![audio: ${label}](${src})` : "";
+  }
+  if (tagName === "source") {
+    return "";
   }
   if (tagName === "strong") return `**${stringifyInlineNodes(node.childNodes)}**`;
   if (tagName === "em") return `*${stringifyInlineNodes(node.childNodes)}*`;
@@ -265,6 +326,9 @@ function stringifyBlockNode(node) {
     return tableNode ? stringifyTable(tableNode) : "";
   }
   if (tagName === "table") return stringifyTable(node);
+  if (tagName === "figure" || tagName === "img" || tagName === "audio") {
+    return inlineNodeToMarkdown(node);
+  }
   if (/^h[1-6]$/.test(tagName)) {
     return `${"#".repeat(Number.parseInt(tagName.slice(1), 10))} ${stringifyParagraph(node)}`.trim();
   }
@@ -303,21 +367,22 @@ function stringifyBlockChildren(nodes) {
 export function htmlToEditableMarkdown(htmlText) {
   const raw = String(htmlText ?? "").trim();
   if (!raw) return "";
+  const sanitizedRaw = sanitizeMarkdownHtml(raw);
   if (typeof DOMParser !== "function") {
-    return fallbackHtmlToEditableMarkdown(raw);
+    return fallbackHtmlToEditableMarkdown(sanitizedRaw);
   }
 
   try {
     const parser = new DOMParser();
-    const documentNode = parser.parseFromString(`<div>${raw}</div>`, "text/html");
+    const documentNode = parser.parseFromString(`<div>${sanitizedRaw}</div>`, "text/html");
     const root = documentNode.body.firstElementChild;
     if (!root) {
-      return fallbackHtmlToEditableMarkdown(raw);
+      return fallbackHtmlToEditableMarkdown(sanitizedRaw);
     }
     const markdown = normalizeEditableMarkdown(stringifyBlockChildren(root.childNodes));
-    return markdown || fallbackHtmlToEditableMarkdown(raw);
+    return markdown || fallbackHtmlToEditableMarkdown(sanitizedRaw);
   } catch {
-    return fallbackHtmlToEditableMarkdown(raw);
+    return fallbackHtmlToEditableMarkdown(sanitizedRaw);
   }
 }
 
@@ -331,7 +396,7 @@ function normalizeCardShape(card, index, previousCards = []) {
   const questionText = String(card?.q ?? "").trim();
   const answerHtml =
     typeof card?.a === "string" && card.a.trim()
-      ? card.a
+      ? sanitizeMarkdownHtml(card.a)
       : renderAnswerMarkdown(stripTags(card?.a ?? ""));
 
   return {
