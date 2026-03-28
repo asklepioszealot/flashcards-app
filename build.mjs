@@ -261,6 +261,20 @@ if (fs.existsSync(SUPABASE_UMD_SOURCE)) {
   fs.copyFileSync(SUPABASE_UMD_SOURCE, SUPABASE_UMD_DIST);
 }
 
+const VENDOR_FILES = [
+  { src: path.join("node_modules", "sql.js", "dist", "sql-wasm.js"), dest: path.join(DIST_DIR, "vendor", "sql-wasm.js") },
+  { src: path.join("node_modules", "sql.js", "dist", "sql-wasm.wasm"), dest: path.join(DIST_DIR, "vendor", "sql-wasm.wasm") },
+  { src: path.join("node_modules", "fflate", "esm", "browser.js"), dest: path.join(DIST_DIR, "vendor", "fflate.js") },
+  { src: path.join("node_modules", "dompurify", "dist", "purify.es.mjs"), dest: path.join(DIST_DIR, "vendor", "purify.es.mjs") }
+];
+
+fs.mkdirSync(path.join(DIST_DIR, "vendor"), { recursive: true });
+for (const v of VENDOR_FILES) {
+  if (fs.existsSync(v.src)) {
+    fs.copyFileSync(v.src, v.dest);
+  }
+}
+
 rewriteDistModuleGraph(buildInfo.buildId);
 
 console.log(`Build complete. Build ID: ${buildInfo.buildId}`);
