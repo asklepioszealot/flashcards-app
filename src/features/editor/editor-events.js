@@ -323,8 +323,10 @@ export function bindEditorEvents(draft) {
   });
   document.querySelectorAll("[data-editor-delete-select]").forEach((checkbox) => {
     checkbox.addEventListener("change", (event) => {
+      const cardId = checkbox.getAttribute("data-editor-delete-select");
+      const shouldSelect = event.currentTarget?.checked === true;
       import("./editor-state.js").then(({ toggleEditorDeleteCardSelection }) => {
-        toggleEditorDeleteCardSelection(draft, checkbox.getAttribute("data-editor-delete-select"), event.currentTarget?.checked === true);
+        toggleEditorDeleteCardSelection(draft, cardId, shouldSelect);
         import("./editor-render.js").then(({ renderEditor }) => renderEditor());
       });
     });

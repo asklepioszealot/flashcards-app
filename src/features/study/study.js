@@ -25,6 +25,7 @@ import {
 } from "./assessment.js";
 import { renderAnswerMarkdown } from "../../core/set-codec.js";
 import { showScreen } from "../../app/screen.js";
+import { saveStudyState, getPersistedStudyStateSnapshot } from "../study-state/study-state.js";
 
 // Register nextCard as the advance callback to break the circular import
 // (assessment.js needs nextCard but cannot import from study.js)
@@ -53,7 +54,7 @@ export function displayCard() {
   }
   showAssessmentPanel(false);
   updateAssessmentButtons(getAssessmentLevel(card) || null);
-  import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
+  saveStudyState();
 }
 
 export const previousCard = () => {
@@ -68,22 +69,6 @@ export const nextCard = () => {
     setCurrentCardIndex(currentCardIndex + 1);
     displayCard();
   }
-};
-
-const getPersistedSession = () => {
-  // Lazy import to avoid circular dependency at module init time
-  let session = null;
-  try {
-    // We use a synchronous approach: study-state is already initialized by the time
-    // startStudy() is called, so we can use a side-channel via dynamic read
-    const el = document.getElementById("_fc_session_cache");
-    if (el) {
-      session = JSON.parse(el.dataset.session || "null");
-    }
-  } catch {
-    // ignore
-  }
-  return session;
 };
 
 export function populateTopicFilter() {
@@ -145,7 +130,7 @@ export function setFilter(filter) {
     preferredCardKey: currentCard ? getCardKey(currentCard) : null,
     fallbackIndex: currentCardIndex,
   });
-  import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
+  saveStudyState();
 }
 
 export function filterByTopic(resetFilter = true, options = {}) {
@@ -169,19 +154,16 @@ export function startStudy() {
   setCurrentCardIndex(0);
   populateTopicFilter();
 
-  // Read persisted session via dynamic import
-  import("../study-state/study-state.js").then(({ getPersistedStudyStateSnapshot }) => {
-    const snapshot = getPersistedStudyStateSnapshot();
-    const session = snapshot?.session && typeof snapshot.session === "object" ? snapshot.session : null;
-    if (session?.topic && document.getElementById("topic-select")) {
-      document.getElementById("topic-select").value = session.topic;
-    }
-    setActiveFilter(session?.activeFilter || "all");
-    showScreen("study");
-    filterByTopic(false, {
-      preferredCardKey: typeof session?.currentCardKey === "string" ? session.currentCardKey : null,
-      fallbackIndex: Number.isInteger(session?.currentCardIndex) ? session.currentCardIndex : null,
-    });
+  const snapshot = getPersistedStudyStateSnapshot();
+  const session = snapshot?.session && typeof snapshot.session === "object" ? snapshot.session : null;
+  if (session?.topic && document.getElementById("topic-select")) {
+    document.getElementById("topic-select").value = session.topic;
+  }
+  setActiveFilter(session?.activeFilter || "all");
+  showScreen("study");
+  filterByTopic(false, {
+    preferredCardKey: typeof session?.currentCardKey === "string" ? session.currentCardKey : null,
+    fallbackIndex: Number.isInteger(session?.currentCardIndex) ? session.currentCardIndex : null,
   });
 }
 
@@ -272,7 +254,7 @@ export function toggleFullscreen() {
 export function setAutoAdvance(isEnabled) {
   setAutoAdvanceEnabled(Boolean(isEnabled));
   syncAutoAdvanceToggleUI();
-  import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
+  saveStudyState();
 }
 
 export function showSetManager() {
