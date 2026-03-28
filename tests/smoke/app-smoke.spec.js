@@ -594,6 +594,133 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     expect(relinkState.writeCalls.at(-1)).toContain("Relink ile güncellenen soru");
   });
 
+  test("browser-linked source path survives reload when the loaded set payload omits it", async ({ page }) => {
+    await clearStorage(page);
+    await continueWithDemo(page);
+
+    await page.evaluate(() => {
+      delete window.FileSystemFileHandle;
+      window.__browserWriteCalls = [];
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [{
+          kind: "file",
+          async getFile() {
+            return new File(
+              [["# Persist Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+              "persist-demo.md",
+              { type: "text/markdown" },
+            );
+          },
+          async queryPermission() {
+            return "granted";
+          },
+          async requestPermission() {
+            return "granted";
+          },
+          async createWritable() {
+            return {
+              async write(content) {
+                window.__browserWriteCalls.push(String(content));
+              },
+              async close() {},
+            };
+          },
+        }];
+      };
+    });
+
+    await page.getByRole("button", { name: /Kart Seti Yükle/ }).click();
+    await expect(page.locator("#set-list")).toContainText("Persist Demo");
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+    await page.locator('[data-editor-field="question"]').fill("İlk oturum sorusu");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    const beforeReload = await page.evaluate(({ storageKey, sourcePathKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const sourcePaths = JSON.parse(localStorage.getItem(sourcePathKey) || "{}");
+      if (records[0]) {
+        records[0].sourcePath = "";
+        localStorage.setItem(storageKey, JSON.stringify(records));
+      }
+      return {
+        setId: records[0]?.id || "",
+        sourcePath: sourcePaths[records[0]?.id] || "",
+      };
+    }, {
+      storageKey: userScopedKey(DEMO_USER.id, "set_records"),
+      sourcePathKey: userScopedKey(DEMO_USER.id, "set_source_paths"),
+    });
+
+    expect(beforeReload.setId).toBeTruthy();
+    expect(beforeReload.sourcePath).toMatch(/^webfile:\/\//);
+
+    await page.reload();
+    await expect(page.locator("#set-manager")).toBeVisible();
+
+    await page.evaluate(() => {
+      window.__browserWriteCalls = [];
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [{
+          kind: "file",
+          async getFile() {
+            return new File(
+              [["# Persist Demo", "", "### İlk soru", "", "İlk açıklama"].join("\n")],
+              "persist-demo.md",
+              { type: "text/markdown" },
+            );
+          },
+          async queryPermission() {
+            return "granted";
+          },
+          async requestPermission() {
+            return "granted";
+          },
+          async createWritable() {
+            return {
+              async write(content) {
+                window.__browserWriteCalls.push(String(content));
+              },
+              async close() {},
+            };
+          },
+        }];
+      };
+    });
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+    await page.locator('[data-editor-field="question"]').fill("Yeniden yükleme sonrası soru");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("bağlı yerel dosyalara yazıldı");
+
+    const afterReload = await page.evaluate(({ storageKey, sourcePathKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      const sourcePaths = JSON.parse(localStorage.getItem(sourcePathKey) || "{}");
+      return {
+        records,
+        sourcePaths,
+        pickerCalls: window.__pickerCalls || 0,
+        writeCalls: window.__browserWriteCalls || [],
+      };
+    }, {
+      storageKey: userScopedKey(DEMO_USER.id, "set_records"),
+      sourcePathKey: userScopedKey(DEMO_USER.id, "set_source_paths"),
+    });
+
+    expect(afterReload.records).toHaveLength(1);
+    expect(afterReload.sourcePaths[beforeReload.setId]).toBe(beforeReload.sourcePath);
+    expect(afterReload.records[0].sourcePath).toBe(beforeReload.sourcePath);
+    expect(afterReload.pickerCalls).toBeGreaterThan(0);
+    expect(afterReload.writeCalls.at(-1)).toContain("Yeniden yükleme sonrası soru");
+  });
+
   test("editor uses a question list, preserves tables, and supports add/delete", async ({ page }) => {
     const tableAnswerHtml = [
       "<p>Laboratuvar değerlendirmesi:</p>",
