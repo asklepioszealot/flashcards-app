@@ -261,16 +261,19 @@ const allMarkdownActions = [...primaryMarkdownActions, ...overflowMarkdownAction
 const DEFAULT_EDITOR_FIELD_HEIGHTS = Object.freeze({
   question: 170,
   answer: 220,
+  preview: 240,
 });
 
 const MIN_EDITOR_FIELD_HEIGHTS = Object.freeze({
   question: 136,
   answer: 184,
+  preview: 220,
 });
 const DEFAULT_EDITOR_SPLIT_RATIO = 56;
 const MIN_EDITOR_SPLIT_RATIO = 40;
 const MAX_EDITOR_SPLIT_RATIO = 60;
 const EDITOR_SPLIT_KEYBOARD_STEP = 2;
+const MIN_EDITOR_RAW_HEIGHT = 240;
 
 const MAX_EDITOR_HISTORY_LENGTH = 120;
 
@@ -627,10 +630,12 @@ function getEditorFieldMinimumHeight(field) {
 function ensureEditorFieldHeightsState(fieldHeights = {}) {
   const questionHeight = Number.parseFloat(fieldHeights?.question);
   const answerHeight = Number.parseFloat(fieldHeights?.answer);
+  const previewHeight = Number.parseFloat(fieldHeights?.preview);
 
   return {
     question: Number.isFinite(questionHeight) ? Math.max(Math.round(questionHeight), getEditorFieldMinimumHeight("question")) : getDefaultEditorFieldHeight("question"),
     answer: Number.isFinite(answerHeight) ? Math.max(Math.round(answerHeight), getEditorFieldMinimumHeight("answer")) : getDefaultEditorFieldHeight("answer"),
+    preview: Number.isFinite(previewHeight) ? Math.max(Math.round(previewHeight), getEditorFieldMinimumHeight("preview")) : getDefaultEditorFieldHeight("preview"),
   };
 }
 
@@ -638,6 +643,21 @@ function normalizeEditorSplitRatio(value) {
   const parsedValue = Number.parseInt(value, 10);
   if (!Number.isFinite(parsedValue)) return DEFAULT_EDITOR_SPLIT_RATIO;
   return Math.min(Math.max(parsedValue, MIN_EDITOR_SPLIT_RATIO), MAX_EDITOR_SPLIT_RATIO);
+}
+
+function ensureEditorRawState(rawState = {}) {
+  const height = Number.parseFloat(rawState?.height);
+  const scrollTop = Number.parseFloat(rawState?.scrollTop);
+  const selectionStart = Number.isInteger(rawState?.selectionStart) ? rawState.selectionStart : null;
+  const selectionEnd = Number.isInteger(rawState?.selectionEnd) ? rawState.selectionEnd : selectionStart;
+
+  return {
+    height: Number.isFinite(height) ? Math.max(Math.round(height), MIN_EDITOR_RAW_HEIGHT) : null,
+    scrollTop: Number.isFinite(scrollTop) ? Math.max(scrollTop, 0) : 0,
+    selectionStart,
+    selectionEnd,
+    shouldRestoreFocus: rawState?.shouldRestoreFocus === true,
+  };
 }
 
 function updateEditorSplitElement(cardId, splitRatio) {
@@ -1629,12 +1649,9 @@ function ensureEditorDraftUiState(draft) {
   draft.deleteSelectionCardIds = Array.isArray(draft.deleteSelectionCardIds)
     ? draft.deleteSelectionCardIds.filter((cardId) => availableCardIds.has(cardId))
     : [];
-  draft.fieldHeights = Object.fromEntries(
-    cards.map((card) => [card.id, ensureEditorFieldHeightsState(draft.fieldHeights?.[card.id])]),
-  );
-  draft.splitRatios = Object.fromEntries(
-    cards.map((card) => [card.id, normalizeEditorSplitRatio(draft.splitRatios?.[card.id])]),
-  );
+  draft.fieldHeights = ensureEditorFieldHeightsState(draft.fieldHeights);
+  draft.splitRatio = normalizeEditorSplitRatio(draft.splitRatio);
+  draft.rawEditorState = ensureEditorRawState(draft.rawEditorState);
   draft.fieldHistory = Object.fromEntries(
     cards.map((card) => [
       card.id,
@@ -1693,8 +1710,9 @@ function createEditorDraft(setRecord, previousDraft = null) {
     toolbarExpandedCardId: previousDraft?.toolbarExpandedCardId ?? baseDraft.toolbarExpandedCardId ?? null,
     expandedPreviewCardId: previousDraft?.expandedPreviewCardId ?? baseDraft.expandedPreviewCardId ?? null,
     fieldHeights: previousDraft?.fieldHeights || {},
-    splitRatios: previousDraft?.splitRatios || {},
+    splitRatio: previousDraft?.splitRatio,
     fieldHistory: previousDraft?.fieldHistory || {},
+    rawEditorState: previousDraft?.rawEditorState,
     deleteSelectionMode: previousDraft?.deleteSelectionMode ?? false,
     deleteSelectionCardIds: Array.isArray(previousDraft?.deleteSelectionCardIds) ? [...previousDraft.deleteSelectionCardIds] : [],
     baseUpdatedAt: setRecord?.updatedAt || nowIso(),
@@ -1901,7 +1919,7 @@ function renderEditorTabs() {
   select.onchange = () => {
     if (!select.value || select.value === editorState.activeSetId) return;
     const currentDraft = getCurrentEditorDraft();
-    if (currentDraft) persistFocusedEditorFieldState(currentDraft);
+    if (currentDraft) persistCurrentEditorUiState(currentDraft);
     editorState.activeSetId = select.value;
     editorState.focusedField = null;
     renderEditor();
@@ -2004,18 +2022,29 @@ function renderEditorCardList(draft) {
 }
 
 function renderEditorCardDetail(draft, card, index) {
-  const questionHeight = getEditorFieldHeight(draft, card.id, "question");
-  const answerHeight = getEditorFieldHeight(draft, card.id, "answer");
-  const previewHeight = Math.max(answerHeight + 20, 240);
-  const splitRatio = getEditorSplitRatio(draft, card.id);
+  const questionHeight = getEditorFieldHeight(draft, "question");
+  const answerHeight = getEditorFieldHeight(draft, "answer");
+  const previewHeight = getEditorFieldHeight(draft, "preview");
+  const splitRatio = getEditorSplitRatio(draft);
   return `
     <section class="editor-card editor-card--detail is-open is-active" data-editor-card-root="${card.id}">
       <div class="editor-card-head">
         <div class="editor-card-head-main">
-          <div class="editor-card-title">Kart ${index + 1}</div>
+          <div class="editor-card-title">Kart No ${index + 1}</div>
         </div>
         <div class="editor-card-head-side">
-          <span class="status-pill">Konu: ${escapeMarkup(card.subject)}</span>
+          <div class="status-pill editor-subject-shell">
+            <span class="editor-subject-prefix">Konu</span>
+            <input
+              type="text"
+              class="editor-subject-input"
+              data-editor-subject-input="${card.id}"
+              value="${escapeMarkup(card.subject)}"
+              placeholder="Genel"
+              spellcheck="false"
+              aria-label="Kart konusu"
+            />
+          </div>
         </div>
       </div>
       <div class="editor-card-body" data-editor-card-body="${card.id}">
@@ -2065,7 +2094,12 @@ function renderEditorCardDetail(draft, card, index) {
               <div class="editor-preview-head">
                 <label>Canlı Önizleme</label>
               </div>
-              <div class="editor-preview editor-preview-answer" data-editor-preview="${card.id}" style="height:${previewHeight}px;">${renderAnswerMarkdown(card.explanationMarkdown)}</div>
+              <div
+                class="editor-preview editor-preview-answer"
+                data-editor-preview="${card.id}"
+                data-editor-height-field="preview"
+                style="height:${previewHeight}px;"
+              >${renderAnswerMarkdown(card.explanationMarkdown)}</div>
             </div>
           </div>
         </div>
@@ -2106,7 +2140,11 @@ function renderEditorForm(draft) {
     </div>`;
 }
 
-const renderEditorRaw = (draft) => `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw">${draft.rawSource}</textarea></div>`;
+const renderEditorRaw = (draft) => {
+  const rawEditorState = ensureEditorRawState(draft.rawEditorState);
+  const rawHeightStyle = Number.isFinite(rawEditorState.height) ? ` style="height:${rawEditorState.height}px;"` : "";
+  return `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw" spellcheck="false"${rawHeightStyle}>${draft.rawSource}</textarea></div>`;
+};
 
 function applyMarkdownSnippet(textarea, action) {
   restoreEditorFieldSelection(textarea);
@@ -2192,19 +2230,19 @@ function getEditorFieldNameFromElement(textarea) {
   return textarea.getAttribute("data-editor-field") === "question" ? "question" : "answer";
 }
 
-function getEditorFieldHeight(draft, cardId, field) {
+function getEditorFieldHeight(draft, field) {
   ensureEditorDraftUiState(draft);
-  return draft.fieldHeights?.[cardId]?.[field] || getDefaultEditorFieldHeight(field);
+  return draft.fieldHeights?.[field] || getDefaultEditorFieldHeight(field);
 }
 
-function getEditorSplitRatio(draft, cardId) {
+function getEditorSplitRatio(draft) {
   ensureEditorDraftUiState(draft);
-  return normalizeEditorSplitRatio(draft.splitRatios?.[cardId]);
+  return normalizeEditorSplitRatio(draft.splitRatio);
 }
 
 function setEditorSplitRatio(draft, cardId, value) {
   const splitRatio = normalizeEditorSplitRatio(value);
-  draft.splitRatios[cardId] = splitRatio;
+  draft.splitRatio = splitRatio;
   updateEditorSplitElement(cardId, splitRatio);
   return splitRatio;
 }
@@ -2265,7 +2303,7 @@ function startEditorSplitDrag(draft, cardId, handle, event) {
 
 function handleEditorSplitHandleKeydown(draft, cardId, event) {
   let nextRatio = null;
-  const currentRatio = getEditorSplitRatio(draft, cardId);
+  const currentRatio = getEditorSplitRatio(draft);
   if (event.key === "ArrowLeft") {
     nextRatio = currentRatio - EDITOR_SPLIT_KEYBOARD_STEP;
   } else if (event.key === "ArrowRight") {
@@ -2329,14 +2367,48 @@ function restoreEditorFieldSelection(textarea) {
   textarea.scrollTop = focusedField.scrollTop || 0;
 }
 
-function saveEditorFieldHeight(draft, textarea) {
-  if (!textarea) return;
-  const cardId = textarea.getAttribute("data-card-id");
-  const field = getEditorFieldNameFromElement(textarea);
-  if (!draft.fieldHeights[cardId]) {
-    draft.fieldHeights[cardId] = ensureEditorFieldHeightsState();
+function getEditorHeightFieldName(element) {
+  const explicitField = element?.getAttribute("data-editor-height-field");
+  if (explicitField === "question" || explicitField === "answer" || explicitField === "preview") return explicitField;
+  return element ? getEditorFieldNameFromElement(element) : null;
+}
+
+function saveEditorFieldHeight(draft, element) {
+  if (!draft || !element) return;
+  ensureEditorDraftUiState(draft);
+  const field = getEditorHeightFieldName(element);
+  if (!field) return;
+  draft.fieldHeights[field] = Math.max(Math.round(element.offsetHeight), getEditorFieldMinimumHeight(field));
+}
+
+function saveRawEditorState(draft, rawInput = document.getElementById("editor-raw-input")) {
+  if (!draft || !rawInput) return;
+  draft.rawEditorState = ensureEditorRawState({
+    ...draft.rawEditorState,
+    height: rawInput.offsetHeight || rawInput.getBoundingClientRect().height || draft.rawEditorState?.height,
+    scrollTop: rawInput.scrollTop || 0,
+    selectionStart: typeof rawInput.selectionStart === "number" ? rawInput.selectionStart : null,
+    selectionEnd: typeof rawInput.selectionEnd === "number" ? rawInput.selectionEnd : null,
+    shouldRestoreFocus: document.activeElement === rawInput,
+  });
+}
+
+function restoreRawEditorState(draft) {
+  const rawInput = document.getElementById("editor-raw-input");
+  if (!draft || !rawInput) return;
+  const rawEditorState = ensureEditorRawState(draft.rawEditorState);
+  draft.rawEditorState = rawEditorState;
+  if (Number.isFinite(rawEditorState.height)) {
+    rawInput.style.height = `${rawEditorState.height}px`;
   }
-  draft.fieldHeights[cardId][field] = Math.max(Math.round(textarea.offsetHeight), getEditorFieldMinimumHeight(field));
+  rawInput.scrollTop = rawEditorState.scrollTop || 0;
+  if (!rawEditorState.shouldRestoreFocus) return;
+
+  rawInput.focus();
+  const valueLength = rawInput.value.length;
+  const selectionStart = Math.min(rawEditorState.selectionStart ?? valueLength, valueLength);
+  const selectionEnd = Math.min(rawEditorState.selectionEnd ?? selectionStart, valueLength);
+  rawInput.setSelectionRange(selectionStart, selectionEnd);
 }
 
 function persistFocusedEditorFieldState(draft) {
@@ -2344,6 +2416,12 @@ function persistFocusedEditorFieldState(draft) {
   if (!focusedField) return;
   rememberEditorFieldSelection(focusedField);
   saveEditorFieldHeight(draft, focusedField);
+}
+
+function persistCurrentEditorUiState(draft) {
+  if (!draft) return;
+  persistFocusedEditorFieldState(draft);
+  saveRawEditorState(draft);
 }
 
 function syncEditorFieldFromTextarea(draft, textarea, options = {}) {
@@ -2411,6 +2489,17 @@ function bindEditorTextareaState(draft, textarea) {
   if (typeof ResizeObserver === "function") {
     const resizeObserver = new ResizeObserver(() => saveEditorFieldHeight(draft, textarea));
     resizeObserver.observe(textarea);
+  }
+}
+
+function bindEditorPreviewState(draft, preview) {
+  const syncPreviewHeight = () => saveEditorFieldHeight(draft, preview);
+  preview.addEventListener("mouseup", syncPreviewHeight);
+  preview.addEventListener("pointerup", syncPreviewHeight);
+
+  if (typeof ResizeObserver === "function") {
+    const resizeObserver = new ResizeObserver(syncPreviewHeight);
+    resizeObserver.observe(preview);
   }
 }
 
@@ -2501,6 +2590,18 @@ function bindEditorEvents(draft) {
   document.querySelectorAll('[data-editor-field="question"], [data-editor-field="answer"]').forEach((textarea) => {
     bindEditorTextareaState(draft, textarea);
   });
+  document.querySelectorAll("[data-editor-height-field='preview']").forEach((preview) => {
+    bindEditorPreviewState(draft, preview);
+  });
+  document.querySelectorAll("[data-editor-subject-input]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const card = draft.cards.find((item) => item.id === input.getAttribute("data-editor-subject-input"));
+      if (!card) return;
+      card.subject = input.value;
+      markDraftDirty(draft.setId, true);
+      renderEditorTabs();
+    });
+  });
   document.querySelectorAll("[data-md-action]").forEach((button) => {
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
@@ -2521,11 +2622,24 @@ function bindEditorEvents(draft) {
   });
   const rawInput = document.getElementById("editor-raw-input");
   if (rawInput) {
+    const syncRawInputState = () => saveRawEditorState(draft, rawInput);
     rawInput.addEventListener("input", () => {
       draft.rawSource = rawInput.value;
       markDraftDirty(draft.setId, true);
       renderEditorTabs();
+      syncRawInputState();
     });
+    rawInput.addEventListener("click", syncRawInputState);
+    rawInput.addEventListener("focus", syncRawInputState);
+    rawInput.addEventListener("keyup", syncRawInputState);
+    rawInput.addEventListener("mouseup", syncRawInputState);
+    rawInput.addEventListener("select", syncRawInputState);
+    rawInput.addEventListener("scroll", syncRawInputState);
+    rawInput.addEventListener("blur", syncRawInputState);
+    if (typeof ResizeObserver === "function") {
+      const resizeObserver = new ResizeObserver(syncRawInputState);
+      resizeObserver.observe(rawInput);
+    }
   }
 }
 
@@ -2545,6 +2659,10 @@ function flushEditorFocusedField() {
 
 function renderEditor() {
   stopEditorSplitDrag();
+  const previousDraft = getCurrentEditorDraft();
+  if (previousDraft) {
+    persistCurrentEditorUiState(previousDraft);
+  }
   renderEditorTabs();
   refreshEditorPills();
   showEditorStatus("", "");
@@ -2560,6 +2678,7 @@ function renderEditor() {
   bindEditorEvents(draft);
   flushEditorPendingScroll();
   flushEditorFocusedField();
+  restoreRawEditorState(draft);
 }
 
 function confirmLeaveEditor() {
@@ -2599,6 +2718,7 @@ async function toggleEditorViewMode() {
   const draft = getCurrentEditorDraft();
   if (!draft) return;
   try {
+    persistCurrentEditorUiState(draft);
     if (draft.viewMode === "form") {
       buildRawSourceFromDraft(draft);
       draft.viewMode = "raw";
@@ -2634,6 +2754,7 @@ function resolveEditorConflictDraft(draft, remoteRecord) {
 async function saveEditorDrafts() {
   if (!editorState.draftOrder.length) return;
   try {
+    persistCurrentEditorUiState(getCurrentEditorDraft());
     showEditorStatus("Değişiklikler kaydediliyor...");
     let sourceWriteCount = 0;
     for (const setId of editorState.draftOrder) {

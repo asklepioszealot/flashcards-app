@@ -334,7 +334,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#set-manager")).toBeVisible();
   });
 
-  test("edit mode opens separate editor and saves question text", async ({ page }) => {
+test("edit mode opens separate editor, preserves raw editor state, and saves question text", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
         editor: {
@@ -361,10 +361,39 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
     await expect(page.locator("#editor-add-card-btn")).toBeVisible();
 
-    const questionInput = page.locator('[data-editor-field="question"]').first();
-    await questionInput.fill("Düzenlenmiş soru");
+    await page.locator("#editor-view-toggle-btn").click();
+    const rawInput = page.locator("#editor-raw-input");
+    const longRawSource = [
+      "# Editor Demo",
+      "",
+      "### Düzenlenmiş soru",
+      "",
+      ...Array.from({ length: 80 }, (_, index) => `Açıklama satırı ${index + 1}`),
+    ].join("\n");
+    await rawInput.fill(longRawSource);
+    const rawStateBeforeSave = await page.evaluate(() => {
+      const raw = document.querySelector("#editor-raw-input");
+      raw.style.height = "680px";
+      raw.scrollTop = raw.scrollHeight;
+      raw.dispatchEvent(new Event("scroll"));
+      raw.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return {
+        height: Math.round(raw.getBoundingClientRect().height),
+        scrollTop: Math.round(raw.scrollTop),
+      };
+    });
+
     await page.locator("#editor-save-btn").click();
     await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+    const rawStateAfterSave = await page.evaluate(() => {
+      const raw = document.querySelector("#editor-raw-input");
+      return {
+        height: Math.round(raw.getBoundingClientRect().height),
+        scrollTop: Math.round(raw.scrollTop),
+      };
+    });
+    expect(rawStateAfterSave.height).toBeGreaterThanOrEqual(rawStateBeforeSave.height - 12);
+    expect(rawStateAfterSave.scrollTop).toBeGreaterThan(rawStateBeforeSave.scrollTop / 2);
 
     const savedSetRecords = await page.evaluate(
       ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "[]"),
@@ -495,11 +524,47 @@ test.describe("Flashcards smoke", () => {
     expect(Math.abs(splitWidthsAfterToggle.answer - splitWidthsBeforeToggle.answer)).toBeLessThanOrEqual(24);
     expect(Math.abs(splitWidthsAfterToggle.preview - splitWidthsBeforeToggle.preview)).toBeLessThanOrEqual(24);
 
+    const expandedHeights = await page.evaluate(() => {
+      const question = document.querySelector('[data-editor-field="question"][data-card-id="card-1"]');
+      const answer = document.querySelector('[data-editor-field="answer"][data-card-id="card-1"]');
+      const preview = document.querySelector('[data-editor-preview="card-1"]');
+      question.style.height = "260px";
+      answer.style.height = "320px";
+      preview.style.height = "360px";
+      question.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      answer.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      preview.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return {
+        question: Math.round(question.getBoundingClientRect().height),
+        answer: Math.round(answer.getBoundingClientRect().height),
+        preview: Math.round(preview.getBoundingClientRect().height),
+      };
+    });
+    await page.waitForTimeout(50);
+
     await page.locator('[data-editor-select-card="card-2"]').click();
     await expect(page.locator('[data-editor-select-card="card-2"]')).toHaveClass(/active/);
     await expect(page.locator('[data-editor-field="question"][data-card-id="card-2"]')).toHaveValue(
       "İkinci soru",
     );
+    const card2Heights = await page.evaluate(() => {
+      const question = document.querySelector('[data-editor-field="question"][data-card-id="card-2"]');
+      const answer = document.querySelector('[data-editor-field="answer"][data-card-id="card-2"]');
+      const preview = document.querySelector('[data-editor-preview="card-2"]');
+      return {
+        question: Math.round(question.getBoundingClientRect().height),
+        answer: Math.round(answer.getBoundingClientRect().height),
+        preview: Math.round(preview.getBoundingClientRect().height),
+      };
+    });
+    expect(Math.abs(card2Heights.question - expandedHeights.question)).toBeLessThanOrEqual(12);
+    expect(Math.abs(card2Heights.answer - expandedHeights.answer)).toBeLessThanOrEqual(12);
+    expect(Math.abs(card2Heights.preview - expandedHeights.preview)).toBeLessThanOrEqual(12);
+
+    await page.locator('[data-editor-select-card="card-3"]').click();
+    const subjectInput = page.locator('[data-editor-subject-input="card-3"]');
+    await expect(subjectInput).toHaveValue("Konu 3");
+    await subjectInput.fill("Revize Konu 3");
 
     await page.locator("#editor-add-card-btn").click();
     await expect(page.locator(".editor-list-row")).toHaveCount(4);
@@ -523,6 +588,7 @@ test.describe("Flashcards smoke", () => {
       { storageKey: userScopedKey(DEMO_USER.id, "set_records") },
     );
     expect(savedSetRecords[0].cards).toHaveLength(3);
+    expect(savedSetRecords[0].cards.find((card) => card.id === "card-3")?.subject).toBe("Revize Konu 3");
     expect(savedSetRecords[0].cards.some((card) => card.q === "İkinci soru")).toBe(false);
     expect(savedSetRecords[0].cards.some((card) => card.q === "Yeni soru")).toBe(true);
     expect(savedSetRecords[0].rawSource).toContain("| Tetkik | Yorum |");

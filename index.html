@@ -1325,7 +1325,10 @@
       }
 
       .editor-list-handle-text {
-        font-size: 13px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .editor-workspace.is-list-closed .editor-list-sidebar {
@@ -1378,6 +1381,13 @@
         justify-content: flex-end;
         gap: 8px;
         flex-wrap: wrap;
+      }
+
+      .editor-list-actions .btn {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .editor-list-action-toggle.active {
@@ -1625,9 +1635,42 @@
       }
 
       .editor-card-title {
-        font-size: 18px;
+        font-size: 11px;
         font-weight: 700;
-        color: var(--color-text-primary);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--color-text-secondary);
+      }
+
+      .editor-subject-shell {
+        max-width: min(100%, 320px);
+      }
+
+      .editor-subject-prefix {
+        color: var(--color-text-secondary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .editor-subject-input {
+        min-width: 120px;
+        flex: 1 1 120px;
+        width: auto;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+      }
+
+      .editor-subject-input:focus {
+        outline: none;
+      }
+
+      .editor-subject-input::placeholder {
+        color: var(--color-text-secondary);
       }
 
       .editor-card-expand-btn {
