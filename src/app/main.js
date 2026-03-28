@@ -111,10 +111,10 @@ const normalizeSetCollection = (records) =>
       return leftValue.setName.localeCompare(rightValue.setName, "tr");
     });
 
-const supportsBrowserFileAccess =
-  !isDesktopRuntime()
-  && typeof window.showOpenFilePicker === "function"
-  && typeof window.FileSystemFileHandle !== "undefined";
+function supportsBrowserFileAccess() {
+  return !isDesktopRuntime()
+    && typeof window.showOpenFilePicker === "function";
+}
 
 function isWebLinkedSourcePath(sourcePath) {
   return String(sourcePath || "").startsWith(WEB_FILE_SOURCE_PREFIX);
@@ -1048,7 +1048,7 @@ async function importSetFromText(text, fileName, sourcePath = "", webFileHandle 
 }
 
 async function tryBrowserFileSystemImport() {
-  if (!supportsBrowserFileAccess) return false;
+  if (!supportsBrowserFileAccess()) return false;
 
   try {
     const handles = await window.showOpenFilePicker({
@@ -1548,17 +1548,23 @@ function toggleFullscreen() {
   isFullscreen = !isFullscreen;
   const container = document.querySelector(".card-container");
   if (!container) return;
+  const fullscreenToggleButton = document.getElementById("fullscreen-toggle-btn");
   if (isFullscreen) {
     container.classList.add("fullscreen-active");
     document.body.style.overflow = "hidden";
-    document.getElementById("fullscreen-toggle-btn").textContent = "✕";
-    document.getElementById("fullscreen-toggle-btn").title = "Tam ekrandan çık (ESC / F)";
+    if (fullscreenToggleButton) {
+      fullscreenToggleButton.textContent = "✕";
+      fullscreenToggleButton.title = "Tam ekrandan çık (ESC / F)";
+    }
   } else {
     container.classList.remove("fullscreen-active");
     document.body.style.overflow = "auto";
-    document.getElementById("fullscreen-toggle-btn").textContent = "⛶";
-    document.getElementById("fullscreen-toggle-btn").title = "Tam ekran (F)";
+    if (fullscreenToggleButton) {
+      fullscreenToggleButton.textContent = "⛶";
+      fullscreenToggleButton.title = "Tam ekran (F)";
+    }
   }
+  fullscreenToggleButton?.blur();
 }
 
 function flipCard() {
@@ -2022,6 +2028,9 @@ function renderEditorCardList(draft) {
 }
 
 function renderEditorCardDetail(draft, card, index) {
+  const subjectFieldId = `editor-subject-${card.id}`;
+  const questionFieldId = `editor-question-${card.id}`;
+  const answerFieldId = `editor-answer-${card.id}`;
   const questionHeight = getEditorFieldHeight(draft, "question");
   const answerHeight = getEditorFieldHeight(draft, "answer");
   const previewHeight = getEditorFieldHeight(draft, "preview");
@@ -2033,28 +2042,32 @@ function renderEditorCardDetail(draft, card, index) {
           <div class="editor-card-title">Kart No ${index + 1}</div>
         </div>
         <div class="editor-card-head-side">
-          <div class="status-pill editor-subject-shell">
+          <label class="status-pill editor-subject-shell" for="${subjectFieldId}">
             <span class="editor-subject-prefix">Konu</span>
             <input
               type="text"
+              id="${subjectFieldId}"
               class="editor-subject-input"
               data-editor-subject-input="${card.id}"
+              name="editor-subject-${card.id}"
               value="${escapeMarkup(card.subject)}"
               placeholder="Genel"
               spellcheck="false"
               aria-label="Kart konusu"
             />
-          </div>
+          </label>
         </div>
       </div>
       <div class="editor-card-body" data-editor-card-body="${card.id}">
         ${renderEditorFormattingToolbar(card.id)}
         <div class="field-group">
-          <label>Soru</label>
+          <label for="${questionFieldId}">Soru</label>
           <textarea
+            id="${questionFieldId}"
             class="editor-input-question"
             data-editor-field="question"
             data-card-id="${card.id}"
+            name="editor-question-${card.id}"
             placeholder="Soruyu yaz..."
             style="height:${questionHeight}px;"
           >${escapeMarkup(card.question)}</textarea>
@@ -2067,12 +2080,14 @@ function renderEditorCardDetail(draft, card, index) {
           <div class="editor-split-pane">
             <div class="field-group">
               <div class="editor-markdown-head">
-                <label>Açıklama (Markdown)</label>
+                <label for="${answerFieldId}">Açıklama (Markdown)</label>
               </div>
               <textarea
+                id="${answerFieldId}"
                 class="editor-input-answer"
                 data-editor-field="answer"
                 data-card-id="${card.id}"
+                name="editor-answer-${card.id}"
                 placeholder="Markdown açıklamasını yaz..."
                 style="height:${answerHeight}px;"
               >${escapeMarkup(card.explanationMarkdown)}</textarea>
@@ -2143,7 +2158,7 @@ function renderEditorForm(draft) {
 const renderEditorRaw = (draft) => {
   const rawEditorState = ensureEditorRawState(draft.rawEditorState);
   const rawHeightStyle = Number.isFinite(rawEditorState.height) ? ` style="height:${rawEditorState.height}px;"` : "";
-  return `<div class="field-group"><label>Raw Code</label><textarea id="editor-raw-input" class="editor-raw" spellcheck="false"${rawHeightStyle}>${draft.rawSource}</textarea></div>`;
+  return `<div class="field-group"><label for="editor-raw-input">Raw Code</label><textarea id="editor-raw-input" name="editor-raw-input" class="editor-raw" spellcheck="false"${rawHeightStyle}>${draft.rawSource}</textarea></div>`;
 };
 
 function applyMarkdownSnippet(textarea, action) {

@@ -1643,7 +1643,8 @@
       }
 
       .editor-subject-shell {
-        max-width: min(100%, 320px);
+        width: min(100%, 300px);
+        max-width: min(100%, 300px);
       }
 
       .editor-subject-prefix {
@@ -2804,7 +2805,7 @@
       <div class="set-actions">
         <button class="btn btn-secondary" onclick="authGoogleDrive()">☁️ Drive'dan Yükle</button>
         <button class="btn btn-secondary" type="button" onclick="triggerSetImport()">📂 Kart Seti Yükle (.json, .md)</button>
-        <input type="file" id="file-picker" accept=".json, .txt, .md" multiple hidden onchange="handleFileSelect(event)" />
+        <input type="file" id="file-picker" name="file-picker" accept=".json, .txt, .md" multiple hidden aria-label="Kart seti dosyalarını seç" onchange="handleFileSelect(event)" />
         <button class="btn" id="start-btn" onclick="startStudy()" disabled>
           ▶ Başla
         </button>
@@ -2827,6 +2828,7 @@
             <input
               type="checkbox"
               id="auto-advance-toggle-manager"
+              name="auto-advance-toggle-manager"
               onchange="setAutoAdvance(this.checked)"
               checked
             />
@@ -2869,7 +2871,7 @@
 
         <div class="editor-set-switch">
           <label for="editor-set-select">Düzenlenen Set</label>
-          <select id="editor-set-select"></select>
+          <select id="editor-set-select" name="editor-set-select"></select>
         </div>
         <div class="editor-meta">
           <span class="status-pill" id="editor-active-set-pill">Set: -</span>
@@ -2906,16 +2908,18 @@
           <p>Dr. Ahmet Kara 🩺</p>
         </div>
         <div class="header-controls">
-          <select id="topic-select" onchange="filterByTopic()">
+          <select id="topic-select" name="topic-select" aria-label="Konu filtresi" onchange="filterByTopic()">
             <option value="hepsi">Tüm Başlıklar</option>
           </select>
 
           <input
             type="number"
             id="jump-input"
+            name="jump-input"
             min="1"
             max="20"
             placeholder="Soru No"
+            aria-label="Soru numarasına git"
           />
 
           <div class="theme-control">
@@ -3002,7 +3006,7 @@
           <div class="card-counter" id="fullscreen-card-counter">1 / 20</div>
         </div>
         <div class="card" id="flashcard" onclick="flipCard()">
-          <button class="fullscreen-toggle-btn" id="fullscreen-toggle-btn" onclick="event.stopPropagation(); toggleFullscreen()" title="Tam ekran (F)">⛶</button>
+          <button class="fullscreen-toggle-btn" id="fullscreen-toggle-btn" type="button" aria-label="Tam ekranı aç veya kapat" onclick="event.stopPropagation(); toggleFullscreen()" title="Tam ekran (F)">⛶</button>
           <div class="card-face card-front">
             <div class="card-content-wrapper">
               <div class="card-label">SORU</div>

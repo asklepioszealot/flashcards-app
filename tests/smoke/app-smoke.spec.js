@@ -411,6 +411,70 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#question-text")).toHaveText("Düzenlenmiş soru");
   });
 
+  test("browser-backed save stays available when Chromium omits FileSystemFileHandle", async ({ page }) => {
+    await clearStorage(page);
+    await continueWithDemo(page);
+    await page.evaluate(() => {
+      delete window.FileSystemFileHandle;
+      window.__browserWriteCalls = [];
+      window.showOpenFilePicker = async () => [{
+        kind: "file",
+        async getFile() {
+          return new File(
+            [[
+              "# Chromium Save Demo",
+              "",
+              "### İlk soru",
+              "Konu: Demo",
+              "",
+              "İlk açıklama",
+            ].join("\n")],
+            "chromium-save-demo.md",
+            { type: "text/markdown" },
+          );
+        },
+        async queryPermission() {
+          return "granted";
+        },
+        async requestPermission() {
+          return "granted";
+        },
+        async createWritable() {
+          return {
+            async write(content) {
+              window.__browserWriteCalls.push(String(content));
+            },
+            async close() {},
+          };
+        },
+      }];
+    });
+    await page.getByRole("button", { name: /Kart Seti Yükle/ }).click();
+
+    await expect(page.locator("#set-list")).toContainText("Chromium Save Demo");
+    await expect(page.locator("#edit-selected-btn")).toBeEnabled();
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    await page.locator('[data-editor-field="question"]').fill("Güncellenmiş Chromium sorusu");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    const savedState = await page.evaluate(({ storageKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return {
+        records,
+        writeCalls: window.__browserWriteCalls || [],
+      };
+    }, { storageKey: userScopedKey(DEMO_USER.id, "set_records") });
+
+    expect(savedState.records).toHaveLength(1);
+    expect(savedState.records[0].sourcePath).toMatch(/^webfile:\/\//);
+    expect(savedState.writeCalls.length).toBeGreaterThan(0);
+    expect(savedState.writeCalls.at(-1)).toContain("Güncellenmiş Chromium sorusu");
+  });
+
   test("editor uses a question list, preserves tables, and supports add/delete", async ({ page }) => {
     const tableAnswerHtml = [
       "<p>Laboratuvar değerlendirmesi:</p>",
@@ -921,8 +985,32 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     const snapshot = await readUserScopedJson(page, "assessments");
     expect(snapshot["set:stable::id:stable-card-1"]).toBe("know");
   });
-test("fullscreen toggle works and card navigation remains functional", async ({ page }) => {
-    await loadFixtureAndStart(page);
+
+  test("fullscreen toggle works and card navigation remains functional", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        fullscreen: {
+          setName: "Fullscreen Demo",
+          fileName: "fullscreen-demo.json",
+          cards: [
+            {
+              id: "fullscreen-card-1",
+              q: "İlk soru",
+              a: "İlk açıklama",
+              subject: "Genel",
+            },
+            {
+              id: "fullscreen-card-2",
+              q: "İkinci soru",
+              a: "İkinci açıklama",
+              subject: "Genel",
+            },
+          ],
+        },
+      },
+      selectedSetIds: ["fullscreen"],
+    });
+    await page.locator("#start-btn").click();
 
     const container = page.locator('.card-container');
     const fullscreenBtn = page.locator('#fullscreen-toggle-btn');
@@ -931,8 +1019,14 @@ test("fullscreen toggle works and card navigation remains functional", async ({ 
 
     await fullscreenBtn.click();
     await expect(container).toHaveClass(/fullscreen-active/);
+    await expect(fullscreenBtn).not.toBeFocused();
     await expect(page.locator('.card-container.fullscreen-active #fullscreen-card-counter')).toBeVisible();
     await expect(page.locator('#fullscreen-nav-bar button')).toHaveCount(5);
+
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#fullscreen-card-counter')).toContainText('2 /');
+    await page.keyboard.press('Enter');
+    await expect(container).toHaveClass(/fullscreen-active/);
 
     await page.locator('#flashcard').click();
     await expect(page.locator('#flashcard')).toHaveClass(/flipped/);
