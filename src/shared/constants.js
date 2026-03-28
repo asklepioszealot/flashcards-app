@@ -32,12 +32,34 @@ export const DEFAULT_EDITOR_SPLIT_RATIO = 56;
 export const MIN_EDITOR_SPLIT_RATIO = 40;
 export const MAX_EDITOR_SPLIT_RATIO = 60;
 export const EDITOR_SPLIT_KEYBOARD_STEP = 2;
-export const MIN_EDITOR_RAW_HEIGHT = 240;
+export const MIN_EDITOR_RAW_HEIGHT = 400;
 export const MAX_EDITOR_HISTORY_LENGTH = 120;
 
+export const DEFAULT_REVIEW_PREFERENCES = Object.freeze({
+  memoryTargetPercent: 85,
+  intervalMultiplier: 1,
+});
+
+export const REVIEW_MEMORY_TARGET_OPTIONS = Object.freeze([75, 80, 85, 90, 95]);
+export const REVIEW_INTERVAL_MULTIPLIER_OPTIONS = Object.freeze([
+  0.8,
+  0.85,
+  0.9,
+  0.95,
+  1,
+  1.05,
+  1.1,
+  1.15,
+  1.2,
+  1.25,
+  1.3,
+]);
+
 export const primaryMarkdownActions = [
-  { id: "undo", label: "Geri", title: "Geri al" },
-  { id: "redo", label: "İleri", title: "İleri al" },
+  { id: "undo", label: "Geri al", title: "Geri al", icon: "rotate-ccw", iconOnly: true },
+  { id: "redo", label: "İleri al", title: "İleri al", icon: "rotate-cw", iconOnly: true },
+  { id: "code", label: "Kod", title: "Kod", icon: "code", iconOnly: true },
+  { id: "attachment", label: "Eklenti", title: "Görsel veya ses ekle", icon: "paperclip", iconOnly: true },
   { id: "bold", label: "B", title: "Kalın" },
   { id: "critical", label: "!!", title: "Kritik vurgu" },
   { id: "warning", label: "Uyarı", title: "Uyarı kutusu" },
@@ -51,7 +73,6 @@ export const overflowMarkdownActions = [
   { id: "heading", label: "H2", title: "Başlık" },
   { id: "quote", label: "Alıntı", title: "Alıntı" },
   { id: "link", label: "Link", title: "Bağlantı ekle" },
-  { id: "code", label: "</>", title: "Kod" },
   { id: "divider", label: "Ayraç", title: "Ayraç" },
   { id: "table", label: "Tablo", title: "Tablo şablonu" },
 ];

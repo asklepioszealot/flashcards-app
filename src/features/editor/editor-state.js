@@ -52,7 +52,7 @@ export function ensureEditorRawState(rawState = {}) {
   const selectionEnd = Number.isInteger(rawState?.selectionEnd) ? rawState.selectionEnd : selectionStart;
 
   return {
-    height: Number.isFinite(height) ? Math.max(Math.round(height), MIN_EDITOR_RAW_HEIGHT) : null,
+    height: Number.isFinite(height) ? Math.max(Math.round(height), MIN_EDITOR_RAW_HEIGHT) : MIN_EDITOR_RAW_HEIGHT,
     scrollTop: Number.isFinite(scrollTop) ? Math.max(scrollTop, 0) : 0,
     selectionStart,
     selectionEnd,

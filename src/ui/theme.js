@@ -1,21 +1,21 @@
 const THEME_METADATA = Object.freeze({
   light: Object.freeze({
-    label: "Aydınlık",
+    label: "AYDINLIK",
     sortGroup: 0,
     sortLabel: "Aydinlik",
   }),
   midnight: Object.freeze({
-    label: "Karanlık",
+    label: "KARANLIK",
     sortGroup: 1,
     sortLabel: "Karanlik",
   }),
   dark: Object.freeze({
-    label: "Mavi",
+    label: "MAVİ",
     sortGroup: 2,
     sortLabel: "Mavi",
   }),
   ember: Object.freeze({
-    label: "Amber",
+    label: "AMBER",
     sortGroup: 2,
     sortLabel: "Amber",
   }),

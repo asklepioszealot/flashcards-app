@@ -47,7 +47,20 @@ describe("Analytics dashboard data", () => {
     expect(snapshot.assessedCount).toBe(3);
     expect(snapshot.successRate).toBe(33);
     expect(snapshot.retention.rate).toBe(50);
+    expect(snapshot.retention.target).toBe(85);
     expect(snapshot.retention.dueCount).toBe(1);
     expect(snapshot.dailyActivity.some((day) => day.count > 0)).toBe(true);
+  });
+
+  it("should use the persisted memory target for the Bellek card target marker", () => {
+    const snapshot = buildAnalyticsSnapshot(
+      [{ id: "card-1", q: "Q1", a: "A1", __cardKey: "set:s1::id:card-1" }],
+      { "set:s1::id:card-1": "know" },
+      {},
+      new Date("2026-03-10T12:00:00.000Z"),
+      { memoryTargetPercent: 90, intervalMultiplier: 1.05 },
+    );
+
+    expect(snapshot.retention.target).toBe(90);
   });
 });

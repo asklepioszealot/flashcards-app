@@ -13,6 +13,7 @@ import {
   reviewSchedule, setReviewSchedule,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
   isAnalyticsVisible, setIsAnalyticsVisible,
+  reviewPreferences, setReviewPreferences,
   filteredFlashcards,
   cardOrder,
   currentCardIndex,
@@ -57,6 +58,7 @@ export function getLegacyStudyStateSnapshot() {
   const storedSession = getUserJson("session", null);
   const autoAdvanceRaw = getUserText("auto_advance");
   const analyticsVisibleRaw = getUserText("analytics_visible");
+  const storedReviewPreferences = getUserJson("review_preferences", null);
   return normalizeStudyStateSnapshot({
     selectedSetIds: Array.isArray(storedSelected) ? storedSelected : [],
     assessments: isPlainObject(storedAssessments) ? storedAssessments : {},
@@ -64,6 +66,7 @@ export function getLegacyStudyStateSnapshot() {
     session: isPlainObject(storedSession) ? storedSession : null,
     autoAdvanceEnabled: autoAdvanceRaw === null ? true : autoAdvanceRaw === "1",
     isAnalyticsVisible: analyticsVisibleRaw === "1",
+    reviewPreferences: storedReviewPreferences,
     updatedAt: null,
   });
 }
@@ -92,6 +95,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
     },
     autoAdvanceEnabled,
     isAnalyticsVisible,
+    reviewPreferences,
     updatedAt: options.updatedAt || nowIso(),
   });
 }
@@ -105,6 +109,7 @@ export function persistStudyStateSnapshot(snapshot) {
   setUserJson("review_schedule", normalizedSnapshot.reviewSchedule);
   setUserText("auto_advance", normalizedSnapshot.autoAdvanceEnabled ? "1" : "0");
   setUserText("analytics_visible", normalizedSnapshot.isAnalyticsVisible ? "1" : "0");
+  setUserJson("review_preferences", normalizedSnapshot.reviewPreferences);
   setUserJson("session", normalizedSnapshot.session);
 }
 
@@ -136,6 +141,7 @@ export function applyStudyStateSnapshot(snapshot) {
   setReviewSchedule(isPlainObject(normalizedSnapshot.reviewSchedule) ? normalizedSnapshot.reviewSchedule : {});
   setAutoAdvanceEnabled(normalizedSnapshot.autoAdvanceEnabled !== false);
   setIsAnalyticsVisible(normalizedSnapshot.isAnalyticsVisible === true);
+  setReviewPreferences(normalizedSnapshot.reviewPreferences);
   import("../study/study.js").then(({ syncAutoAdvanceToggleUI, syncReviewScheduleUi }) => {
     syncAutoAdvanceToggleUI();
     syncReviewScheduleUi();

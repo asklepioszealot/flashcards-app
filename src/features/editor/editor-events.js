@@ -80,6 +80,27 @@ export function resolveEditorToolbarTarget(cardId) {
     || document.querySelector(`[data-editor-field="answer"][data-card-id="${escapedCardId}"]`);
 }
 
+function closeAttachmentMenus() {
+  document.querySelectorAll("[data-editor-attachment-toggle]").forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+  document.querySelectorAll(".editor-attachment-menu").forEach((menu) => {
+    menu.hidden = true;
+  });
+}
+
+function toggleAttachmentMenu(button) {
+  const menuId = button?.getAttribute("aria-controls");
+  if (!menuId) return;
+  const menu = document.getElementById(menuId);
+  if (!menu) return;
+  const nextExpanded = button.getAttribute("aria-expanded") !== "true";
+  closeAttachmentMenus();
+  if (!nextExpanded) return;
+  menu.hidden = false;
+  button.setAttribute("aria-expanded", "true");
+}
+
 export function getEditorFieldNameFromElement(textarea) {
   return textarea.getAttribute("data-editor-field") === "question" ? "question" : "answer";
 }
@@ -413,7 +434,16 @@ export function bindEditorEvents(draft) {
       if (textarea) {
         setFocusedEditorField(textarea);
         applyMarkdownSnippet(textarea, action);
+        closeAttachmentMenus();
       }
+    });
+  });
+  document.querySelectorAll("[data-editor-attachment-toggle]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    button.addEventListener("click", () => {
+      toggleAttachmentMenu(button);
     });
   });
   const rawInput = document.getElementById("editor-raw-input");

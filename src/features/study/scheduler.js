@@ -1,3 +1,6 @@
+import { DEFAULT_REVIEW_PREFERENCES } from "../../shared/constants.js";
+import { normalizeReviewPreferences } from "../../shared/utils.js";
+
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 const REVIEW_RATINGS = {
@@ -78,23 +81,29 @@ export function normalizeReviewScheduleMap(value, fallback = {}) {
 }
 
 // SM-2 tabanini, okunabilir difficulty/stability alanlariyla hafifletiyoruz.
-export function scheduleNextReview(level, previousEntry = null, reviewedAt = new Date()) {
+export function scheduleNextReview(
+  level,
+  previousEntry = null,
+  reviewedAt = new Date(),
+  reviewPreferences = DEFAULT_REVIEW_PREFERENCES,
+) {
   const rating = resolveRating(level);
   const previous = normalizeReviewScheduleEntry(previousEntry);
   const reviewedAtMs = resolveTimestamp(reviewedAt);
   const reviewedAtIso = new Date(reviewedAtMs).toISOString();
+  const normalizedPreferences = normalizeReviewPreferences(reviewPreferences);
 
   let easeFactor = previous?.easeFactor ?? 2.5;
   let repetition = previous?.repetition ?? 0;
   let lapses = previous?.lapses ?? 0;
-  let intervalDays = previous?.intervalDays ?? 0;
+  let baseIntervalDays = previous?.intervalDays ?? 0;
 
   if (rating < 3) {
     repetition = 0;
     lapses += 1;
     easeFactor = clamp(easeFactor - 0.2, 1.3, 3.5);
     const fallbackInterval = previous?.intervalDays ?? 0.5;
-    intervalDays = Math.max(4 / 24, Math.min(1, fallbackInterval * 0.35));
+    baseIntervalDays = Math.max(4 / 24, Math.min(1, fallbackInterval * 0.35));
   } else {
     repetition += 1;
     easeFactor = clamp(
@@ -104,15 +113,21 @@ export function scheduleNextReview(level, previousEntry = null, reviewedAt = new
     );
 
     if (repetition === 1) {
-      intervalDays = rating >= 5 ? 1 : 0.5;
+      baseIntervalDays = rating >= 5 ? 1 : 0.5;
     } else if (repetition === 2) {
-      intervalDays = rating >= 5 ? 3 : 2;
+      baseIntervalDays = rating >= 5 ? 3 : 2;
     } else {
       const baseInterval = previous?.intervalDays || (rating >= 5 ? 3 : 2);
       const ratingMultiplier = rating >= 5 ? 1.15 : 0.9;
-      intervalDays = Math.max(0.5, baseInterval * easeFactor * ratingMultiplier);
+      baseIntervalDays = Math.max(0.5, baseInterval * easeFactor * ratingMultiplier);
     }
   }
+
+  const memoryBias = clamp(1 - ((normalizedPreferences.memoryTargetPercent - 85) * 0.02), 0.8, 1.2);
+  let intervalDays = baseIntervalDays * normalizedPreferences.intervalMultiplier * memoryBias;
+  intervalDays = rating < 3
+    ? Math.max(4 / 24, Math.min(1, intervalDays))
+    : Math.max(0.5, intervalDays);
 
   const difficultyDelta = level === "dunno" ? 0.7 : level === "review" ? 0.15 : -0.35;
   const difficulty = roundNumber(clamp((previous?.difficulty ?? 5) + difficultyDelta, 1, 10), 2);

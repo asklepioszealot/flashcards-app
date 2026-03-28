@@ -199,10 +199,10 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#auth-screen")).toBeVisible();
     await expect(page.locator("#theme-select-auth")).toBeVisible();
     await expect(page.locator("#theme-select-auth option")).toHaveText([
-      "Aydınlık",
-      "Karanlık",
-      "Amber",
-      "Mavi",
+      "AYDINLIK",
+      "KARANLIK",
+      "AMBER",
+      "MAVİ",
     ]);
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
@@ -214,6 +214,7 @@ test.describe("Flashcards smoke", () => {
 
     await expect(setManager).toBeVisible();
     await expect(page.locator("#analytics-toggle-btn")).toBeVisible();
+    await expect(page.locator("#analytics-toggle-btn")).toContainText("İstatistikler");
     await expect(page.locator("#analytics-dashboard-manager")).toBeHidden();
     await expect(setManagerHint).toBeVisible();
     await expect(setManagerHint).toContainText("Space");
@@ -275,10 +276,27 @@ test.describe("Flashcards smoke", () => {
     await page.locator("#analytics-toggle-btn").click();
     await expect(page.locator("#analytics-dashboard-manager")).toBeVisible();
     await expect(page.locator("#analytics-summary-manager")).toContainText("2 kart");
+    await expect(page.locator("#analytics-dashboard-manager")).toContainText("Bellek");
+    await expect(page.locator('[data-analytics-preference="memoryTargetPercent"]')).toHaveValue("85");
+    await expect(page.locator('[data-analytics-preference="intervalMultiplier"]')).toHaveValue("1");
+    const analyticsSpacing = await page.evaluate(() => {
+      const row = document.querySelector(".manager-settings-row");
+      const dashboard = document.querySelector("#analytics-dashboard-manager");
+      return Math.round(dashboard.getBoundingClientRect().top - row.getBoundingClientRect().bottom);
+    });
+    expect(analyticsSpacing).toBeGreaterThanOrEqual(16);
     await expect.poll(async () => readUserScopedText(page, "analytics_visible")).toBe("1");
+    await page.selectOption('[data-analytics-preference="memoryTargetPercent"]', "90");
+    await page.selectOption('[data-analytics-preference="intervalMultiplier"]', "1.15");
+    await expect.poll(async () => readUserScopedJson(page, "review_preferences")).toEqual({
+      memoryTargetPercent: 90,
+      intervalMultiplier: 1.15,
+    });
 
     await page.reload();
     await expect(page.locator("#analytics-dashboard-manager")).toBeVisible();
+    await expect(page.locator('[data-analytics-preference="memoryTargetPercent"]')).toHaveValue("90");
+    await expect(page.locator('[data-analytics-preference="intervalMultiplier"]')).toHaveValue("1.15");
 
     await page.locator("#analytics-close-btn").click();
     await expect(page.locator("#analytics-dashboard-manager")).toBeHidden();
@@ -421,14 +439,17 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     });
     const editorChrome = await page.evaluate(() => {
       const subjectShell = document.querySelector(".editor-subject-shell");
+      const cardTitle = document.querySelector(".editor-card-title");
       const rootStyles = getComputedStyle(document.documentElement);
       return {
         subjectWidth: Math.round(subjectShell?.getBoundingClientRect().width || 0),
+        cardTitleFontSize: getComputedStyle(cardTitle).fontSize,
         sidebarBase: rootStyles.getPropertyValue("--editor-sidebar-base").trim(),
         sidebarPanelBase: rootStyles.getPropertyValue("--editor-sidebar-panel-base").trim(),
       };
     });
     expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(358);
+    expect(editorChrome.cardTitleFontSize).toBe("13px");
     expect(editorChrome.sidebarBase).not.toContain("15, 23, 42");
     expect(editorChrome.sidebarPanelBase).not.toContain("15, 23, 42");
     await page.selectOption("#theme-select-editor", "dark");
@@ -442,9 +463,31 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     expect(darkEditorChrome.sidebarBase).toContain("15, 23, 42");
     expect(darkEditorChrome.sidebarPanelBase).toContain("15, 23, 42");
     await page.selectOption("#theme-select-editor", "light");
+    await expect(page.locator("#theme-select-editor option")).toHaveText([
+      "AYDINLIK",
+      "KARANLIK",
+      "AMBER",
+      "MAVİ",
+    ]);
+    await expect(page.locator('[data-md-action="undo"]')).toBeVisible();
+    await expect(page.locator('[data-md-action="redo"]')).toBeVisible();
+    await expect(page.locator('[data-md-action="code"]')).toBeVisible();
+    await page.locator('[data-md-action="code"]').click();
+    await expect(page.locator('[data-editor-field="question"]')).toHaveValue(/`kod`/);
+    await page.locator('[data-editor-field="question"]').fill("İlk soru");
+    await page.locator('[data-editor-attachment-toggle]').click();
+    await page.locator('[data-md-action="attachment-image"]').click();
+    await expect(page.locator('[data-editor-field="question"]')).toHaveValue(
+      /!\[Açıklama\]\(https:\/\/example\.com\/gorsel\.png\)/,
+    );
+    await page.locator('[data-editor-field="question"]').fill("İlk soru");
 
     await page.locator("#editor-view-toggle-btn").click();
     const rawInput = page.locator("#editor-raw-input");
+    await expect.poll(async () => {
+      const box = await rawInput.boundingBox();
+      return Math.round(box?.height || 0);
+    }).toBeGreaterThanOrEqual(400);
     const longRawSource = [
       "# Editor Demo",
       "",
@@ -1239,7 +1282,8 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     });
 
     await setManagerAutoAdvance(page, false);
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE KAPALI");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE");
+    await expect(page.locator("#auto-advance-status")).toHaveAttribute("aria-label", "Otomatik ilerle kapalı");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("0");
 
     await page.locator("#start-btn").click();
@@ -1247,7 +1291,8 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#card-counter")).toHaveText("1 / 2");
 
     await page.reload();
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE KAPALI");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE");
+    await expect(page.locator("#auto-advance-status")).toHaveAttribute("aria-label", "Otomatik ilerle kapalı");
     await setManagerAutoAdvance(page, false);
 
     await page.locator("#start-btn").click();
@@ -1258,13 +1303,65 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
       .locator("button.btn-small.btn-secondary", { hasText: "Setlere Dön" })
       .click();
     await setManagerAutoAdvance(page, true);
-    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE AÇIK");
+    await expect(page.locator("#auto-advance-status")).toHaveText("OTOMATİK İLERLE");
+    await expect(page.locator("#auto-advance-status")).toHaveAttribute("aria-label", "Otomatik ilerle açık");
     await expect.poll(async () => readUserScopedText(page, "auto_advance")).toBe("1");
 
     await page.locator("#start-btn").click();
     await jumpToCard(page, 1);
     await assessCurrentCard(page, "dunno");
     await expect(page.locator("#card-counter")).toHaveText("2 / 2");
+  });
+
+  test("study screen keeps review pills inside score bar and uses amber review progress", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        review: {
+          setName: "Review UI Demo",
+          fileName: "review-ui-demo.json",
+          cards: [
+            { q: "Kart 1", a: "Cevap 1", subject: "Genel" },
+            { q: "Kart 2", a: "Cevap 2", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["review"],
+    });
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#theme-select-study option")).toHaveText([
+      "AYDINLIK",
+      "KARANLIK",
+      "AMBER",
+      "MAVİ",
+    ]);
+
+    const scoreBarStructure = await page.evaluate(() => {
+      const scoreBar = document.querySelector("#score-bar");
+      const due = document.querySelector("#review-due-summary");
+      const current = document.querySelector("#review-current-card");
+      return {
+        dueInside: scoreBar.contains(due),
+        currentInside: scoreBar.contains(current),
+      };
+    });
+    expect(scoreBarStructure.dueInside).toBe(true);
+    expect(scoreBarStructure.currentInside).toBe(true);
+
+    await assessCurrentCard(page, "review");
+    const reviewTrackStyle = await page.locator("#progress-fill-review").evaluate((node) =>
+      window.getComputedStyle(node).backgroundImage,
+    );
+    expect(reviewTrackStyle).toContain("245, 158, 11");
+
+    await page.selectOption("#theme-select-study", "dark");
+    const actionColors = await page.evaluate(() => {
+      const shuffle = getComputedStyle(document.querySelector("#shuffle-btn")).color;
+      const exportBtn = getComputedStyle(document.querySelector("#open-export-btn")).color;
+      return { shuffle, exportBtn };
+    });
+    expect(actionColors.shuffle).not.toBe("rgb(0, 128, 255)");
+    expect(actionColors.exportBtn).not.toBe("rgb(0, 128, 255)");
   });
 
   test("duplicate question across sets is independent", async ({ page }) => {

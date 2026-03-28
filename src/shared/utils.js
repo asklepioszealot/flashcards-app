@@ -1,6 +1,8 @@
 // src/shared/utils.js
 // Pure helper functions with no side effects, no DOM access, no mutable state.
 
+import { DEFAULT_REVIEW_PREFERENCES } from "./constants.js";
+
 export const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
   try {
@@ -70,6 +72,22 @@ export function normalizeReviewScheduleMap(value, fallback = {}) {
   );
 }
 
+export function normalizeReviewPreferences(value, fallback = DEFAULT_REVIEW_PREFERENCES) {
+  const base = isPlainObject(fallback) ? fallback : DEFAULT_REVIEW_PREFERENCES;
+  const source = isPlainObject(value) ? value : base;
+  const memoryTargetPercent = Number.parseInt(source?.memoryTargetPercent, 10);
+  const intervalMultiplier = Number.parseFloat(source?.intervalMultiplier);
+
+  return {
+    memoryTargetPercent: Number.isFinite(memoryTargetPercent)
+      ? Math.min(Math.max(memoryTargetPercent, 75), 95)
+      : base.memoryTargetPercent,
+    intervalMultiplier: Number.isFinite(intervalMultiplier)
+      ? Math.min(Math.max(Math.round(intervalMultiplier * 100) / 100, 0.8), 1.3)
+      : base.intervalMultiplier,
+  };
+}
+
 export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
   return {
     selectedSetIds: Array.isArray(snapshot?.selectedSetIds)
@@ -102,6 +120,7 @@ export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
       : fallback.isAnalyticsVisible !== undefined
         ? fallback.isAnalyticsVisible === true
         : false,
+    reviewPreferences: normalizeReviewPreferences(snapshot?.reviewPreferences, fallback.reviewPreferences),
     updatedAt: snapshot?.updatedAt
       ? String(snapshot.updatedAt)
       : fallback.updatedAt
