@@ -360,6 +360,33 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator("#editor-screen")).not.toContainText("Soru ve açıklama için ortak araçlar");
     await expect(page.locator("#editor-screen h1")).toHaveText("Kartları Düzenle");
     await expect(page.locator("#editor-add-card-btn")).toBeVisible();
+    await page.evaluate(() => {
+      window.__browserWriteCalls = [];
+      window.showOpenFilePicker = async () => [{
+        kind: "file",
+        async getFile() {
+          return new File(
+            [["# Editor Demo", "", "### İlk soru", "", "Açıklama satırı"].join("\n")],
+            "editor-demo.md",
+            { type: "text/markdown" },
+          );
+        },
+        async queryPermission() {
+          return "granted";
+        },
+        async requestPermission() {
+          return "granted";
+        },
+        async createWritable() {
+          return {
+            async write(content) {
+              window.__browserWriteCalls.push(String(content));
+            },
+            async close() {},
+          };
+        },
+      }];
+    });
     const editorChrome = await page.evaluate(() => {
       const subjectShell = document.querySelector(".editor-subject-shell");
       const rootStyles = getComputedStyle(document.documentElement);
@@ -369,7 +396,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
         sidebarPanelBase: rootStyles.getPropertyValue("--editor-sidebar-panel-base").trim(),
       };
     });
-    expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(298);
+    expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(358);
     expect(editorChrome.sidebarBase).not.toContain("15, 23, 42");
     expect(editorChrome.sidebarPanelBase).not.toContain("15, 23, 42");
     await page.selectOption("#theme-select-editor", "dark");
@@ -504,7 +531,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
         relink: {
           setName: "Relink Demo",
           fileName: "relink-demo.md",
-          sourcePath: "webfile://source/relink-demo",
+          sourcePath: "C:/legacy/relink-demo.md",
           sourceFormat: "markdown",
           rawSource: "# Relink Demo\n\n### İlk soru\n\nİlk açıklama",
           cards: [{ id: "card-1", q: "İlk soru", a: "İlk açıklama", subject: "Genel" }],
@@ -562,7 +589,7 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     }, { storageKey: userScopedKey(DEMO_USER.id, "set_records") });
 
     expect(relinkState.records).toHaveLength(1);
-    expect(relinkState.records[0].sourcePath).toBe("webfile://source/relink-demo");
+    expect(relinkState.records[0].sourcePath).toBe("C:/legacy/relink-demo.md");
     expect(relinkState.pickerCalls).toBeGreaterThan(0);
     expect(relinkState.writeCalls.at(-1)).toContain("Relink ile güncellenen soru");
   });

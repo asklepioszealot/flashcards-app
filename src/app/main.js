@@ -123,6 +123,13 @@ function isWebLinkedSourcePath(sourcePath) {
   return String(sourcePath || "").startsWith(WEB_FILE_SOURCE_PREFIX);
 }
 
+function isBrowserRelinkableSourcePath(sourcePath) {
+  const normalizedSourcePath = String(sourcePath || "").trim();
+  if (!normalizedSourcePath || isDesktopRuntime()) return false;
+  if (/^https?:\/\//i.test(normalizedSourcePath)) return false;
+  return true;
+}
+
 function createWebFileSourcePath(fileName) {
   const safeName = slugify(String(fileName || "set").replace(/\.[^/.]+$/, "")) || "set";
   return `${WEB_FILE_SOURCE_PREFIX}${generateId("source")}/${safeName}`;
@@ -226,7 +233,7 @@ async function restoreBrowserFileHandle(sourcePath) {
 async function restoreBrowserFileHandles(records) {
   const sourcePaths = (Array.isArray(records) ? records : [])
     .map((record) => record?.sourcePath)
-    .filter((sourcePath) => isWebLinkedSourcePath(sourcePath));
+    .filter((sourcePath) => isBrowserRelinkableSourcePath(sourcePath));
 
   for (const sourcePath of sourcePaths) {
     await restoreBrowserFileHandle(sourcePath);
@@ -274,7 +281,7 @@ async function primeBrowserLinkedSaveTargets(records) {
   const pendingSourcePaths = [...new Set(
     (Array.isArray(records) ? records : [])
       .map((record) => record?.sourcePath)
-      .filter((sourcePath) => isWebLinkedSourcePath(sourcePath) && !getBrowserFileHandle(sourcePath)),
+      .filter((sourcePath) => isBrowserRelinkableSourcePath(sourcePath) && !getBrowserFileHandle(sourcePath)),
   )];
 
   for (const sourcePath of pendingSourcePaths) {
@@ -1305,7 +1312,7 @@ async function removeSets(setIds) {
   try {
     await platformAdapter.deleteSets(removedEntries.map((entry) => entry.setId));
     removedEntries.forEach((entry) => {
-      if (isWebLinkedSourcePath(entry.setData?.sourcePath)) {
+      if (isBrowserRelinkableSourcePath(entry.setData?.sourcePath)) {
         browserFileHandles.delete(entry.setData.sourcePath);
         void deletePersistedBrowserFileHandle(entry.setData.sourcePath);
       }
@@ -2997,7 +3004,7 @@ async function saveEditorDrafts() {
         ) {
           await platformAdapter.writeSetSourceFile(savedRecord.sourcePath, savedRecord.rawSource);
           sourceWriteCount += 1;
-        } else if (isWebLinkedSourcePath(savedRecord.sourcePath)) {
+        } else if (isBrowserRelinkableSourcePath(savedRecord.sourcePath)) {
           const browserWriteResult = await writeBrowserLinkedSourceFile(
             savedRecord.sourcePath,
             savedRecord.rawSource,
