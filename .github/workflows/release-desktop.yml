@@ -60,7 +60,7 @@ jobs:
           }
 
       - name: Build and publish desktop release
-        uses: tauri-apps/tauri-action@v1
+        uses: tauri-apps/tauri-action@v0
         env:
           ENABLE_DEMO_AUTH: ${{ vars.ENABLE_DEMO_AUTH }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

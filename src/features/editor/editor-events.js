@@ -119,10 +119,9 @@ function syncAttachmentButtonState(shell) {
   const attachmentButtons = shell.querySelectorAll("[data-editor-attachment-kind]");
   const fileInput = shell.querySelector("[data-editor-attachment-input]");
   const isLoading = shell.classList.contains("is-loading");
-  const isEnabled = toggleButton?.getAttribute("data-editor-attachment-enabled") === "true";
 
   attachmentButtons.forEach((button) => {
-    button.disabled = isLoading || !isEnabled;
+    button.disabled = isLoading;
   });
 
   if (toggleButton) {
@@ -542,6 +541,12 @@ export function bindEditorEvents(draft) {
         import("./editor-history.js").then(({ applyEditorHistoryAction }) => applyEditorHistoryAction(draft, action));
         return;
       }
+      if (
+        (action === "attachment-image" || action === "attachment-audio")
+        && platformAdapter?.supportsMediaUpload
+      ) {
+        return;
+      }
       const cardId = button.getAttribute("data-card-id");
       const textarea = resolveEditorToolbarTarget(cardId);
       if (textarea) {
@@ -556,6 +561,9 @@ export function bindEditorEvents(draft) {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
+      if (!platformAdapter?.supportsMediaUpload) {
+        return;
+      }
       const textarea = resolveEditorToolbarTarget(button.getAttribute("data-card-id"));
       if (textarea) {
         setFocusedEditorField(textarea);
@@ -573,13 +581,6 @@ export function bindEditorEvents(draft) {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
-      if (button.getAttribute("data-editor-attachment-enabled") !== "true") {
-        import("../auth/auth.js").then(({ showEditorStatus }) => {
-          showEditorStatus("Medya yuklemek icin Supabase Storage yapilandirmasi gerekli.", "error");
-        });
-        closeAttachmentMenus();
-        return;
-      }
       toggleAttachmentMenu(button);
     });
   });
