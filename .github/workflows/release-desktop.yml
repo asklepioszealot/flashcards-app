@@ -77,5 +77,4 @@ jobs:
           releaseName: Pediatri Flashcards Desktop v__VERSION__
           tagName: ${{ steps.app_version.outputs.tag }}
           updaterJsonPreferNsis: true
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: true
+          includeUpdaterJson: true
