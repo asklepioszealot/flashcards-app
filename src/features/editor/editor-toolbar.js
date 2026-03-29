@@ -156,18 +156,49 @@ export function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
-export function renderEditorFormattingToolbar(cardId) {
+function renderEditorToolbarScrollButton(cardId, direction) {
+  const cardIdAttr = escapeMarkup(cardId);
+  const isRight = direction === "right";
+  const iconName = isRight ? "chevron-right" : "chevron-left";
+  const label = isRight ? "Biçimlendirme araçlarını sağa kaydır" : "Biçimlendirme araçlarını sola kaydır";
+
   return `
-    <div class="editor-format-toolbar">
-      <div class="editor-format-toolbar-head">
-        <div class="editor-format-toolbar-label">
-          <strong>Biçimlendirme</strong>
+    <div class="editor-format-toolbar-nav-slot editor-format-toolbar-nav-slot--${isRight ? "top" : "bottom"}">
+      <button
+        type="button"
+        class="btn btn-small btn-secondary editor-tool-nav-btn"
+        data-editor-toolbar-scroll="${direction}"
+        data-card-id="${cardIdAttr}"
+        title="${label}"
+        aria-label="${label}"
+      >${renderIcon(iconName)}</button>
+    </div>`;
+}
+
+export function renderEditorFormattingToolbar(cardId) {
+  const cardIdAttr = escapeMarkup(cardId);
+  return `
+    <div class="editor-format-toolbar-row">
+      <div class="editor-format-toolbar">
+        <div class="editor-format-toolbar-head">
+          <div class="editor-format-toolbar-label">
+            <strong>Biçimlendirme</strong>
+          </div>
+        </div>
+        <div
+          class="editor-toolbar-shell"
+          data-editor-toolbar-shell="${cardIdAttr}"
+          role="toolbar"
+          aria-label="Soru ve açıklama biçimlendirme araçları"
+        >
+          <div class="editor-toolbar editor-toolbar-primary">
+            ${renderEditorToolbarButtons(allMarkdownActions, cardId)}
+          </div>
         </div>
       </div>
-      <div class="editor-toolbar-shell" role="toolbar" aria-label="Soru ve açıklama biçimlendirme araçları">
-        <div class="editor-toolbar editor-toolbar-primary">
-          ${renderEditorToolbarButtons(allMarkdownActions, cardId)}
-        </div>
+      <div class="editor-format-toolbar-nav" aria-label="Biçimlendirme araçlarını kaydır">
+        ${renderEditorToolbarScrollButton(cardId, "right")}
+        ${renderEditorToolbarScrollButton(cardId, "left")}
       </div>
     </div>`;
 }

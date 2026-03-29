@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 import {
   applyMarkdownSnippet,
   initEditorEventsRef,
+  renderEditorFormattingToolbar,
   renderEditorToolbarButtons,
 } from "../../src/features/editor/editor-toolbar.js";
 import { primaryMarkdownActions } from "../../src/shared/constants.js";
@@ -56,5 +57,15 @@ describe("Editor toolbar attachment snippets", () => {
     expect(markup).toContain('accept="image/png, image/jpeg, image/webp, audio/mpeg, audio/wav, audio/ogg"');
     expect(markup).not.toContain("editor-attachment-menu");
     expect(markup).not.toContain("data-editor-attachment-kind");
+  });
+
+  it("renders external stacked scroll controls next to the formatting toolbar", () => {
+    const markup = renderEditorFormattingToolbar("card-123");
+
+    expect(markup).toContain('class="editor-format-toolbar-row"');
+    expect(markup).toContain('class="editor-format-toolbar-nav"');
+    expect(markup).toContain('data-editor-toolbar-shell="card-123"');
+    expect(markup).toContain('data-editor-toolbar-scroll="right"');
+    expect(markup).toContain('data-editor-toolbar-scroll="left"');
   });
 });

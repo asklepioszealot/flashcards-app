@@ -157,22 +157,22 @@ declare
   v_released_bytes bigint := 0;
 begin
   with expired as (
-    delete from public.flashcard_media_upload_reservations
-    where bucket_id = p_bucket_id
-      and status = 'pending'
-      and expires_at <= timezone('utc', now())
-    returning bytes
+    delete from public.flashcard_media_upload_reservations as reservation
+    where reservation.bucket_id = p_bucket_id
+      and reservation.status = 'pending'
+      and reservation.expires_at <= timezone('utc', now())
+    returning reservation.bytes
   )
-  select coalesce(sum(bytes), 0)
+  select coalesce(sum(expired.bytes), 0)
   into v_released_bytes
   from expired;
 
   if v_released_bytes > 0 then
-    update public.flashcard_media_quota
+    update public.flashcard_media_quota as quota
     set
-      reserved_bytes = greatest(reserved_bytes - v_released_bytes, 0),
+      reserved_bytes = greatest(quota.reserved_bytes - v_released_bytes, 0),
       updated_at = timezone('utc', now())
-    where bucket_id = p_bucket_id;
+    where quota.bucket_id = p_bucket_id;
   end if;
 
   return v_released_bytes;
@@ -251,8 +251,8 @@ begin
 
   select *
   into v_quota
-  from public.flashcard_media_quota
-  where bucket_id = p_bucket_id
+  from public.flashcard_media_quota as quota
+  where quota.bucket_id = p_bucket_id
   for update;
 
   v_projected_bytes := v_quota.used_bytes + v_quota.reserved_bytes + p_bytes;
@@ -269,7 +269,7 @@ begin
     return;
   end if;
 
-  insert into public.flashcard_media_upload_reservations (
+  insert into public.flashcard_media_upload_reservations as reservation (
     user_id,
     bucket_id,
     object_path,
@@ -281,7 +281,7 @@ begin
     p_object_path,
     p_bytes
   )
-  returning public.flashcard_media_upload_reservations.reservation_id
+  returning reservation.reservation_id
   into v_reservation_id;
 
   update public.flashcard_media_quota as quota
@@ -335,9 +335,9 @@ begin
 
   select *
   into v_reservation
-  from public.flashcard_media_upload_reservations
-  where reservation_id = p_reservation_id
-    and user_id = v_user_id
+  from public.flashcard_media_upload_reservations as reservation
+  where reservation.reservation_id = p_reservation_id
+    and reservation.user_id = v_user_id
   for update;
 
   if not found then
@@ -349,9 +349,9 @@ begin
   end if;
 
   if v_reservation.expires_at <= timezone('utc', now()) then
-    update public.flashcard_media_upload_reservations
+    update public.flashcard_media_upload_reservations as reservation
     set status = 'cancelled'
-    where reservation_id = v_reservation.reservation_id;
+    where reservation.reservation_id = v_reservation.reservation_id;
 
     update public.flashcard_media_quota as quota
     set
@@ -377,8 +377,8 @@ begin
 
   select *
   into v_quota
-  from public.flashcard_media_quota
-  where bucket_id = v_reservation.bucket_id
+  from public.flashcard_media_quota as quota
+  where quota.bucket_id = v_reservation.bucket_id
   for update;
 
   v_projected_bytes := v_quota.used_bytes + greatest(v_quota.reserved_bytes - v_reservation.bytes, 0) + v_final_size;
@@ -402,18 +402,18 @@ begin
     p_mime_type,
     v_final_size
   )
-  on conflict (object_path) do update
+  on conflict on constraint flashcard_media_assets_pkey do update
   set
     user_id = excluded.user_id,
     public_url = excluded.public_url,
     mime_type = excluded.mime_type,
     size_bytes = excluded.size_bytes;
 
-  update public.flashcard_media_upload_reservations
+  update public.flashcard_media_upload_reservations as reservation
   set
     status = 'uploaded',
     finalized_at = timezone('utc', now())
-  where reservation_id = v_reservation.reservation_id;
+  where reservation.reservation_id = v_reservation.reservation_id;
 
   update public.flashcard_media_quota as quota
   set
@@ -460,9 +460,9 @@ begin
 
   select *
   into v_reservation
-  from public.flashcard_media_upload_reservations
-  where reservation_id = p_reservation_id
-    and user_id = v_user_id
+  from public.flashcard_media_upload_reservations as reservation
+  where reservation.reservation_id = p_reservation_id
+    and reservation.user_id = v_user_id
   for update;
 
   if not found then
@@ -470,9 +470,9 @@ begin
   end if;
 
   if v_reservation.status = 'pending' then
-    update public.flashcard_media_upload_reservations
+    update public.flashcard_media_upload_reservations as reservation
     set status = 'cancelled'
-    where reservation_id = v_reservation.reservation_id;
+    where reservation.reservation_id = v_reservation.reservation_id;
 
     update public.flashcard_media_quota as quota
     set
@@ -493,8 +493,8 @@ begin
 
   select *
   into v_quota
-  from public.flashcard_media_quota
-  where bucket_id = v_reservation.bucket_id;
+  from public.flashcard_media_quota as quota
+  where quota.bucket_id = v_reservation.bucket_id;
 
   return query
   select
@@ -529,17 +529,17 @@ begin
 
   select *
   into v_asset
-  from public.flashcard_media_assets
-  where object_path = p_object_path
-    and user_id = v_user_id
+  from public.flashcard_media_assets as asset
+  where asset.object_path = p_object_path
+    and asset.user_id = v_user_id
   for update;
 
   if not found then
     raise exception 'Media asset not found.' using errcode = 'P0002';
   end if;
 
-  delete from public.flashcard_media_assets
-  where object_path = v_asset.object_path;
+  delete from public.flashcard_media_assets as asset
+  where asset.object_path = v_asset.object_path;
 
   update public.flashcard_media_quota as quota
   set
@@ -579,9 +579,9 @@ declare
 begin
   perform public.ensure_flashcard_media_quota_row(p_bucket_id);
 
-  delete from public.flashcard_media_upload_reservations
-  where bucket_id = p_bucket_id
-    and status = 'pending';
+  delete from public.flashcard_media_upload_reservations as reservation
+  where reservation.bucket_id = p_bucket_id
+    and reservation.status = 'pending';
 
   select
     coalesce(sum(coalesce((o.metadata ->> 'size')::bigint, 0)), 0),

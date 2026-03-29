@@ -147,6 +147,37 @@ export function resolveEditorToolbarTarget(cardId) {
 function closeAttachmentMenus() {
 }
 
+function getEditorToolbarShell(cardId) {
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  return document.querySelector(`[data-editor-toolbar-shell="${escapedCardId}"]`);
+}
+
+function syncEditorToolbarScrollButtons(shell) {
+  const cardId = shell?.getAttribute("data-editor-toolbar-shell");
+  if (!cardId) return;
+
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  const leftButton = document.querySelector(`[data-editor-toolbar-scroll="left"][data-card-id="${escapedCardId}"]`);
+  const rightButton = document.querySelector(`[data-editor-toolbar-scroll="right"][data-card-id="${escapedCardId}"]`);
+  const maxScrollLeft = Math.max(shell.scrollWidth - shell.clientWidth, 0);
+  const hasOverflow = maxScrollLeft > 4;
+  const canScrollLeft = shell.scrollLeft > 4;
+  const canScrollRight = shell.scrollLeft < maxScrollLeft - 4;
+
+  if (leftButton) leftButton.disabled = !hasOverflow || !canScrollLeft;
+  if (rightButton) rightButton.disabled = !hasOverflow || !canScrollRight;
+}
+
+function scrollEditorToolbar(cardId, direction) {
+  const shell = getEditorToolbarShell(cardId);
+  if (!shell) return;
+  const scrollAmount = Math.max(Math.round(shell.clientWidth * 0.72), 180);
+  shell.scrollBy({
+    left: direction === "right" ? scrollAmount : -scrollAmount,
+    behavior: "smooth",
+  });
+}
+
 function syncAttachmentButtonState(shell) {
   if (!shell) return;
   const toggleButton = shell.querySelector("[data-editor-attachment-toggle]");
@@ -603,6 +634,32 @@ export function bindEditorEvents(draft) {
         setFocusedEditorField(textarea);
       }
       openAttachmentFilePicker(button);
+    });
+  });
+  document.querySelectorAll("[data-editor-toolbar-shell]").forEach((shell) => {
+    syncEditorToolbarScrollButtons(shell);
+    shell.addEventListener("scroll", () => {
+      syncEditorToolbarScrollButtons(shell);
+    });
+    if (typeof ResizeObserver === "function") {
+      const resizeObserver = new ResizeObserver(() => {
+        syncEditorToolbarScrollButtons(shell);
+      });
+      resizeObserver.observe(shell);
+    }
+  });
+  document.querySelectorAll("[data-editor-toolbar-scroll]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    button.addEventListener("click", () => {
+      const cardId = button.getAttribute("data-card-id");
+      const direction = button.getAttribute("data-editor-toolbar-scroll");
+      if (!cardId || (direction !== "left" && direction !== "right")) return;
+      scrollEditorToolbar(cardId, direction);
+      const shell = getEditorToolbarShell(cardId);
+      if (!shell) return;
+      window.setTimeout(() => syncEditorToolbarScrollButtons(shell), 180);
     });
   });
   const rawInput = document.getElementById("editor-raw-input");

@@ -89,11 +89,32 @@ function createMissingMediaStorageSetupError() {
   return error;
 }
 
+function createOutdatedMediaStorageSetupError() {
+  const error = new Error(
+    `Supabase medya fonksiyonlari eski surumde gorunuyor. ${MEDIA_STORAGE_SETUP_DOC_PATH} dosyasini yeniden calistirin. Bu "reserved_bytes" veya "bucket_id" ambiguous hatasi dosya boyutundan degil, veritabanindaki eski RPC surumunden kaynaklanir.`,
+  );
+  error.code = "MEDIA_UPLOAD_SQL_UPDATE_REQUIRED";
+  return error;
+}
+
 function createMediaStorageLimitReachedError(quota = null) {
   const error = new Error("Storage limit (400 MB) reached. Please delete old media to upload new files.");
   error.code = "MEDIA_STORAGE_LIMIT_REACHED";
   error.quota = quota || null;
   return error;
+}
+
+function isOutdatedMediaStorageSetupError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "42702"
+    || (message.includes("reserved_bytes") && message.includes("ambiguous"))
+    || (message.includes("bucket_id") && message.includes("ambiguous"))
+    || (message.includes("column reference") && message.includes("ambiguous") && (
+      message.includes("reserved_bytes")
+      || message.includes("bucket_id")
+    ))
+  );
 }
 
 function isMissingMediaStorageSetupError(error) {
@@ -134,6 +155,9 @@ function mapMediaStorageError(error) {
   if (!error) return error;
   if (error?.code === "MEDIA_STORAGE_LIMIT_REACHED") {
     return error;
+  }
+  if (isOutdatedMediaStorageSetupError(error)) {
+    return createOutdatedMediaStorageSetupError();
   }
   if (isMissingMediaStorageSetupError(error)) {
     return createMissingMediaStorageSetupError();

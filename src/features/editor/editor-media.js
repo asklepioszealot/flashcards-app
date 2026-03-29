@@ -231,7 +231,10 @@ export function resolveMediaUploadErrorMessage(error) {
     return "Medya yuklemek icin Supabase Storage yapilandirmasi gerekli.";
   }
   if (error?.code === "MEDIA_UPLOAD_SETUP_REQUIRED") {
-    return "Supabase medya kurulumu eksik. docs/SUPABASE_MEDIA_STORAGE_SETUP.sql dosyasini calistirin.";
+    return error.message || "Supabase medya kurulumu eksik. docs/SUPABASE_MEDIA_STORAGE_SETUP.sql dosyasini calistirin.";
+  }
+  if (error?.code === "MEDIA_UPLOAD_SQL_UPDATE_REQUIRED") {
+    return error.message;
   }
   if (error?.code === "MEDIA_UPLOAD_VALIDATION_ERROR") {
     return error.message;

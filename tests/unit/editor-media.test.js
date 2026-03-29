@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMediaMarkdownSnippet,
   prepareMediaUpload,
+  resolveMediaUploadErrorMessage,
   validateMediaUpload,
 } from "../../src/features/editor/editor-media.js";
 import {
@@ -41,5 +42,14 @@ describe("Editor media upload helpers", () => {
       .toBe("![Image](https://example.com/image.webp)");
     expect(buildMediaMarkdownSnippet("audio", "https://example.com/audio.mp3"))
       .toBe('<audio controls src="https://example.com/audio.mp3"></audio>');
+  });
+
+  it("should surface the SQL migration hint for outdated media RPC functions", () => {
+    expect(
+      resolveMediaUploadErrorMessage({
+        code: "MEDIA_UPLOAD_SQL_UPDATE_REQUIRED",
+        message: "Supabase medya fonksiyonlari eski surumde gorunuyor.",
+      }),
+    ).toBe("Supabase medya fonksiyonlari eski surumde gorunuyor.");
   });
 });
