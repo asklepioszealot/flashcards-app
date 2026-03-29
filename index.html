@@ -21,6 +21,7 @@
         --color-header-bg: rgba(255, 255, 255, 0.85);
         --color-text-primary: #0f172a; /* Slate 900 */
         --color-text-secondary: #475569; /* Slate 600 */
+        --color-text-muted: #64748b; /* Slate 500 */
         --color-accent: #10b981; /* Emerald 500 */
         --color-accent-hover: #059669; /* Emerald 600 */
         --color-accent-soft: rgba(16, 185, 129, 0.12);
@@ -139,14 +140,15 @@
         --color-bg-primary: #09090b;
         --color-bg-secondary: #18181b;
         --color-header-bg: rgba(24, 24, 27, 0.9);
-        --color-text-primary: #fafafa;
+        --color-text-primary: #f4f4f5;
         --color-text-secondary: #a1a1aa;
+        --color-text-muted: #71717a;
         --color-accent: #d4d4d8;
         --color-accent-hover: #f4f4f5;
         --color-accent-soft: rgba(212, 212, 216, 0.12);
         --color-emphasis: #e4e4e7;
-        --color-emphasis-strong: #fafafa;
-        --color-border: rgba(244, 244, 245, 0.12);
+        --color-emphasis-strong: #f4f4f5;
+        --color-border: #52525b;
         --color-card-front: #18181b;
         --color-card-back: #27272a;
         --screen-glow: rgba(228, 228, 231, 0.08);
@@ -2051,7 +2053,7 @@
         justify-content: space-between;
         gap: 14px;
         flex-wrap: wrap;
-        align-items: flex-start;
+        align-items: center;
         padding: 18px;
         background:
           radial-gradient(circle at top right, var(--editor-card-head-glow), transparent 34%),
@@ -2097,7 +2099,7 @@
       }
 
       .editor-card-title {
-        font-size: 13px;
+        font-size: 20px;
         font-weight: 700;
         line-height: 1.1;
         letter-spacing: 0.06em;
@@ -2137,7 +2139,7 @@
       }
 
       .editor-subject-input::placeholder {
-        color: var(--color-text-secondary);
+        color: var(--color-text-muted, var(--color-text-secondary));
       }
 
       .editor-card-expand-btn {
@@ -2375,25 +2377,6 @@
 
       .editor-attachment-input {
         display: none;
-      }
-
-      .editor-attachment-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        z-index: 4;
-        display: grid;
-        gap: 8px;
-        min-width: 152px;
-        padding: 10px;
-        border-radius: 14px;
-        border: 1px solid var(--color-border);
-        background: var(--color-bg-primary);
-        box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
-      }
-
-      .editor-attachment-shell.is-loading .editor-attachment-menu {
-        opacity: 0.72;
       }
 
       .editor-tool-btn.is-loading {

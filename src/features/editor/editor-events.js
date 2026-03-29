@@ -11,8 +11,7 @@ import {
   MIN_EDITOR_SPLIT_RATIO,
   MAX_EDITOR_SPLIT_RATIO,
   EDITOR_SPLIT_KEYBOARD_STEP,
-  FLASHCARD_AUDIO_ACCEPT,
-  FLASHCARD_IMAGE_ACCEPT,
+  FLASHCARD_MEDIA_ACCEPT,
 } from "../../shared/constants.js";
 import { escapeAttributeSelectorValue } from "../../shared/utils.js";
 import {
@@ -35,6 +34,59 @@ initEditorEventsRef({
   restoreEditorFieldSelection: (ta) => restoreEditorFieldSelection(ta),
   rememberEditorFieldSelection: (ta) => rememberEditorFieldSelection(ta),
 });
+
+const sessionTopicRenamePromptDismissedSetIds = new Set();
+
+function markEditorDraftDirty(draft) {
+  if (!draft?.setId) return;
+  import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));
+}
+
+function renderEditorDraftTabs() {
+  import("./editor-render.js").then(({ renderEditorTabs }) => renderEditorTabs());
+}
+
+function resolveEditorSubjectCard(draft, input) {
+  const cardId = input?.getAttribute("data-editor-subject-input");
+  if (!cardId || !Array.isArray(draft?.cards)) return null;
+  return draft.cards.find((item) => item.id === cardId) || null;
+}
+
+function syncEditorSubjectValue(draft, input) {
+  const card = resolveEditorSubjectCard(draft, input);
+  if (!card) return null;
+  card.subject = input.value;
+  markEditorDraftDirty(draft);
+  renderEditorDraftTabs();
+  return card;
+}
+
+function handleEditorSubjectRenameCommit(draft, input) {
+  const card = resolveEditorSubjectCard(draft, input);
+  if (!card) return;
+
+  const previousSubject = input.dataset.previousSubject ?? card.subject;
+  const nextSubject = input.value;
+  card.subject = nextSubject;
+  input.dataset.previousSubject = nextSubject;
+
+  if (previousSubject === nextSubject) return;
+
+  const matchingCards = draft.cards.filter((candidate) => candidate.id !== card.id && candidate.subject === previousSubject);
+  if (!matchingCards.length || sessionTopicRenamePromptDismissedSetIds.has(draft.setId)) {
+    return;
+  }
+
+  const shouldRenameMatchingTopics = confirm("Ayni konu adina sahip diger kartlar da guncellensin mi?");
+  if (shouldRenameMatchingTopics) {
+    matchingCards.forEach((candidate) => {
+      candidate.subject = nextSubject;
+    });
+    return;
+  }
+
+  sessionTopicRenamePromptDismissedSetIds.add(draft.setId);
+}
 
 export function rememberEditorFieldSelection(textarea) {
   const activeDraft = getCurrentEditorDraft();
@@ -93,36 +145,13 @@ export function resolveEditorToolbarTarget(cardId) {
 }
 
 function closeAttachmentMenus() {
-  document.querySelectorAll("[data-editor-attachment-toggle]").forEach((button) => {
-    button.setAttribute("aria-expanded", "false");
-  });
-  document.querySelectorAll(".editor-attachment-menu").forEach((menu) => {
-    menu.hidden = true;
-  });
-}
-
-function toggleAttachmentMenu(button) {
-  const menuId = button?.getAttribute("aria-controls");
-  if (!menuId) return;
-  const menu = document.getElementById(menuId);
-  if (!menu) return;
-  const nextExpanded = button.getAttribute("aria-expanded") !== "true";
-  closeAttachmentMenus();
-  if (!nextExpanded) return;
-  menu.hidden = false;
-  button.setAttribute("aria-expanded", "true");
 }
 
 function syncAttachmentButtonState(shell) {
   if (!shell) return;
   const toggleButton = shell.querySelector("[data-editor-attachment-toggle]");
-  const attachmentButtons = shell.querySelectorAll("[data-editor-attachment-kind]");
   const fileInput = shell.querySelector("[data-editor-attachment-input]");
   const isLoading = shell.classList.contains("is-loading");
-
-  attachmentButtons.forEach((button) => {
-    button.disabled = isLoading;
-  });
 
   if (toggleButton) {
     toggleButton.disabled = isLoading;
@@ -150,9 +179,8 @@ function openAttachmentFilePicker(button) {
   const input = document.querySelector(`[data-editor-attachment-input="${escapedCardId}"]`);
   if (!input) return;
 
-  const intendedKind = button.getAttribute("data-editor-attachment-kind") === "audio" ? "audio" : "image";
-  input.dataset.attachmentKind = intendedKind;
-  input.accept = intendedKind === "audio" ? FLASHCARD_AUDIO_ACCEPT : FLASHCARD_IMAGE_ACCEPT;
+  input.dataset.attachmentKind = "";
+  input.accept = FLASHCARD_MEDIA_ACCEPT;
   closeAttachmentMenus();
   input.click();
 }
@@ -165,7 +193,7 @@ async function handleAttachmentFileSelection(input) {
   const intendedKind = input.dataset.attachmentKind || null;
   input.value = "";
   input.dataset.attachmentKind = "";
-  input.accept = `${FLASHCARD_IMAGE_ACCEPT}, ${FLASHCARD_AUDIO_ACCEPT}`;
+  input.accept = FLASHCARD_MEDIA_ACCEPT;
 
   if (!selectedFile) {
     closeAttachmentMenus();
@@ -523,12 +551,16 @@ export function bindEditorEvents(draft) {
     bindEditorPreviewState(draft, preview);
   });
   document.querySelectorAll("[data-editor-subject-input]").forEach((input) => {
+    input.dataset.previousSubject = input.value;
+    input.addEventListener("focus", () => {
+      const card = resolveEditorSubjectCard(draft, input);
+      input.dataset.previousSubject = card?.subject ?? input.value;
+    });
     input.addEventListener("input", () => {
-      const card = draft.cards.find((item) => item.id === input.getAttribute("data-editor-subject-input"));
-      if (!card) return;
-      card.subject = input.value;
-      import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));
-      import("./editor-render.js").then(({ renderEditorTabs }) => renderEditorTabs());
+      syncEditorSubjectValue(draft, input);
+    });
+    input.addEventListener("change", () => {
+      handleEditorSubjectRenameCommit(draft, input);
     });
   });
   document.querySelectorAll("[data-md-action]").forEach((button) => {
@@ -556,21 +588,6 @@ export function bindEditorEvents(draft) {
       }
     });
   });
-  document.querySelectorAll("[data-editor-attachment-kind]").forEach((button) => {
-    button.addEventListener("mousedown", (event) => {
-      event.preventDefault();
-    });
-    button.addEventListener("click", () => {
-      if (!platformAdapter?.supportsMediaUpload) {
-        return;
-      }
-      const textarea = resolveEditorToolbarTarget(button.getAttribute("data-card-id"));
-      if (textarea) {
-        setFocusedEditorField(textarea);
-      }
-      openAttachmentFilePicker(button);
-    });
-  });
   document.querySelectorAll("[data-editor-attachment-input]").forEach((input) => {
     input.addEventListener("change", () => {
       void handleAttachmentFileSelection(input);
@@ -581,7 +598,11 @@ export function bindEditorEvents(draft) {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
-      toggleAttachmentMenu(button);
+      const textarea = resolveEditorToolbarTarget(button.getAttribute("data-card-id"));
+      if (textarea) {
+        setFocusedEditorField(textarea);
+      }
+      openAttachmentFilePicker(button);
     });
   });
   const rawInput = document.getElementById("editor-raw-input");

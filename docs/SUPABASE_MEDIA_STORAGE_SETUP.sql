@@ -284,11 +284,11 @@ begin
   returning public.flashcard_media_upload_reservations.reservation_id
   into v_reservation_id;
 
-  update public.flashcard_media_quota
+  update public.flashcard_media_quota as quota
   set
-    reserved_bytes = reserved_bytes + p_bytes,
+    reserved_bytes = quota.reserved_bytes + p_bytes,
     updated_at = timezone('utc', now())
-  where bucket_id = p_bucket_id
+  where quota.bucket_id = p_bucket_id
   returning *
   into v_quota;
 
@@ -353,11 +353,11 @@ begin
     set status = 'cancelled'
     where reservation_id = v_reservation.reservation_id;
 
-    update public.flashcard_media_quota
+    update public.flashcard_media_quota as quota
     set
-      reserved_bytes = greatest(reserved_bytes - v_reservation.bytes, 0),
+      reserved_bytes = greatest(quota.reserved_bytes - v_reservation.bytes, 0),
       updated_at = timezone('utc', now())
-    where bucket_id = v_reservation.bucket_id;
+    where quota.bucket_id = v_reservation.bucket_id;
 
     raise exception 'Upload reservation expired.' using errcode = 'P0001';
   end if;
@@ -415,12 +415,12 @@ begin
     finalized_at = timezone('utc', now())
   where reservation_id = v_reservation.reservation_id;
 
-  update public.flashcard_media_quota
+  update public.flashcard_media_quota as quota
   set
-    used_bytes = used_bytes + v_final_size,
-    reserved_bytes = greatest(reserved_bytes - v_reservation.bytes, 0),
+    used_bytes = quota.used_bytes + v_final_size,
+    reserved_bytes = greatest(quota.reserved_bytes - v_reservation.bytes, 0),
     updated_at = timezone('utc', now())
-  where bucket_id = v_reservation.bucket_id
+  where quota.bucket_id = v_reservation.bucket_id
   returning *
   into v_quota;
 
@@ -474,11 +474,11 @@ begin
     set status = 'cancelled'
     where reservation_id = v_reservation.reservation_id;
 
-    update public.flashcard_media_quota
+    update public.flashcard_media_quota as quota
     set
-      reserved_bytes = greatest(reserved_bytes - v_reservation.bytes, 0),
+      reserved_bytes = greatest(quota.reserved_bytes - v_reservation.bytes, 0),
       updated_at = timezone('utc', now())
-    where bucket_id = v_reservation.bucket_id
+    where quota.bucket_id = v_reservation.bucket_id
     returning *
     into v_quota;
 
@@ -541,11 +541,11 @@ begin
   delete from public.flashcard_media_assets
   where object_path = v_asset.object_path;
 
-  update public.flashcard_media_quota
+  update public.flashcard_media_quota as quota
   set
-    used_bytes = greatest(used_bytes - v_asset.size_bytes, 0),
+    used_bytes = greatest(quota.used_bytes - v_asset.size_bytes, 0),
     updated_at = timezone('utc', now())
-  where bucket_id = v_asset.bucket_id
+  where quota.bucket_id = v_asset.bucket_id
   returning *
   into v_quota;
 
@@ -613,12 +613,12 @@ begin
   )
   where a.bucket_id = p_bucket_id;
 
-  update public.flashcard_media_quota
+  update public.flashcard_media_quota as quota
   set
     used_bytes = v_used_bytes,
     reserved_bytes = 0,
     updated_at = timezone('utc', now())
-  where bucket_id = p_bucket_id
+  where quota.bucket_id = p_bucket_id
   returning *
   into v_quota;
 

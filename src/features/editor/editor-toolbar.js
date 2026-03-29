@@ -1,7 +1,6 @@
 // src/features/editor/editor-toolbar.js
 // Markdown formatting toolbar: snippet application, toolbar button rendering.
 
-import { platformAdapter } from "../../app/state.js";
 import { FLASHCARD_MEDIA_ACCEPT, allMarkdownActions } from "../../shared/constants.js";
 import { escapeMarkup } from "../../shared/utils.js";
 import { renderIcon } from "../../ui/icons.js";
@@ -122,8 +121,6 @@ export function renderEditorToolbarButtons(actions, cardId) {
     .map((action) => {
       const iconMarkup = action.icon ? renderIcon(action.icon) : "";
       if (action.id === "attachment") {
-        const menuId = `editor-attachment-menu-${cardIdAttr}`;
-        const mediaUploadEnabled = Boolean(platformAdapter?.supportsMediaUpload);
         const attachmentTitle = action.title;
         return `
           <div class="editor-attachment-shell" data-editor-attachment-shell="${cardIdAttr}">
@@ -131,12 +128,9 @@ export function renderEditorToolbarButtons(actions, cardId) {
               type="button"
               class="btn btn-small btn-secondary editor-tool-btn editor-tool-btn--icon"
               data-editor-attachment-toggle="${cardIdAttr}"
-              data-editor-attachment-enabled="${mediaUploadEnabled}"
               data-card-id="${cardIdAttr}"
               title="${attachmentTitle}"
               aria-label="${attachmentTitle}"
-              aria-controls="${menuId}"
-              aria-expanded="false"
             >${iconMarkup}</button>
             <input
               type="file"
@@ -146,26 +140,6 @@ export function renderEditorToolbarButtons(actions, cardId) {
               accept="${escapeMarkup(FLASHCARD_MEDIA_ACCEPT)}"
               hidden
             />
-            <div class="editor-attachment-menu" id="${menuId}" hidden>
-              <button
-                type="button"
-                class="btn btn-small btn-secondary editor-tool-btn"
-                data-md-action="attachment-image"
-                data-editor-attachment-kind="image"
-                data-card-id="${cardIdAttr}"
-                title="${mediaUploadEnabled ? "Gorsel yukle" : "Gorsel baglantisi ekle"}"
-                aria-label="${mediaUploadEnabled ? "Gorsel yukle" : "Gorsel baglantisi ekle"}"
-              >Gorsel</button>
-              <button
-                type="button"
-                class="btn btn-small btn-secondary editor-tool-btn"
-                data-md-action="attachment-audio"
-                data-editor-attachment-kind="audio"
-                data-card-id="${cardIdAttr}"
-                title="${mediaUploadEnabled ? "Ses yukle" : "Ses baglantisi ekle"}"
-                aria-label="${mediaUploadEnabled ? "Ses yukle" : "Ses baglantisi ekle"}"
-              >Ses</button>
-            </div>
           </div>`;
       }
 
