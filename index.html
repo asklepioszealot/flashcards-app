@@ -2369,6 +2369,14 @@
         display: inline-flex;
       }
 
+      .editor-attachment-shell.is-loading {
+        pointer-events: none;
+      }
+
+      .editor-attachment-input {
+        display: none;
+      }
+
       .editor-attachment-menu {
         position: absolute;
         top: calc(100% + 8px);
@@ -2382,6 +2390,39 @@
         border: 1px solid var(--color-border);
         background: var(--color-bg-primary);
         box-shadow: 0 14px 26px rgba(15, 23, 42, 0.14);
+      }
+
+      .editor-attachment-shell.is-loading .editor-attachment-menu {
+        opacity: 0.72;
+      }
+
+      .editor-tool-btn.is-loading {
+        position: relative;
+        color: transparent;
+      }
+
+      .editor-tool-btn.is-loading .icon {
+        opacity: 0;
+      }
+
+      .editor-tool-btn.is-loading::after {
+        content: "";
+        position: absolute;
+        inset: 50% auto auto 50%;
+        width: 16px;
+        height: 16px;
+        margin-left: -8px;
+        margin-top: -8px;
+        border-radius: 999px;
+        border: 2px solid rgba(15, 23, 42, 0.18);
+        border-top-color: var(--color-text-primary);
+        animation: editor-attachment-spin 0.8s linear infinite;
+      }
+
+      @keyframes editor-attachment-spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       .editor-raw {

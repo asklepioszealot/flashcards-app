@@ -3,7 +3,11 @@ import {
   backfillRawSource,
   normalizeSetRecord,
 } from "./set-codec.js";
-import { DEFAULT_REVIEW_PREFERENCES } from "../shared/constants.js";
+import {
+  DEFAULT_REVIEW_PREFERENCES,
+  FLASHCARD_MEDIA_BUCKET,
+  FLASHCARD_MEDIA_HARD_LIMIT_BYTES,
+} from "../shared/constants.js";
 import { normalizeReviewPreferences } from "../shared/utils.js";
 import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime-config.js";
 
@@ -15,6 +19,7 @@ const STUDY_STATE_FALLBACK_SLUG = "__system-study-state__";
 const STUDY_STATE_FALLBACK_SET_NAME = "__system_study_state__";
 const USER_STATE_SETUP_DOC_PATH = "docs/SUPABASE_SYNC_SETUP.sql";
 const USER_STATE_MIGRATION_DOC_PATH = "docs/SUPABASE_USER_STATE_MIGRATION.sql";
+const MEDIA_STORAGE_SETUP_DOC_PATH = "docs/SUPABASE_MEDIA_STORAGE_SETUP.sql";
 
 function nowIso() {
   return new Date().toISOString();
@@ -49,6 +54,15 @@ function isMissingRelationError(error) {
   );
 }
 
+function isMissingFunctionError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "42883"
+    || message.includes("function")
+    || message.includes("does not exist")
+  );
+}
+
 function isNoRowsError(error) {
   return error?.code === "PGRST116";
 }
@@ -58,6 +72,72 @@ function createMissingUserStateTableError() {
     `flashcard_user_state tablosu bulunamadi. Once ${USER_STATE_SETUP_DOC_PATH} sonra ${USER_STATE_MIGRATION_DOC_PATH} calistirilmalidir.`,
   );
   error.code = "MISSING_USER_STATE_TABLE";
+  return error;
+}
+
+function createMediaUploadNotSupportedError() {
+  const error = new Error("Medya yuklemek icin Supabase Storage yapilandirmasi gerekli.");
+  error.code = "MEDIA_UPLOAD_NOT_SUPPORTED";
+  return error;
+}
+
+function createMissingMediaStorageSetupError() {
+  const error = new Error(
+    `Supabase medya kurulumu eksik. ${MEDIA_STORAGE_SETUP_DOC_PATH} dosyasini calistirin.`,
+  );
+  error.code = "MEDIA_UPLOAD_SETUP_REQUIRED";
+  return error;
+}
+
+function createMediaStorageLimitReachedError(quota = null) {
+  const error = new Error("Storage limit (400 MB) reached. Please delete old media to upload new files.");
+  error.code = "MEDIA_STORAGE_LIMIT_REACHED";
+  error.quota = quota || null;
+  return error;
+}
+
+function isMissingMediaStorageSetupError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    isMissingRelationError(error)
+    || isMissingFunctionError(error)
+    || message.includes("flashcard_media")
+    || message.includes("reserve_flashcard_media_upload")
+    || message.includes("finalize_flashcard_media_upload")
+    || message.includes("get_flashcard_media_quota_status")
+    || (message.includes("bucket") && message.includes(FLASHCARD_MEDIA_BUCKET))
+  );
+}
+
+function pickRpcRow(data) {
+  if (Array.isArray(data)) {
+    return data[0] || null;
+  }
+  return data || null;
+}
+
+function normalizeMediaQuota(value) {
+  const hardLimitBytes = Number(value?.hard_limit_bytes ?? value?.hardLimitBytes ?? FLASHCARD_MEDIA_HARD_LIMIT_BYTES);
+  const usedBytes = Number(value?.used_bytes ?? value?.usedBytes ?? 0);
+  const reservedBytes = Number(value?.reserved_bytes ?? value?.reservedBytes ?? 0);
+  const projectedBytes = Number(value?.projected_bytes ?? value?.projectedBytes ?? usedBytes + reservedBytes);
+
+  return {
+    hardLimitBytes: Number.isFinite(hardLimitBytes) ? hardLimitBytes : FLASHCARD_MEDIA_HARD_LIMIT_BYTES,
+    projectedBytes: Number.isFinite(projectedBytes) ? projectedBytes : usedBytes + reservedBytes,
+    reservedBytes: Number.isFinite(reservedBytes) ? reservedBytes : 0,
+    usedBytes: Number.isFinite(usedBytes) ? usedBytes : 0,
+  };
+}
+
+function mapMediaStorageError(error) {
+  if (!error) return error;
+  if (error?.code === "MEDIA_STORAGE_LIMIT_REACHED") {
+    return error;
+  }
+  if (isMissingMediaStorageSetupError(error)) {
+    return createMissingMediaStorageSetupError();
+  }
   return error;
 }
 
@@ -301,6 +381,7 @@ function createMockAdapter(config, storage) {
     supportsRemoteSync: false,
     supportsStudyStateSync: false,
     supportsDemoAuth: config.enableDemoAuth !== false,
+    supportsMediaUpload: false,
 
     async getCurrentUser() {
       return currentUser ? { ...currentUser } : null;
@@ -353,6 +434,16 @@ function createMockAdapter(config, storage) {
 
     async writeSetSourceFile() {
       throw new Error("Bu özellik sadece masaüstünde kullanılabilir.");
+    },
+
+    async getMediaQuotaStatus() {
+      return normalizeMediaQuota({
+        hard_limit_bytes: FLASHCARD_MEDIA_HARD_LIMIT_BYTES,
+      });
+    },
+
+    async uploadMediaAttachment() {
+      throw createMediaUploadNotSupportedError();
     },
 
     async saveSet(record) {
@@ -603,11 +694,39 @@ function createSupabaseAdapter(config, storage) {
     return currentUser;
   }
 
+  async function runMediaRpc(functionName, params = {}) {
+    const { data, error } = await client.rpc(functionName, params);
+    if (error) {
+      throw mapMediaStorageError(error);
+    }
+    return pickRpcRow(data);
+  }
+
+  async function abortMediaReservation(reservationId) {
+    if (!reservationId) return null;
+    try {
+      return await runMediaRpc("abort_flashcard_media_upload", {
+        p_reservation_id: reservationId,
+      });
+    } catch (error) {
+      console.warn("Media reservation cleanup failed.", error);
+      return null;
+    }
+  }
+
+  async function queryMediaQuotaStatus() {
+    const quotaRow = await runMediaRpc("get_flashcard_media_quota_status", {
+      p_bucket_id: FLASHCARD_MEDIA_BUCKET,
+    });
+    return normalizeMediaQuota(quotaRow);
+  }
+
   return {
     type: "supabase-web",
     supportsRemoteSync: true,
     supportsStudyStateSync: true,
     supportsDemoAuth: false,
+    supportsMediaUpload: true,
 
     async getCurrentUser() {
       const {
@@ -716,6 +835,106 @@ function createSupabaseAdapter(config, storage) {
 
     async writeSetSourceFile() {
       throw new Error("Bu özellik sadece masaüstünde kullanılabilir.");
+    },
+
+    async getMediaQuotaStatus() {
+      const user = currentUser || (await refreshCurrentUser());
+      if (!user) {
+        throw new Error("Medya kotasini gormek icin giris yapmalisin.");
+      }
+      return queryMediaQuotaStatus();
+    },
+
+    async uploadMediaAttachment(file, options = {}) {
+      const user = currentUser || (await refreshCurrentUser());
+      if (!user) {
+        throw new Error("Medya yuklemek icin giris yapmalisin.");
+      }
+
+      if (!file) {
+        throw new Error("Yuklenecek medya dosyasi bulunamadi.");
+      }
+
+      const objectPath = String(options.objectPath || "").trim();
+      const sizeBytes = Number(options.sizeBytes ?? file.size ?? 0);
+      const mimeType = String(options.mimeType || file.type || "application/octet-stream").toLowerCase();
+
+      if (!objectPath) {
+        throw new Error("Medya icin gecersiz yukleme yolu olusturuldu.");
+      }
+
+      if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+        throw new Error("Medya dosyasi boyutu gecersiz.");
+      }
+
+      let reservation = null;
+      let uploadCompleted = false;
+
+      try {
+        reservation = await runMediaRpc("reserve_flashcard_media_upload", {
+          p_bucket_id: FLASHCARD_MEDIA_BUCKET,
+          p_bytes: sizeBytes,
+          p_object_path: objectPath,
+        });
+
+        if (!reservation?.allowed || !reservation?.reservation_id) {
+          throw createMediaStorageLimitReachedError(normalizeMediaQuota(reservation));
+        }
+
+        const { error: uploadError } = await client.storage
+          .from(FLASHCARD_MEDIA_BUCKET)
+          .upload(objectPath, file, {
+            cacheControl: "31536000",
+            contentType: mimeType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw mapMediaStorageError(uploadError);
+        }
+
+        uploadCompleted = true;
+        const { data: publicUrlData } = client.storage.from(FLASHCARD_MEDIA_BUCKET).getPublicUrl(objectPath);
+        const publicUrl = String(publicUrlData?.publicUrl || "").trim();
+
+        if (!publicUrl) {
+          throw new Error("Yuklenen medya icin public URL alinamadi.");
+        }
+
+        const finalizedUpload = await runMediaRpc("finalize_flashcard_media_upload", {
+          p_mime_type: mimeType,
+          p_public_url: publicUrl,
+          p_reservation_id: reservation.reservation_id,
+          p_size_bytes: sizeBytes,
+        });
+
+        return {
+          bucketId: FLASHCARD_MEDIA_BUCKET,
+          mimeType,
+          objectPath,
+          publicUrl,
+          quota: normalizeMediaQuota(finalizedUpload || reservation),
+          reservationId: reservation.reservation_id,
+          sizeBytes,
+        };
+      } catch (rawError) {
+        const error = mapMediaStorageError(rawError);
+
+        if (uploadCompleted) {
+          const { error: cleanupError } = await client.storage
+            .from(FLASHCARD_MEDIA_BUCKET)
+            .remove([objectPath]);
+          if (cleanupError) {
+            console.warn("Uploaded media cleanup failed.", cleanupError);
+          }
+        }
+
+        if (reservation?.reservation_id) {
+          await abortMediaReservation(reservation.reservation_id);
+        }
+
+        throw error;
+      }
     },
 
     async saveSet(record) {

@@ -1,12 +1,35 @@
 // src/features/editor/editor-toolbar.js
 // Markdown formatting toolbar: snippet application, toolbar button rendering.
 
-import { allMarkdownActions } from "../../shared/constants.js";
+import { platformAdapter } from "../../app/state.js";
+import { FLASHCARD_MEDIA_ACCEPT, allMarkdownActions } from "../../shared/constants.js";
 import { escapeMarkup } from "../../shared/utils.js";
 import { renderIcon } from "../../ui/icons.js";
 
-export function applyMarkdownSnippet(textarea, action) {
+export function insertTextAtSelection(textarea, replacement, options = {}) {
+  if (!textarea) return;
+
   const { restoreEditorFieldSelection, rememberEditorFieldSelection } = require_editor_events();
+  restoreEditorFieldSelection(textarea);
+
+  const selectionStart = typeof textarea.selectionStart === "number" ? textarea.selectionStart : textarea.value.length;
+  const selectionEnd = typeof textarea.selectionEnd === "number" ? textarea.selectionEnd : selectionStart;
+  const nextSelectionStart = Number.isFinite(options.selectionStart)
+    ? options.selectionStart
+    : String(replacement ?? "").length;
+  const nextSelectionEnd = Number.isFinite(options.selectionEnd)
+    ? options.selectionEnd
+    : nextSelectionStart;
+
+  textarea.setRangeText(String(replacement ?? ""), selectionStart, selectionEnd, options.selectionMode || "end");
+  textarea.focus();
+  textarea.setSelectionRange(selectionStart + nextSelectionStart, selectionStart + nextSelectionEnd);
+  rememberEditorFieldSelection(textarea);
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+export function applyMarkdownSnippet(textarea, action) {
+  const { restoreEditorFieldSelection } = require_editor_events();
   restoreEditorFieldSelection(textarea);
   const selectionStart = textarea.selectionStart;
   const selectionEnd = textarea.selectionEnd;
@@ -87,11 +110,10 @@ export function applyMarkdownSnippet(textarea, action) {
     selectionOffsetEnd = replacement.indexOf('"', selectionOffsetStart);
   }
 
-  textarea.setRangeText(replacement, selectionStart, selectionEnd, "end");
-  textarea.focus();
-  textarea.setSelectionRange(selectionStart + selectionOffsetStart, selectionStart + selectionOffsetEnd);
-  rememberEditorFieldSelection(textarea);
-  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  insertTextAtSelection(textarea, replacement, {
+    selectionEnd: selectionOffsetEnd,
+    selectionStart: selectionOffsetStart,
+  });
 }
 
 export function renderEditorToolbarButtons(actions, cardId) {
@@ -101,34 +123,49 @@ export function renderEditorToolbarButtons(actions, cardId) {
       const iconMarkup = action.icon ? renderIcon(action.icon) : "";
       if (action.id === "attachment") {
         const menuId = `editor-attachment-menu-${cardIdAttr}`;
+        const mediaUploadEnabled = Boolean(platformAdapter?.supportsMediaUpload);
+        const attachmentTitle = mediaUploadEnabled
+          ? action.title
+          : "Medya yuklemek icin Supabase Storage yapilandirmasi gerekli";
         return `
-          <div class="editor-attachment-shell">
+          <div class="editor-attachment-shell" data-editor-attachment-shell="${cardIdAttr}">
             <button
               type="button"
               class="btn btn-small btn-secondary editor-tool-btn editor-tool-btn--icon"
               data-editor-attachment-toggle="${cardIdAttr}"
+              data-editor-attachment-enabled="${mediaUploadEnabled}"
               data-card-id="${cardIdAttr}"
-              title="${action.title}"
-              aria-label="${action.title}"
+              title="${attachmentTitle}"
+              aria-label="${attachmentTitle}"
               aria-controls="${menuId}"
               aria-expanded="false"
             >${iconMarkup}</button>
+            <input
+              type="file"
+              class="editor-attachment-input"
+              data-editor-attachment-input="${cardIdAttr}"
+              data-card-id="${cardIdAttr}"
+              accept="${escapeMarkup(FLASHCARD_MEDIA_ACCEPT)}"
+              hidden
+            />
             <div class="editor-attachment-menu" id="${menuId}" hidden>
               <button
                 type="button"
                 class="btn btn-small btn-secondary editor-tool-btn"
-                data-md-action="attachment-image"
+                data-editor-attachment-kind="image"
                 data-card-id="${cardIdAttr}"
-                title="Görsel bağlantısı ekle"
-                aria-label="Görsel bağlantısı ekle"
-              >Görsel</button>
+                title="Gorsel yukle"
+                aria-label="Gorsel yukle"
+                ${mediaUploadEnabled ? "" : "disabled"}
+              >Gorsel</button>
               <button
                 type="button"
                 class="btn btn-small btn-secondary editor-tool-btn"
-                data-md-action="attachment-audio"
+                data-editor-attachment-kind="audio"
                 data-card-id="${cardIdAttr}"
-                title="Ses bağlantısı ekle"
-                aria-label="Ses bağlantısı ekle"
+                title="Ses yukle"
+                aria-label="Ses yukle"
+                ${mediaUploadEnabled ? "" : "disabled"}
               >Ses</button>
             </div>
           </div>`;
