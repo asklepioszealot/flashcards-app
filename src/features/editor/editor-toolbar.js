@@ -124,9 +124,7 @@ export function renderEditorToolbarButtons(actions, cardId) {
       if (action.id === "attachment") {
         const menuId = `editor-attachment-menu-${cardIdAttr}`;
         const mediaUploadEnabled = Boolean(platformAdapter?.supportsMediaUpload);
-        const attachmentTitle = mediaUploadEnabled
-          ? action.title
-          : "Medya yuklemek icin Supabase Storage yapilandirmasi gerekli";
+        const attachmentTitle = action.title;
         return `
           <div class="editor-attachment-shell" data-editor-attachment-shell="${cardIdAttr}">
             <button
@@ -152,20 +150,20 @@ export function renderEditorToolbarButtons(actions, cardId) {
               <button
                 type="button"
                 class="btn btn-small btn-secondary editor-tool-btn"
+                data-md-action="attachment-image"
                 data-editor-attachment-kind="image"
                 data-card-id="${cardIdAttr}"
-                title="Gorsel yukle"
-                aria-label="Gorsel yukle"
-                ${mediaUploadEnabled ? "" : "disabled"}
+                title="${mediaUploadEnabled ? "Gorsel yukle" : "Gorsel baglantisi ekle"}"
+                aria-label="${mediaUploadEnabled ? "Gorsel yukle" : "Gorsel baglantisi ekle"}"
               >Gorsel</button>
               <button
                 type="button"
                 class="btn btn-small btn-secondary editor-tool-btn"
+                data-md-action="attachment-audio"
                 data-editor-attachment-kind="audio"
                 data-card-id="${cardIdAttr}"
-                title="Ses yukle"
-                aria-label="Ses yukle"
-                ${mediaUploadEnabled ? "" : "disabled"}
+                title="${mediaUploadEnabled ? "Ses yukle" : "Ses baglantisi ekle"}"
+                aria-label="${mediaUploadEnabled ? "Ses yukle" : "Ses baglantisi ekle"}"
               >Ses</button>
             </div>
           </div>`;
