@@ -156,27 +156,29 @@ export function renderEditorToolbarButtons(actions, cardId) {
     .join("");
 }
 
-function renderEditorToolbarScrollButton(cardId, direction) {
+function renderEditorCardNavButton(cardId, direction, disabled = false) {
   const cardIdAttr = escapeMarkup(cardId);
-  const isRight = direction === "right";
-  const iconName = isRight ? "chevron-right" : "chevron-left";
-  const label = isRight ? "Biçimlendirme araçlarını sağa kaydır" : "Biçimlendirme araçlarını sola kaydır";
+  const isNext = direction === "next";
+  const iconName = isNext ? "chevron-right" : "chevron-left";
+  const label = isNext ? "Sonraki kartı aç" : "Önceki kartı aç";
 
   return `
-    <div class="editor-format-toolbar-nav-slot editor-format-toolbar-nav-slot--${isRight ? "top" : "bottom"}">
+    <div class="editor-format-toolbar-nav-slot editor-format-toolbar-nav-slot--${isNext ? "top" : "bottom"}">
       <button
         type="button"
         class="btn btn-small btn-secondary editor-tool-nav-btn"
-        data-editor-toolbar-scroll="${direction}"
+        data-editor-card-nav="${direction}"
         data-card-id="${cardIdAttr}"
         title="${label}"
         aria-label="${label}"
+        ${disabled ? "disabled" : ""}
       >${renderIcon(iconName)}</button>
     </div>`;
 }
 
-export function renderEditorFormattingToolbar(cardId) {
-  const cardIdAttr = escapeMarkup(cardId);
+export function renderEditorFormattingToolbar(cardId, options = {}) {
+  const canGoPrevious = options.canGoPrevious === true;
+  const canGoNext = options.canGoNext === true;
   return `
     <div class="editor-format-toolbar-row">
       <div class="editor-format-toolbar">
@@ -185,20 +187,15 @@ export function renderEditorFormattingToolbar(cardId) {
             <strong>Biçimlendirme</strong>
           </div>
         </div>
-        <div
-          class="editor-toolbar-shell"
-          data-editor-toolbar-shell="${cardIdAttr}"
-          role="toolbar"
-          aria-label="Soru ve açıklama biçimlendirme araçları"
-        >
+        <div class="editor-toolbar-shell" role="toolbar" aria-label="Soru ve açıklama biçimlendirme araçları">
           <div class="editor-toolbar editor-toolbar-primary">
             ${renderEditorToolbarButtons(allMarkdownActions, cardId)}
           </div>
         </div>
       </div>
-      <div class="editor-format-toolbar-nav" aria-label="Biçimlendirme araçlarını kaydır">
-        ${renderEditorToolbarScrollButton(cardId, "right")}
-        ${renderEditorToolbarScrollButton(cardId, "left")}
+      <div class="editor-format-toolbar-nav" aria-label="Kartlar arasında gezin">
+        ${renderEditorCardNavButton(cardId, "next", !canGoNext)}
+        ${renderEditorCardNavButton(cardId, "previous", !canGoPrevious)}
       </div>
     </div>`;
 }

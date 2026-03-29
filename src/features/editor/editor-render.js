@@ -193,7 +193,10 @@ export function renderEditorCardDetail(draft, card, index) {
         </div>
       </div>
       <div class="editor-card-body" data-editor-card-body="${cardIdAttr}">
-        ${renderEditorFormattingToolbar(card.id)}
+        ${renderEditorFormattingToolbar(card.id, {
+          canGoPrevious: index > 0,
+          canGoNext: index < draft.cards.length - 1,
+        })}
         <div class="field-group">
           <label for="${questionFieldIdAttr}">Soru</label>
           <textarea

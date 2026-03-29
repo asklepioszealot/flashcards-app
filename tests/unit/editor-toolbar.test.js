@@ -59,13 +59,17 @@ describe("Editor toolbar attachment snippets", () => {
     expect(markup).not.toContain("data-editor-attachment-kind");
   });
 
-  it("renders external stacked scroll controls next to the formatting toolbar", () => {
-    const markup = renderEditorFormattingToolbar("card-123");
+  it("renders external stacked card navigation controls next to the formatting toolbar", () => {
+    const markup = renderEditorFormattingToolbar("card-123", {
+      canGoPrevious: true,
+      canGoNext: false,
+    });
 
     expect(markup).toContain('class="editor-format-toolbar-row"');
     expect(markup).toContain('class="editor-format-toolbar-nav"');
-    expect(markup).toContain('data-editor-toolbar-shell="card-123"');
-    expect(markup).toContain('data-editor-toolbar-scroll="right"');
-    expect(markup).toContain('data-editor-toolbar-scroll="left"');
+    expect(markup).toContain('data-editor-card-nav="next"');
+    expect(markup).toContain('data-editor-card-nav="previous"');
+    expect(markup).toContain('data-card-id="card-123"');
+    expect(markup).toContain("disabled");
   });
 });
