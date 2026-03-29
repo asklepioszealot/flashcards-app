@@ -13,6 +13,7 @@
     "backup:cloud-user": "node ./tools/backup-cloud-user.mjs",
     "backup:supabase": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1",
     "backup:supabase:dry": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/backup-supabase.ps1 -DryRun",
+    "tauri": "node ./node_modules/@tauri-apps/cli/tauri.js",
     "build:desktop": "node ./node_modules/@tauri-apps/cli/tauri.js build --bundles nsis",
     "release": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
     "release:no-legacy": "pwsh -NoProfile -ExecutionPolicy Bypass -File ./tools/build-release.ps1 -NoLegacyCopy",
