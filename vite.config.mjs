@@ -125,6 +125,9 @@ function makeRuntimeConfig() {
       supabaseAnonKey: "",
       authMode: "mock",
       enableDemoAuth: process.env.ENABLE_DEMO_AUTH !== "0",
+      driveClientId: "",
+      driveApiKey: "",
+      driveAppId: "",
     };
   }
 
@@ -137,11 +140,18 @@ function makeRuntimeConfig() {
       ? process.env.ENABLE_DEMO_AUTH !== "0"
       : localRuntimeConfig.enableDemoAuth !== false;
 
+  const driveClientId = process.env.DRIVE_CLIENT_ID || localRuntimeConfig.driveClientId || "";
+  const driveApiKey = process.env.DRIVE_API_KEY || localRuntimeConfig.driveApiKey || "";
+  const driveAppId = process.env.DRIVE_APP_ID || localRuntimeConfig.driveAppId || "";
+
   return {
     supabaseUrl,
     supabaseAnonKey,
     authMode,
     enableDemoAuth,
+    driveClientId,
+    driveApiKey,
+    driveAppId,
   };
 }
 

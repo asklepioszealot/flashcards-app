@@ -11,7 +11,6 @@ import { handleAuthStateChange, syncRememberMeUi, showAuthStatus } from "../feat
 import { ThemeManager } from "../ui/theme.js";
 import { showScreen } from "./screen.js";
 import { scheduleStartupDesktopUpdateCheck, syncDesktopUpdateButton } from "../features/desktop-update/desktop-update.js";
-import { initGoogleDrive } from "../features/google-drive/google-drive.js";
 import { updateManagerUserChip } from "../features/set-manager/set-manager.js";
 
 export function markAppReady() {
@@ -250,5 +249,4 @@ export async function bootstrap() {
   adapter.subscribeAuthState((user, event) => {
     void handleAuthStateChange(user, event);
   });
-  initGoogleDrive();
 }

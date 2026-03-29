@@ -3,6 +3,9 @@ const DEFAULT_RUNTIME_CONFIG = Object.freeze({
   supabaseAnonKey: "",
   authMode: "mock",
   enableDemoAuth: true,
+  driveClientId: "",
+  driveApiKey: "",
+  driveAppId: "",
 });
 
 export const APP_CONFIG = Object.freeze(

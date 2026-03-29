@@ -8,7 +8,7 @@ import {
   FLASHCARD_MEDIA_BUCKET,
   FLASHCARD_MEDIA_HARD_LIMIT_BYTES,
 } from "../shared/constants.js";
-import { normalizeReviewPreferences } from "../shared/utils.js";
+import { nowIso, safeJsonParse, cloneData, isPlainObject, normalizeReviewPreferences } from "../shared/utils.js";
 import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime-config.js";
 
 const APP_NAMESPACE = "fc_v2";
@@ -21,26 +21,7 @@ const USER_STATE_SETUP_DOC_PATH = "docs/SUPABASE_SYNC_SETUP.sql";
 const USER_STATE_MIGRATION_DOC_PATH = "docs/SUPABASE_USER_STATE_MIGRATION.sql";
 const MEDIA_STORAGE_SETUP_DOC_PATH = "docs/SUPABASE_MEDIA_STORAGE_SETUP.sql";
 
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function safeJsonParse(rawValue, fallbackValue) {
-  if (!rawValue) return fallbackValue;
-  try {
-    return JSON.parse(rawValue);
-  } catch {
-    return fallbackValue;
-  }
-}
-
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+const clone = cloneData;
 
 function isMissingRelationError(error) {
   const message = String(error?.message || "").toLowerCase();

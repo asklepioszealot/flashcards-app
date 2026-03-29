@@ -31,3 +31,7 @@ backups/
 temp.js
 vite-*.log
 ~/.tauri/
+~/
+.codex/
+.agents/
+.agent/

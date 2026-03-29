@@ -12,32 +12,78 @@ import {
 import { importSetFromBinary, importSetFromText } from "../set-manager/set-manager.js";
 import { showUndoToast } from "../set-manager/undo-toast.js";
 
-export function initGoogleDrive() {
-  if (!window.google || !window.google.accounts || !window.gapi) {
-    setTimeout(initGoogleDrive, 500);
+let scriptsLoading = false;
+
+function loadGoogleScripts(callback) {
+  if (window.google?.accounts && window.gapi) {
+    callback();
     return;
   }
-  gapi.load("picker", () => {
-    setPickerApiLoaded(true);
-  });
-  setTokenClient(google.accounts.oauth2.initTokenClient({
-    client_id: DRIVE_CLIENT_ID,
-    scope: DRIVE_SCOPES,
-    callback: (tokenResponse) => {
-      if (tokenResponse?.access_token) {
-        setDriveAccessToken(tokenResponse.access_token);
-        launchDrivePicker();
+  if (scriptsLoading) {
+    const checkInterval = setInterval(() => {
+      if (window.google?.accounts && window.gapi) {
+        clearInterval(checkInterval);
+        callback();
       }
-    },
-  }));
+    }, 100);
+    return;
+  }
+  scriptsLoading = true;
+  let loadedCount = 0;
+  const onScriptLoaded = () => {
+    loadedCount++;
+    if (loadedCount === 2) {
+      callback();
+    }
+  };
+
+  const script1 = document.createElement("script");
+  script1.src = "https://accounts.google.com/gsi/client";
+  script1.async = true;
+  script1.defer = true;
+  script1.onload = onScriptLoaded;
+  document.head.appendChild(script1);
+
+  const script2 = document.createElement("script");
+  script2.src = "https://apis.google.com/js/api.js";
+  script2.async = true;
+  script2.defer = true;
+  script2.onload = onScriptLoaded;
+  document.head.appendChild(script2);
 }
 
 export function authGoogleDrive() {
-  if (!tokenClient || !pickerApiLoaded) {
-    alert("Google Drive entegrasyonu henüz hazır değil.");
+  if (!DRIVE_CLIENT_ID || !DRIVE_API_KEY) {
+    alert("Google Drive entegrasyonu yapılandırılmamış.");
     return;
   }
-  tokenClient.requestAccessToken({ prompt: "" });
+
+  loadGoogleScripts(() => {
+    if (!pickerApiLoaded) {
+      gapi.load("picker", () => {
+        setPickerApiLoaded(true);
+      });
+    }
+
+    if (!tokenClient) {
+      setTokenClient(google.accounts.oauth2.initTokenClient({
+        client_id: DRIVE_CLIENT_ID,
+        scope: DRIVE_SCOPES,
+        callback: (tokenResponse) => {
+          if (tokenResponse?.access_token) {
+            setDriveAccessToken(tokenResponse.access_token);
+            const launchWhenReady = () => {
+               if (pickerApiLoaded) launchDrivePicker();
+               else setTimeout(launchWhenReady, 100);
+            };
+            launchWhenReady();
+          }
+        },
+      }));
+    }
+
+    tokenClient.requestAccessToken({ prompt: "" });
+  });
 }
 
 export function launchDrivePicker() {

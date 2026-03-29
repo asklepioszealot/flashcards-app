@@ -5,6 +5,9 @@ const DEFAULT_CONFIG = Object.freeze({
   supabaseAnonKey: "",
   authMode: "mock",
   enableDemoAuth: true,
+  driveClientId: "",
+  driveApiKey: "",
+  driveAppId: "",
 });
 
 export function getRuntimeConfig() {
@@ -17,6 +20,11 @@ export function getRuntimeConfig() {
 export function hasSupabaseConfig() {
   const config = getRuntimeConfig();
   return Boolean(config.supabaseUrl && config.supabaseAnonKey);
+}
+
+export function hasDriveConfig() {
+  const config = getRuntimeConfig();
+  return Boolean(config.driveClientId && config.driveApiKey);
 }
 
 export function isDesktopRuntime() {

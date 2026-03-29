@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flashcards</title>
+    <title>Flashcards — Tıp Fakültesi Çalışma Uygulaması</title>
+    <meta name="description" content="Modüler, JSON-tabanlı ve dinamik set yönetimli pediatri çalışma uygulaması. Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz." />
+    <meta name="theme-color" content="#10b981" />
+    <meta property="og:title" content="Flashcards — Tıp Fakültesi Çalışma Uygulaması" />
+    <meta property="og:description" content="Kartları çevirerek soru-cevap çalış, ilerlemeyi takip et ve setlerini senkron tut." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./app-icon.png" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3307,6 +3313,85 @@
         padding: 20px;
         color: var(--color-text-secondary);
       }
+
+      .export-modal-overlay {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+      }
+
+      .export-modal-box {
+        background-color: var(--color-bg-secondary);
+        margin: 10% auto;
+        padding: 24px;
+        border: 1px solid var(--color-border);
+        width: 90%;
+        max-width: 480px;
+        border-radius: 16px;
+        position: relative;
+        box-shadow: 0 20px 48px var(--shell-shadow);
+      }
+
+      .export-modal-close {
+        color: var(--color-text-secondary);
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        background: none;
+        border: none;
+        line-height: 1;
+      }
+
+      .export-modal-title {
+        margin-top: 0;
+        margin-bottom: 20px;
+        color: var(--color-text-primary);
+      }
+
+      .export-form-group {
+        margin-bottom: 16px;
+      }
+
+      .export-form-label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--color-text-secondary);
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .export-form-select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--color-bg-primary);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-border);
+      }
+
+      .export-alert {
+        display: none;
+        color: #ef4444;
+        font-size: 13px;
+        margin-bottom: 16px;
+        padding: 10px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 8px;
+      }
+
+      .export-modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 24px;
+      }
     </style>
   </head>
   <body class="app-booting">
@@ -3874,22 +3959,22 @@
     </div>
 
         <!-- Export Modal -->
-    <div id="export-modal" class="modal" style="display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
-      <div class="modal-content" style="background-color: var(--color-bg-secondary); margin: 10% auto; padding: 24px; border: 1px solid var(--color-border); width: 90%; max-width: 480px; border-radius: 16px; position: relative; box-shadow: 0 20px 48px var(--shell-shadow);">
-        <span class="close-btn" data-export-close style="color: var(--color-text-secondary); float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h2 style="margin-top: 0; margin-bottom: 20px; color: var(--color-text-primary);">Dışa Aktar</h2>
+    <div id="export-modal" class="export-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+      <div class="export-modal-box">
+        <button class="export-modal-close" data-export-close aria-label="Kapat">&times;</button>
+        <h2 id="export-modal-title" class="export-modal-title">Dışa Aktar</h2>
         
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 8px; color: var(--color-text-secondary); font-size: 14px; font-weight: 600;">Kapsam:</label>
-          <select id="export-scope" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border);">
+        <div class="export-form-group">
+          <label class="export-form-label">Kapsam:</label>
+          <select id="export-scope" class="export-form-select">
             <option value="filtered">Sadece Göründüğü Gibi (Filtreli)</option>
             <option value="all">Tüm Seçili Setler</option>
           </select>
         </div>
         
-        <div class="form-group" style="margin-bottom: 16px;">
-          <label style="display: block; margin-bottom: 8px; color: var(--color-text-secondary); font-size: 14px; font-weight: 600;">Format:</label>
-          <select id="export-format" style="width: 100%; padding: 10px; border-radius: 8px; background: var(--color-bg-primary); color: var(--color-text-primary); border: 1px solid var(--color-border);">
+        <div class="export-form-group">
+          <label class="export-form-label">Format:</label>
+          <select id="export-format" class="export-form-select">
             <option value="print">Yazdır / PDF</option>
             <option value="csv">CSV</option>
             <option value="markdown">Markdown</option>
@@ -3898,14 +3983,14 @@
           </select>
         </div>
         
-        <div id="export-warning" class="export-warning" style="display: none; color: #ef4444; font-size: 13px; margin-bottom: 16px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+        <div id="export-warning" class="export-alert">
           Görseller Anki aktarımına dahil edilmez.
         </div>
         
-        <div id="export-error" class="export-error" style="display: none; color: #ef4444; font-size: 13px; margin-bottom: 16px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+        <div id="export-error" class="export-alert">
         </div>
 
-        <div class="modal-actions" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px;">
+        <div class="export-modal-actions">
           <button class="btn btn-secondary" data-export-close>İptal</button>
           <button class="btn" id="export-submit-btn">Dışa Aktar</button>
         </div>
@@ -3914,8 +3999,6 @@
 
     <div class="build-meta-banner" id="build-meta"></div>
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
     <script type="module" src="./src/app/main.js"></script>
 
   </body>

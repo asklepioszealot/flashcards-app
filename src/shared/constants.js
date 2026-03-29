@@ -1,5 +1,8 @@
 // src/shared/constants.js
-// All application-level constants — no imports, pure data.
+// All application-level constants.
+// Drive credentials are injected at build time via __APP_CONFIG__ (see vite.config.mjs).
+
+import { getRuntimeConfig } from "../core/runtime-config.js";
 
 export const APP_NAMESPACE = "fc_v2";
 export const THEME_KEY = "fc_theme";
@@ -19,9 +22,10 @@ export const WEB_FILE_SOURCE_PREFIX = "webfile://";
 export const BROWSER_FILE_HANDLE_DB_NAME = `${APP_NAMESPACE}::browser-file-handles`;
 export const BROWSER_FILE_HANDLE_STORE = "handles";
 
-export const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
-export const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
-export const DRIVE_APP_ID = "102976125468";
+const _cfg = getRuntimeConfig();
+export const DRIVE_CLIENT_ID = _cfg.driveClientId || "";
+export const DRIVE_API_KEY = _cfg.driveApiKey || "";
+export const DRIVE_APP_ID = _cfg.driveAppId || "";
 export const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.readonly";
 
 export const DESKTOP_UPDATE_DEFAULT_LABEL = "Güncellemeleri Kontrol Et";
