@@ -40,6 +40,14 @@ export const DEFAULT_REVIEW_PREFERENCES = Object.freeze({
   intervalMultiplier: 1,
 });
 
+export const FLASHCARD_MEDIA_BUCKET = "flashcard-media";
+export const FLASHCARD_MEDIA_HARD_LIMIT_BYTES = 400 * 1024 * 1024;
+export const FLASHCARD_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+export const FLASHCARD_AUDIO_MAX_BYTES = 5 * 1024 * 1024;
+export const FLASHCARD_IMAGE_ACCEPT = "image/png, image/jpeg, image/webp";
+export const FLASHCARD_AUDIO_ACCEPT = "audio/mpeg, audio/wav, audio/ogg";
+export const FLASHCARD_MEDIA_ACCEPT = `${FLASHCARD_IMAGE_ACCEPT}, ${FLASHCARD_AUDIO_ACCEPT}`;
+
 export const REVIEW_MEMORY_TARGET_OPTIONS = Object.freeze([75, 80, 85, 90, 95]);
 export const REVIEW_INTERVAL_MULTIPLIER_OPTIONS = Object.freeze([
   0.8,

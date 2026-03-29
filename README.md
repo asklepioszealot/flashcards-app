@@ -19,6 +19,7 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 - Karıştırma (shuffle), Açık/Koyu tema, Kart numarasına atlama
 - **Opsiyonel Otomatik Geçiş**: Değerlendirme sonrası bir sonraki karta otomatik geçişi giriş ekranından açıp kapatabilirsiniz (ayar kalıcıdır).
 - **Bulut Senkronu**: Aynı Supabase hesabında set değişiklikleri ve çalışma ilerlemesi cihazlar arasında paylaşılır. Çalışma ilerlemesi yalnızca `flashcard_user_state` tablosunda tutulur.
+- **Markdown Medya Eklentileri**: Editor icinden gorsel ve ses dosyalari Supabase Storage'a yuklenebilir; bucket kullanimi uygulama tarafinda 400 MB ile sinirlanir.
 - Klavye kısayolları
 - `localStorage` ile durum kaydı
 
@@ -38,7 +39,9 @@ Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve 
 - Yeni sürümlerde set ilerlemesi için `flashcard_user_state` tablosu zorunludur.
 - Önce [`docs/SUPABASE_SYNC_SETUP.sql`](docs/SUPABASE_SYNC_SETUP.sql) dosyasını çalıştırın.
 - Ardından eski gizli state kayıtlarını güvenle taşımak için [`docs/SUPABASE_USER_STATE_MIGRATION.sql`](docs/SUPABASE_USER_STATE_MIGRATION.sql) dosyasını bir kez çalıştırın.
+- Medya upload ozelligi icin [`docs/SUPABASE_MEDIA_STORAGE_SETUP.sql`](docs/SUPABASE_MEDIA_STORAGE_SETUP.sql) dosyasini da calistirin.
 - `flashcard_sets` için temel kurtarma şeması [`docs/SUPABASE_FLASHCARD_SETS_SETUP.sql`](docs/SUPABASE_FLASHCARD_SETS_SETUP.sql) içinde tutulur.
+- Medya bucket temizligi ve quota senkronu icin [`docs/SUPABASE_MEDIA_CLEANUP.md`](docs/SUPABASE_MEDIA_CLEANUP.md) notlarina bakin.
 - En kolay kişisel bulut yedeği için uygulama hesabınla giriş yapıp kendi verini dışa al:
 
 ```powershell

@@ -2,10 +2,17 @@
 // Editor field state binding: selection memory, height tracking, split drag, raw editor.
 
 import {
-  editorState, editorSplitDragState, setEditorSplitDragState,
+  editorState,
+  editorSplitDragState,
+  setEditorSplitDragState,
+  platformAdapter,
 } from "../../app/state.js";
 import {
-  MIN_EDITOR_SPLIT_RATIO, MAX_EDITOR_SPLIT_RATIO, MIN_EDITOR_RAW_HEIGHT, EDITOR_SPLIT_KEYBOARD_STEP,
+  MIN_EDITOR_SPLIT_RATIO,
+  MAX_EDITOR_SPLIT_RATIO,
+  EDITOR_SPLIT_KEYBOARD_STEP,
+  FLASHCARD_AUDIO_ACCEPT,
+  FLASHCARD_IMAGE_ACCEPT,
 } from "../../shared/constants.js";
 import { escapeAttributeSelectorValue } from "../../shared/utils.js";
 import {
@@ -16,7 +23,12 @@ import {
   ensureEditorRawState,
 } from "./editor-state.js";
 import { renderAnswerMarkdown } from "../../core/set-codec.js";
-import { applyMarkdownSnippet, initEditorEventsRef } from "./editor-toolbar.js";
+import {
+  buildMediaMarkdownSnippet,
+  prepareMediaUpload,
+  resolveMediaUploadErrorMessage,
+} from "./editor-media.js";
+import { applyMarkdownSnippet, initEditorEventsRef, insertTextAtSelection } from "./editor-toolbar.js";
 
 // Register ourselves as the editor-events reference for toolbar
 initEditorEventsRef({
@@ -99,6 +111,107 @@ function toggleAttachmentMenu(button) {
   if (!nextExpanded) return;
   menu.hidden = false;
   button.setAttribute("aria-expanded", "true");
+}
+
+function syncAttachmentButtonState(shell) {
+  if (!shell) return;
+  const toggleButton = shell.querySelector("[data-editor-attachment-toggle]");
+  const attachmentButtons = shell.querySelectorAll("[data-editor-attachment-kind]");
+  const fileInput = shell.querySelector("[data-editor-attachment-input]");
+  const isLoading = shell.classList.contains("is-loading");
+  const isEnabled = toggleButton?.getAttribute("data-editor-attachment-enabled") === "true";
+
+  attachmentButtons.forEach((button) => {
+    button.disabled = isLoading || !isEnabled;
+  });
+
+  if (toggleButton) {
+    toggleButton.disabled = isLoading;
+    toggleButton.classList.toggle("is-loading", isLoading);
+  }
+
+  if (fileInput) {
+    fileInput.disabled = isLoading;
+  }
+}
+
+function setAttachmentLoading(cardId, isLoading) {
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  const shell = document.querySelector(`[data-editor-attachment-shell="${escapedCardId}"]`);
+  if (!shell) return;
+  shell.classList.toggle("is-loading", isLoading);
+  shell.setAttribute("aria-busy", isLoading ? "true" : "false");
+  syncAttachmentButtonState(shell);
+}
+
+function openAttachmentFilePicker(button) {
+  const cardId = button?.getAttribute("data-card-id");
+  if (!cardId) return;
+  const escapedCardId = escapeAttributeSelectorValue(cardId);
+  const input = document.querySelector(`[data-editor-attachment-input="${escapedCardId}"]`);
+  if (!input) return;
+
+  const intendedKind = button.getAttribute("data-editor-attachment-kind") === "audio" ? "audio" : "image";
+  input.dataset.attachmentKind = intendedKind;
+  input.accept = intendedKind === "audio" ? FLASHCARD_AUDIO_ACCEPT : FLASHCARD_IMAGE_ACCEPT;
+  closeAttachmentMenus();
+  input.click();
+}
+
+async function handleAttachmentFileSelection(input) {
+  const cardId = input?.getAttribute("data-card-id");
+  if (!cardId) return;
+
+  const selectedFile = input.files?.[0];
+  const intendedKind = input.dataset.attachmentKind || null;
+  input.value = "";
+  input.dataset.attachmentKind = "";
+  input.accept = `${FLASHCARD_IMAGE_ACCEPT}, ${FLASHCARD_AUDIO_ACCEPT}`;
+
+  if (!selectedFile) {
+    closeAttachmentMenus();
+    return;
+  }
+
+  const textarea = resolveEditorToolbarTarget(cardId);
+  if (!textarea) return;
+
+  setFocusedEditorField(textarea);
+  closeAttachmentMenus();
+  setAttachmentLoading(cardId, true);
+  const { showEditorStatus } = await import("../auth/auth.js");
+  showEditorStatus("Medya yukleniyor...");
+
+  try {
+    if (!platformAdapter?.supportsMediaUpload || typeof platformAdapter.uploadMediaAttachment !== "function") {
+      const unsupportedError = new Error("Medya yuklemek icin Supabase Storage yapilandirmasi gerekli.");
+      unsupportedError.code = "MEDIA_UPLOAD_NOT_SUPPORTED";
+      throw unsupportedError;
+    }
+
+    const preparedUpload = await prepareMediaUpload(selectedFile, { intendedKind });
+    const uploadResult = await platformAdapter.uploadMediaAttachment(preparedUpload.file, preparedUpload);
+    if (!uploadResult?.publicUrl) {
+      throw new Error("Yuklenen medya icin public URL alinamadi.");
+    }
+
+    const markdownSnippet = buildMediaMarkdownSnippet(preparedUpload.kind, uploadResult.publicUrl);
+    insertTextAtSelection(
+      textarea,
+      markdownSnippet,
+      {
+        selectionEnd: markdownSnippet.length,
+        selectionStart: markdownSnippet.length,
+      },
+    );
+
+    showEditorStatus(preparedUpload.kind === "image" ? "Gorsel eklendi." : "Ses eklendi.", "success");
+  } catch (error) {
+    console.error(error);
+    showEditorStatus(resolveMediaUploadErrorMessage(error), "error");
+  } finally {
+    setAttachmentLoading(cardId, false);
+  }
 }
 
 export function getEditorFieldNameFromElement(textarea) {
@@ -438,11 +551,35 @@ export function bindEditorEvents(draft) {
       }
     });
   });
+  document.querySelectorAll("[data-editor-attachment-kind]").forEach((button) => {
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+    });
+    button.addEventListener("click", () => {
+      const textarea = resolveEditorToolbarTarget(button.getAttribute("data-card-id"));
+      if (textarea) {
+        setFocusedEditorField(textarea);
+      }
+      openAttachmentFilePicker(button);
+    });
+  });
+  document.querySelectorAll("[data-editor-attachment-input]").forEach((input) => {
+    input.addEventListener("change", () => {
+      void handleAttachmentFileSelection(input);
+    });
+  });
   document.querySelectorAll("[data-editor-attachment-toggle]").forEach((button) => {
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
+      if (button.getAttribute("data-editor-attachment-enabled") !== "true") {
+        import("../auth/auth.js").then(({ showEditorStatus }) => {
+          showEditorStatus("Medya yuklemek icin Supabase Storage yapilandirmasi gerekli.", "error");
+        });
+        closeAttachmentMenus();
+        return;
+      }
       toggleAttachmentMenu(button);
     });
   });

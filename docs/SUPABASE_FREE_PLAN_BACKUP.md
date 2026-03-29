@@ -7,14 +7,17 @@ Bu repo icin ucretsiz planda alinacak en pratik onlem, `public` semasini ve uygu
 - Supabase Auth
 - `public.flashcard_sets`
 - Opsiyonel `public.flashcard_user_state`
+- Public `flashcard-media` Storage bucket'i
 
-Kod tarafinda Supabase Storage bucket kullanan bir akis yok. Bu nedenle en kritik veri, `public` semasindaki uygulama tablolaridir.
+Set verisi yine en kritik kisimdir, ancak medya upload ozelligi acildiginda `flashcard-media` bucket'i de
+yedek ve temizlik planina dahil edilmelidir.
 
 ## Neden bu ek onlem gerekli?
 
 - Supabase gunluk backup aliyor, ancak ucretsiz planda kendi off-site yedeginin olmasi daha guvenli.
 - Baska bir Supabase projesine veya baska bir backend'e gecmek istersen elde hazir SQL dump olur.
 - Repo icindeki `docs/SUPABASE_FLASHCARD_SETS_SETUP.sql` dosyasi, uygulamanin ana tablosu icin kurtarma referansi saglar.
+- Medya bucket/RPC kurulumu icin `docs/SUPABASE_MEDIA_STORAGE_SETUP.sql` referansi bulunur.
 
 ## Hazir backup komutu
 
@@ -66,8 +69,9 @@ En minimum kurtarma yolu:
 1. Yeni Supabase projesi ac
 2. Gerekirse `docs/SUPABASE_FLASHCARD_SETS_SETUP.sql` dosyasini calistir
 3. Varsa `docs/SUPABASE_SYNC_SETUP.sql` ile opsiyonel state tablosunu kur
-4. `public-schema.sql` ve `public-data.sql` dump'larini iceri al
-5. Yeni projenin URL ve anon key bilgisini uygulamaya tanit
+4. Medya gerekiyorsa `docs/SUPABASE_MEDIA_STORAGE_SETUP.sql` dosyasini calistir ve bucket dosyalarini ayri aktar
+5. `public-schema.sql` ve `public-data.sql` dump'larini iceri al
+6. Yeni projenin URL ve anon key bilgisini uygulamaya tanit
 
 Not:
 
