@@ -40,6 +40,13 @@ export const DEFAULT_REVIEW_PREFERENCES = Object.freeze({
   intervalMultiplier: 1,
 });
 
+export const DEFAULT_CARD_CONTENT_PREFERENCES = Object.freeze({
+  frontFontSize: 24,
+  backFontSize: 18,
+});
+export const MIN_CARD_CONTENT_FONT_SIZE = 14;
+export const MAX_CARD_CONTENT_FONT_SIZE = 32;
+
 export const FLASHCARD_MEDIA_BUCKET = "flashcard-media";
 export const FLASHCARD_MEDIA_HARD_LIMIT_BYTES = 400 * 1024 * 1024;
 export const FLASHCARD_IMAGE_MAX_BYTES = 2 * 1024 * 1024;

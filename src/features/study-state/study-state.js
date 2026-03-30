@@ -14,6 +14,7 @@ import {
   autoAdvanceEnabled, setAutoAdvanceEnabled,
   isAnalyticsVisible, setIsAnalyticsVisible,
   reviewPreferences, setReviewPreferences,
+  cardContentPreferences, setCardContentPreferences,
   filteredFlashcards,
   cardOrder,
   currentCardIndex,
@@ -59,6 +60,7 @@ export function getLegacyStudyStateSnapshot() {
   const autoAdvanceRaw = getUserText("auto_advance");
   const analyticsVisibleRaw = getUserText("analytics_visible");
   const storedReviewPreferences = getUserJson("review_preferences", null);
+  const storedCardContentPreferences = getUserJson("card_content_preferences", null);
   return normalizeStudyStateSnapshot({
     selectedSetIds: Array.isArray(storedSelected) ? storedSelected : [],
     assessments: isPlainObject(storedAssessments) ? storedAssessments : {},
@@ -67,6 +69,7 @@ export function getLegacyStudyStateSnapshot() {
     autoAdvanceEnabled: autoAdvanceRaw === null ? true : autoAdvanceRaw === "1",
     isAnalyticsVisible: analyticsVisibleRaw === "1",
     reviewPreferences: storedReviewPreferences,
+    cardContentPreferences: storedCardContentPreferences,
     updatedAt: null,
   });
 }
@@ -96,6 +99,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
     autoAdvanceEnabled,
     isAnalyticsVisible,
     reviewPreferences,
+    cardContentPreferences,
     updatedAt: options.updatedAt || nowIso(),
   });
 }
@@ -110,6 +114,7 @@ export function persistStudyStateSnapshot(snapshot) {
   setUserText("auto_advance", normalizedSnapshot.autoAdvanceEnabled ? "1" : "0");
   setUserText("analytics_visible", normalizedSnapshot.isAnalyticsVisible ? "1" : "0");
   setUserJson("review_preferences", normalizedSnapshot.reviewPreferences);
+  setUserJson("card_content_preferences", normalizedSnapshot.cardContentPreferences);
   setUserJson("session", normalizedSnapshot.session);
 }
 
@@ -142,7 +147,15 @@ export function applyStudyStateSnapshot(snapshot) {
   setAutoAdvanceEnabled(normalizedSnapshot.autoAdvanceEnabled !== false);
   setIsAnalyticsVisible(normalizedSnapshot.isAnalyticsVisible === true);
   setReviewPreferences(normalizedSnapshot.reviewPreferences);
-  import("../study/study.js").then(({ syncAutoAdvanceToggleUI, syncReviewScheduleUi }) => {
+  setCardContentPreferences(normalizedSnapshot.cardContentPreferences);
+  import("../study/study.js").then(({
+    applyCardContentPreferencesUi,
+    syncAutoAdvanceToggleUI,
+    syncCardContentPreferencesUi,
+    syncReviewScheduleUi,
+  }) => {
+    applyCardContentPreferencesUi();
+    syncCardContentPreferencesUi();
     syncAutoAdvanceToggleUI();
     syncReviewScheduleUi();
   });
@@ -153,7 +166,12 @@ export function applyStudyStateSnapshot(snapshot) {
 }
 
 export async function flushRemoteStudyStateSync() {
-  if (!currentUser || typeof platformAdapter.saveUserState !== "function" || !pendingRemoteStudyStateSnapshot) return;
+  if (
+    !currentUser
+    || platformAdapter?.supportsStudyStateSync === false
+    || typeof platformAdapter.saveUserState !== "function"
+    || !pendingRemoteStudyStateSnapshot
+  ) return;
   const snapshotToSync = normalizeStudyStateSnapshot(pendingRemoteStudyStateSnapshot);
   setPendingRemoteStudyStateSnapshot(null);
   try {
@@ -167,7 +185,11 @@ export async function flushRemoteStudyStateSync() {
 }
 
 export function scheduleRemoteStudyStateSync(snapshot) {
-  if (!currentUser || typeof platformAdapter.saveUserState !== "function") return;
+  if (
+    !currentUser
+    || platformAdapter?.supportsStudyStateSync === false
+    || typeof platformAdapter.saveUserState !== "function"
+  ) return;
   setPendingRemoteStudyStateSnapshot(normalizeStudyStateSnapshot(snapshot));
   if (remoteStudyStateSyncTimer) clearTimeout(remoteStudyStateSyncTimer);
   setRemoteStudyStateSyncTimer(setTimeout(() => {
@@ -283,7 +305,11 @@ export async function loadUserStudyState() {
   const localSnapshot = getPersistedStudyStateSnapshot();
   let mergedSnapshot = localSnapshot;
 
-  if (currentUser && typeof platformAdapter.loadUserState === "function") {
+  if (
+    currentUser
+    && platformAdapter?.supportsStudyStateSync !== false
+    && typeof platformAdapter.loadUserState === "function"
+  ) {
     try {
       const remoteSnapshot = await platformAdapter.loadUserState();
       if (remoteSnapshot) {
@@ -294,7 +320,7 @@ export async function loadUserStudyState() {
         if (Number.isFinite(localTime) && (!Number.isFinite(remoteTime) || localTime > remoteTime)) {
           scheduleRemoteStudyStateSync(localSnapshot);
         }
-      } else if (localSnapshot?.updatedAt) {
+      } else if (localSnapshot?.updatedAt && platformAdapter?.supportsStudyStateSync !== false) {
         scheduleRemoteStudyStateSync(localSnapshot);
       }
     } catch (error) {

@@ -86,7 +86,10 @@ export function bindStaticEvents() {
   });
 
   import("../features/auth/auth.js").then(({ attemptAuth, handleDemoAuth, signOut, setRememberMePreference }) => {
-    bindEvent(document.getElementById("auth-signin-btn"), "click", () => void attemptAuth("signin"));
+    bindEvent(document.getElementById("auth-form"), "submit", (event) => {
+      event.preventDefault();
+      void attemptAuth("signin");
+    });
     bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
     bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
     bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
@@ -126,7 +129,27 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("analytics-close-btn"), "click", () => closeAnalyticsDashboard());
   });
 
-  import("../features/study/study.js").then(({ jumpToCard, flipCard, toggleFullscreen, previousCard, nextCard, startStudy, setAutoAdvance, filterByTopic, setFilter, showSetManager, shuffleCards, openExportModal, toggleExportWarning, executeExport, closeExportModal }) => {
+  import("../features/study/study.js").then(({
+    jumpToCard,
+    flipCard,
+    toggleFullscreen,
+    previousCard,
+    nextCard,
+    startStudy,
+    setAutoAdvance,
+    filterByTopic,
+    setFilter,
+    showSetManager,
+    shuffleCards,
+    openExportModal,
+    toggleExportWarning,
+    executeExport,
+    closeExportModal,
+    toggleCardContentSettingsPanel,
+    closeCardContentSettingsPanel,
+    syncCardContentPreferencesUi,
+    updateCardContentFontSize,
+  }) => {
     bindEvent(document.getElementById("jump-input"), "keydown", (event) => {
       if (event.key !== "Enter") return;
       event.preventDefault();
@@ -136,6 +159,31 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("auto-advance-toggle-manager"), "change", (event) => {
       setAutoAdvance(event.currentTarget?.checked);
     });
+    bindEvent(document.getElementById("card-content-settings-toggle-btn"), "click", () => {
+      toggleCardContentSettingsPanel();
+    });
+    bindEvent(document.getElementById("card-content-settings-close-btn"), "click", () => {
+      closeCardContentSettingsPanel();
+    });
+    bindEvent(document.getElementById("card-content-front-font-size"), "input", (event) => {
+      updateCardContentFontSize("front", event.currentTarget?.value, { resync: false });
+    });
+    bindEvent(document.getElementById("card-content-back-font-size"), "input", (event) => {
+      updateCardContentFontSize("back", event.currentTarget?.value, { resync: false });
+    });
+    bindEvent(document.getElementById("card-content-front-font-size"), "change", (event) => {
+      updateCardContentFontSize("front", event.currentTarget?.value);
+    });
+    bindEvent(document.getElementById("card-content-back-font-size"), "change", (event) => {
+      updateCardContentFontSize("back", event.currentTarget?.value);
+    });
+    bindEvent(document.getElementById("card-content-front-font-size"), "blur", () => {
+      syncCardContentPreferencesUi();
+    });
+    bindEvent(document.getElementById("card-content-back-font-size"), "blur", () => {
+      syncCardContentPreferencesUi();
+    });
+    syncCardContentPreferencesUi();
     bindEvent(document.getElementById("topic-select"), "change", () => filterByTopic());
     bindEvent(document.getElementById("show-set-manager-btn"), "click", () => showSetManager());
     bindEvent(document.getElementById("shuffle-btn"), "click", () => shuffleCards());

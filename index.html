@@ -31,6 +31,8 @@
         --color-border: rgba(15, 23, 42, 0.1);
         --color-card-front: #ffffff;
         --color-card-back: #f1f5f9; /* Slate 100 */
+        --card-content-font-front: 24px;
+        --card-content-font-back: 18px;
         --screen-glow: rgba(16, 185, 129, 0.14);
         --screen-wash: rgba(255, 255, 255, 0.4);
         --auth-panel-glow: rgba(16, 185, 129, 0.22);
@@ -144,9 +146,9 @@
         --color-text-primary: #e4e4e7;
         --color-text-secondary: #a1a1aa;
         --color-text-muted: #71717a;
-        --color-accent: #d4d4d8;
-        --color-accent-hover: #f4f4f5;
-        --color-accent-soft: rgba(212, 212, 216, 0.12);
+        --color-accent: #52525b;
+        --color-accent-hover: #3f3f46;
+        --color-accent-soft: rgba(161, 161, 170, 0.16);
         --color-emphasis: #f5c451;
         --color-emphasis-strong: #ffffff;
         --color-emphasis-soft: rgba(245, 196, 81, 0.22);
@@ -390,6 +392,17 @@
         background: var(--color-accent-soft);
       }
 
+      .manager-settings-icon-btn {
+        min-width: 44px;
+        padding-inline: 10px;
+      }
+
+      .manager-settings-icon-btn.is-active {
+        background: var(--color-accent-soft);
+        color: var(--color-accent);
+        border-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+      }
+
       .btn-icon-danger .icon {
         color: currentColor;
       }
@@ -548,15 +561,16 @@
       }
 
       .card-content {
-        font-size: 24px;
+        font-size: var(--card-content-font-front);
         line-height: 1.6;
         color: var(--color-text-primary);
         text-align: center;
         white-space: pre-line;
+        transition: font-size 0.2s ease;
       }
 
       .card-back .card-content {
-        font-size: 18px;
+        font-size: var(--card-content-font-back);
         text-align: left;
         line-height: 1.8;
         width: 100%;
@@ -866,8 +880,25 @@
         flex-wrap: wrap;
       }
 
-      .manager-settings-row + .analytics-dashboard {
+      #card-content-settings-panel,
+      #analytics-dashboard-manager {
         margin-top: 18px;
+      }
+
+      .card-content-settings-form {
+        display: grid;
+        gap: 14px;
+      }
+
+      .card-content-settings-form .field-group {
+        max-width: 320px;
+      }
+
+      .card-content-settings-hint {
+        color: var(--color-text-secondary);
+        font-size: 13px;
+        line-height: 1.6;
+        max-width: 560px;
       }
 
       .auto-advance-control {
@@ -1119,6 +1150,10 @@
 
       .analytics-dashboard[hidden] {
         display: none !important;
+      }
+
+      .manager-inline-panel .analytics-grid {
+        grid-template-columns: minmax(0, 1fr);
       }
 
       .analytics-header {
@@ -2463,18 +2498,49 @@
         }
       }
 
+      .editor-raw-shell {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        border-radius: 16px;
+        border: 1px solid var(--color-border);
+        background: #09111f;
+        overflow: hidden;
+        align-items: stretch;
+      }
+
+      .editor-raw-gutter {
+        min-height: 0;
+        height: 100%;
+        padding: 18px 12px 18px 14px;
+        border-right: 1px solid rgba(148, 163, 184, 0.16);
+        background: #0f1a2c;
+        color: #7dd3fc;
+        font-family: "Consolas", "SFMono-Regular", monospace;
+        font-size: 14px;
+        line-height: 1.6;
+        text-align: right;
+        user-select: none;
+        overflow: hidden;
+      }
+
+      .editor-raw-gutter-lines {
+        white-space: pre;
+      }
+
       .editor-raw {
         min-height: 400px;
         width: 100%;
         resize: vertical;
-        border-radius: 16px;
-        border: 1px solid var(--color-border);
+        border-radius: 0;
+        border: none;
         background: #09111f;
         color: #dbeafe;
         font-family: "Consolas", "SFMono-Regular", monospace;
         font-size: 14px;
         line-height: 1.6;
         padding: 18px;
+        white-space: pre;
+        overflow: auto;
       }
 
       .editor-empty-state {
@@ -2537,11 +2603,11 @@
         }
 
         .card-content {
-          font-size: 22px;
+          font-size: var(--card-content-font-front);
         }
 
         .card-back .card-content {
-          font-size: 17px;
+          font-size: var(--card-content-font-back);
         }
 
         .card-label {
@@ -3422,6 +3488,10 @@
         <line x1="18" y1="6" x2="6" y2="18"></line>
         <line x1="6" y1="6" x2="18" y2="18"></line>
       </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 .6 1.65 1.65 0 0 0-.33 1V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-.33-1 1.65 1.65 0 0 0-1-.6 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.6-1 1.65 1.65 0 0 0-1-.33H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1-.33 1.65 1.65 0 0 0 .6-1 1.65 1.65 0 0 0-.33-1.82L4.3 6.46a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-.6 1.65 1.65 0 0 0 .33-1V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 .33 1 1.65 1.65 0 0 0 1 .6 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 .6 1 1.65 1.65 0 0 0 1 .33H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1 .33 1.65 1.65 0 0 0-.51.34Z"></path>
+      </symbol>
       <symbol id="icon-chevron-left" viewBox="0 0 24 24">
         <polyline points="15 18 9 12 15 6"></polyline>
       </symbol>
@@ -3429,11 +3499,11 @@
         <polyline points="9 18 15 12 9 6"></polyline>
       </symbol>
     </svg>
-    <div id="auth-screen" class="screen auth-screen">
-      <div class="auth-card">
-        <div class="auth-panel">
-          <p style="font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px;">Flashcards App</p>
-          <h1>Kart setlerine kaldığın yerden devam et.</h1>
+      <div id="auth-screen" class="screen auth-screen">
+        <form class="auth-card" id="auth-form">
+          <div class="auth-panel">
+            <p style="font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px;">Flashcards App</p>
+            <h1>Kart setlerine kaldığın yerden devam et.</h1>
           <p>
             Giriş yap, setlerini senkron tut ve çalışmaya devam et.
           </p>
@@ -3472,14 +3542,14 @@
           </label>
 
           <div class="auth-actions">
-            <button class="btn" id="auth-signin-btn">Giriş Yap</button>
-            <button class="btn btn-secondary" id="auth-signup-btn">Kayıt Ol</button>
-            <button class="btn btn-secondary" id="auth-demo-btn">Yerel Demo</button>
+            <button class="btn" id="auth-signin-btn" type="submit">Giriş Yap</button>
+            <button class="btn btn-secondary" id="auth-signup-btn" type="button">Kayıt Ol</button>
+            <button class="btn btn-secondary" id="auth-demo-btn" type="button">Yerel Demo</button>
           </div>
 
           <div id="auth-status" class="auth-status"></div>
         </div>
-      </div>
+      </form>
     </div>
 
     <!-- SET MANAGER -->
@@ -3552,6 +3622,18 @@
       </div>
 
       <div class="manager-settings-row">
+        <button
+          class="btn btn-small btn-secondary manager-settings-icon-btn"
+          id="card-content-settings-toggle-btn"
+          type="button"
+          aria-expanded="false"
+          aria-controls="card-content-settings-panel"
+          aria-label="Kart font ayarlarını aç"
+          title="Kart font ayarlarını aç"
+        >
+          <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-settings"></use></svg>
+        </button>
+
         <div class="theme-control">
           <label for="theme-select-manager">Tema</label>
           <select id="theme-select-manager">
@@ -3575,6 +3657,43 @@
           </label>
         </div>
       </div>
+
+      <section class="analytics-dashboard manager-inline-panel" id="card-content-settings-panel" hidden>
+        <div class="analytics-header">
+          <div>
+            <div class="analytics-eyebrow">Kart Ayarları</div>
+            <h2>Kart İçeriği</h2>
+          </div>
+          <div class="analytics-header-actions">
+            <p class="analytics-summary-copy card-content-settings-hint">Kartın ön ve arka yüzündeki metin boyutunu ayrı ayrı belirleyebilirsin.</p>
+            <button class="analytics-close-btn" id="card-content-settings-close-btn" type="button" aria-label="Kart font ayarlarını kapat" title="Kart font ayarlarını kapat">
+              <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-x"></use></svg>
+            </button>
+          </div>
+        </div>
+        <div class="analytics-grid">
+          <article class="analytics-card">
+            <div class="analytics-card-head">
+              <div>
+                <div class="analytics-card-title">Yazı Boyutu</div>
+                <div class="analytics-card-meta">Değişiklikler hemen karta uygulanır ve hesabında saklanır.</div>
+              </div>
+            </div>
+            <div class="analytics-card-body">
+              <div class="card-content-settings-form">
+                <div class="field-group">
+                  <label for="card-content-back-font-size">Kartın arka yüzündeki içeriğin font büyüklüğünü belirle</label>
+                  <input id="card-content-back-font-size" name="card-content-back-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                </div>
+                <div class="field-group">
+                  <label for="card-content-front-font-size">Kartın ön yüzündeki içeriğin font büyüklüğünü belirle</label>
+                  <input id="card-content-front-font-size" name="card-content-front-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
 
       <section class="analytics-dashboard" id="analytics-dashboard-manager" hidden>
         <div class="analytics-header">

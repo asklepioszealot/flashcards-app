@@ -10,6 +10,7 @@ import {
   selectedSets, setSelectedSets,
   assessments, setAssessments,
   setIsAnalyticsVisible,
+  setCardContentPreferences,
   pendingRemoteStudyStateSnapshot, setPendingRemoteStudyStateSnapshot,
   remoteStudyStateSyncTimer, setRemoteStudyStateSyncTimer,
   storage,
@@ -127,8 +128,13 @@ export async function handleAuthStateChange(user, event = "unknown") {
     setSelectedSets(new Set());
     setAssessments({});
     setIsAnalyticsVisible(false);
+    setCardContentPreferences({ frontFontSize: 24, backFontSize: 18 });
     resetEditorState();
     renderSetList();
+    const { applyCardContentPreferencesUi, closeCardContentSettingsPanel, syncCardContentPreferencesUi } = await import("../study/study.js");
+    closeCardContentSettingsPanel();
+    applyCardContentPreferencesUi();
+    syncCardContentPreferencesUi();
     syncRememberMeUi();
     showScreen("auth");
     const { markAppReady } = await import("../../app/bootstrap.js");

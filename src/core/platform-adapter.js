@@ -8,7 +8,14 @@ import {
   FLASHCARD_MEDIA_BUCKET,
   FLASHCARD_MEDIA_HARD_LIMIT_BYTES,
 } from "../shared/constants.js";
-import { nowIso, safeJsonParse, cloneData, isPlainObject, normalizeReviewPreferences } from "../shared/utils.js";
+import {
+  nowIso,
+  safeJsonParse,
+  cloneData,
+  isPlainObject,
+  normalizeCardContentPreferences,
+  normalizeReviewPreferences,
+} from "../shared/utils.js";
 import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime-config.js";
 
 const APP_NAMESPACE = "fc_v2";
@@ -174,6 +181,7 @@ function mapFallbackSetRowToSnapshot(row) {
       autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
       isAnalyticsVisible: stateJson.isAnalyticsVisible,
       reviewPreferences: stateJson.reviewPreferences,
+      cardContentPreferences: stateJson.cardContentPreferences,
       updatedAt: row?.updated_at || stateJson.updatedAt,
     },
     row?.updated_at || nowIso(),
@@ -326,6 +334,7 @@ export function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso())
   const reviewSchedule = isPlainObject(snapshot?.reviewSchedule) ? clone(snapshot.reviewSchedule) : {};
   const session = isPlainObject(snapshot?.session) ? clone(snapshot.session) : null;
   const reviewPreferences = normalizeReviewPreferences(snapshot?.reviewPreferences, DEFAULT_REVIEW_PREFERENCES);
+  const cardContentPreferences = normalizeCardContentPreferences(snapshot?.cardContentPreferences);
 
   return {
     selectedSetIds,
@@ -335,6 +344,7 @@ export function normalizeSyncedUserState(snapshot, fallbackUpdatedAt = nowIso())
     autoAdvanceEnabled: snapshot?.autoAdvanceEnabled !== false,
     isAnalyticsVisible: snapshot?.isAnalyticsVisible === true,
     reviewPreferences,
+    cardContentPreferences,
     updatedAt: String(snapshot?.updatedAt || fallbackUpdatedAt),
   };
 }
@@ -516,6 +526,18 @@ function createSupabaseAdapter(config, storage) {
   });
 
   let currentUser = null;
+  let userStateSyncUnavailable = false;
+  let userStateSyncWarningShown = false;
+
+  function disableUserStateSyncForSession(error) {
+    if (error?.code !== "MISSING_USER_STATE_TABLE") return false;
+    userStateSyncUnavailable = true;
+    if (!userStateSyncWarningShown) {
+      userStateSyncWarningShown = true;
+      console.warn(error.message);
+    }
+    return true;
+  }
 
   function mapRowToRecord(row) {
     return {
@@ -564,6 +586,7 @@ function createSupabaseAdapter(config, storage) {
         autoAdvanceEnabled: stateJson.autoAdvanceEnabled,
         isAnalyticsVisible: stateJson.isAnalyticsVisible,
         reviewPreferences: stateJson.reviewPreferences,
+        cardContentPreferences: stateJson.cardContentPreferences,
         updatedAt: row?.updated_at || stateJson.updatedAt,
       },
       row?.updated_at || nowIso(),
@@ -582,6 +605,7 @@ function createSupabaseAdapter(config, storage) {
         autoAdvanceEnabled: normalizedSnapshot.autoAdvanceEnabled,
         isAnalyticsVisible: normalizedSnapshot.isAnalyticsVisible,
         reviewPreferences: normalizedSnapshot.reviewPreferences,
+        cardContentPreferences: normalizedSnapshot.cardContentPreferences,
         updatedAt: normalizedSnapshot.updatedAt,
       },
       updated_at: normalizedSnapshot.updatedAt,
@@ -729,9 +753,11 @@ function createSupabaseAdapter(config, storage) {
   return {
     type: "supabase-web",
     supportsRemoteSync: true,
-    supportsStudyStateSync: true,
     supportsDemoAuth: false,
     supportsMediaUpload: true,
+    get supportsStudyStateSync() {
+      return userStateSyncUnavailable !== true;
+    },
 
     async getCurrentUser() {
       const {
@@ -820,18 +846,30 @@ function createSupabaseAdapter(config, storage) {
     },
 
     async loadUserState() {
+      if (userStateSyncUnavailable) return null;
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      const stateRow = await queryUserStateRow(user.id);
-      return migrateLegacyFallbackState(user.id, stateRow);
+      try {
+        const stateRow = await queryUserStateRow(user.id);
+        return migrateLegacyFallbackState(user.id, stateRow);
+      } catch (error) {
+        if (disableUserStateSyncForSession(error)) return null;
+        throw error;
+      }
     },
 
     async saveUserState(snapshot) {
+      if (userStateSyncUnavailable) return null;
       const user = currentUser || (await refreshCurrentUser());
       if (!user) return null;
-      const savedSnapshot = await upsertUserStateRow(user.id, snapshot);
-      await deleteFallbackStateRow(user.id);
-      return savedSnapshot;
+      try {
+        const savedSnapshot = await upsertUserStateRow(user.id, snapshot);
+        await deleteFallbackStateRow(user.id);
+        return savedSnapshot;
+      } catch (error) {
+        if (disableUserStateSyncForSession(error)) return null;
+        throw error;
+      }
     },
 
     async pickNativeSetFiles() {
@@ -1110,7 +1148,13 @@ function createDesktopAdapter(remoteAdapter) {
     ...remoteAdapter,
     type: "desktop-sync",
     supportsRemoteSync: true,
-    supportsStudyStateSync: typeof remoteAdapter.loadUserState === "function" && typeof remoteAdapter.saveUserState === "function",
+    get supportsStudyStateSync() {
+      return (
+        remoteAdapter.supportsStudyStateSync !== false
+        && typeof remoteAdapter.loadUserState === "function"
+        && typeof remoteAdapter.saveUserState === "function"
+      );
+    },
 
     async loadSets() {
       const user = await getUserOrThrow();
@@ -1196,12 +1240,12 @@ function createDesktopAdapter(remoteAdapter) {
     },
 
     async loadUserState() {
-      if (typeof remoteAdapter.loadUserState !== "function") return null;
+      if (this.supportsStudyStateSync === false) return null;
       return remoteAdapter.loadUserState();
     },
 
     async saveUserState(snapshot) {
-      if (typeof remoteAdapter.saveUserState !== "function") return null;
+      if (this.supportsStudyStateSync === false) return null;
       return remoteAdapter.saveUserState(snapshot);
     },
 

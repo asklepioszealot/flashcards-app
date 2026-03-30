@@ -1,7 +1,12 @@
 // src/shared/utils.js
 // Pure helper functions with no side effects, no DOM access, no mutable state.
 
-import { DEFAULT_REVIEW_PREFERENCES } from "./constants.js";
+import {
+  DEFAULT_REVIEW_PREFERENCES,
+  DEFAULT_CARD_CONTENT_PREFERENCES,
+  MIN_CARD_CONTENT_FONT_SIZE,
+  MAX_CARD_CONTENT_FONT_SIZE,
+} from "./constants.js";
 
 export const safeJsonParse = (rawValue, fallbackValue) => {
   if (!rawValue) return fallbackValue;
@@ -85,6 +90,22 @@ export function normalizeReviewPreferences(value, fallback = DEFAULT_REVIEW_PREF
     intervalMultiplier: Number.isFinite(intervalMultiplier)
       ? Math.min(Math.max(Math.round(intervalMultiplier * 100) / 100, 0.8), 1.3)
       : base.intervalMultiplier,
+    };
+}
+
+export function normalizeCardContentPreferences(value, fallback = DEFAULT_CARD_CONTENT_PREFERENCES) {
+  const base = isPlainObject(fallback) ? fallback : DEFAULT_CARD_CONTENT_PREFERENCES;
+  const source = isPlainObject(value) ? value : base;
+  const frontFontSize = Number.parseInt(source?.frontFontSize, 10);
+  const backFontSize = Number.parseInt(source?.backFontSize, 10);
+
+  return {
+    frontFontSize: Number.isFinite(frontFontSize)
+      ? Math.min(Math.max(frontFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
+      : base.frontFontSize,
+    backFontSize: Number.isFinite(backFontSize)
+      ? Math.min(Math.max(backFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
+      : base.backFontSize,
   };
 }
 
@@ -121,6 +142,10 @@ export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
         ? fallback.isAnalyticsVisible === true
         : false,
     reviewPreferences: normalizeReviewPreferences(snapshot?.reviewPreferences, fallback.reviewPreferences),
+    cardContentPreferences: normalizeCardContentPreferences(
+      snapshot?.cardContentPreferences,
+      fallback.cardContentPreferences,
+    ),
     updatedAt: snapshot?.updatedAt
       ? String(snapshot.updatedAt)
       : fallback.updatedAt

@@ -303,6 +303,71 @@ test.describe("Flashcards smoke", () => {
     await expect.poll(async () => readUserScopedText(page, "analytics_visible")).toBe("0");
   });
 
+  test("card content settings panel updates font sizes and persists per account", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        typography: {
+          setName: "Typography Demo",
+          fileName: "typography-demo.json",
+          cards: [
+            { q: "Ön yüz", a: "Arka yüz", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["typography"],
+    });
+
+    const settingsToggle = page.locator("#card-content-settings-toggle-btn");
+    const settingsPanel = page.locator("#card-content-settings-panel");
+    const frontInput = page.locator("#card-content-front-font-size");
+    const backInput = page.locator("#card-content-back-font-size");
+
+    await expect(settingsToggle).toBeVisible();
+    await expect(settingsPanel).toBeHidden();
+    await settingsToggle.click();
+    await expect(settingsPanel).toBeVisible();
+    await expect(frontInput).toHaveValue("24");
+    await expect(backInput).toHaveValue("18");
+
+    await frontInput.fill("26");
+    await backInput.fill("22");
+    await expect.poll(async () => readUserScopedJson(page, "card_content_preferences")).toEqual({
+      frontFontSize: 26,
+      backFontSize: 22,
+    });
+
+    const rootFontVars = await page.evaluate(() => {
+      const rootStyles = getComputedStyle(document.documentElement);
+      return {
+        front: rootStyles.getPropertyValue("--card-content-font-front").trim(),
+        back: rootStyles.getPropertyValue("--card-content-font-back").trim(),
+      };
+    });
+    expect(rootFontVars.front).toBe("26px");
+    expect(rootFontVars.back).toBe("22px");
+
+    await page.locator("#card-content-settings-close-btn").click();
+    await expect(settingsPanel).toBeHidden();
+
+    await page.locator("#start-btn").click();
+    const studyFrontFont = await page.evaluate(() =>
+      getComputedStyle(document.querySelector("#question-text")).fontSize,
+    );
+    expect(studyFrontFont).toBe("26px");
+
+    await page.locator("#flashcard").click();
+    const studyBackFont = await page.evaluate(() =>
+      getComputedStyle(document.querySelector("#answer-text")).fontSize,
+    );
+    expect(studyBackFont).toBe("22px");
+
+    await page.reload();
+    await expect(page.locator("#set-manager")).toBeVisible();
+    await settingsToggle.click();
+    await expect(frontInput).toHaveValue("26");
+    await expect(backInput).toHaveValue("22");
+  });
+
   test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
@@ -473,10 +538,6 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await expect(page.locator('[data-editor-field="question"]')).toHaveValue(/`kod`/);
     await page.locator('[data-editor-field="question"]').fill("İlk soru");
 
-
-
-    await page.locator('[data-editor-field="question"]').fill("İlk soru");
-
     await page.locator("#editor-view-toggle-btn").click();
     const rawInput = page.locator("#editor-raw-input");
     await expect.poll(async () => {
@@ -493,6 +554,11 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await rawInput.fill(longRawSource);
     const rawStateBeforeSave = await page.evaluate(() => {
       const raw = document.querySelector("#editor-raw-input");
+      const gutterElement = document.querySelector("#editor-raw-gutter");
+      const gutterLinesElement = document.querySelector("#editor-raw-gutter-lines");
+      const gutterLines = String(gutterLinesElement?.textContent || "")
+        .split("\n")
+        .filter(Boolean);
       raw.style.height = "680px";
       raw.scrollTop = raw.scrollHeight;
       raw.dispatchEvent(new Event("scroll"));
@@ -500,20 +566,37 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
       return {
         height: Math.round(raw.getBoundingClientRect().height),
         scrollTop: Math.round(raw.scrollTop),
+        gutterScrollSync: gutterElement?.dataset.scrollSync || "",
+        lastLine: gutterLines[gutterLines.length - 1] || "",
+        lineCount: gutterLines.length,
+        wrap: raw.getAttribute("wrap"),
       };
     });
+    expect(rawStateBeforeSave.wrap).toBe("off");
+    expect(rawStateBeforeSave.lastLine).toBe("84");
+    expect(rawStateBeforeSave.lineCount).toBe(84);
+    expect(rawStateBeforeSave.gutterScrollSync).toBe(String(rawStateBeforeSave.scrollTop));
 
     await page.locator("#editor-save-btn").click();
     await expect(page.locator("#editor-status")).toContainText("kaydedildi");
     const rawStateAfterSave = await page.evaluate(() => {
       const raw = document.querySelector("#editor-raw-input");
+      const gutterElement = document.querySelector("#editor-raw-gutter");
+      const gutterLinesElement = document.querySelector("#editor-raw-gutter-lines");
+      const gutterLines = String(gutterLinesElement?.textContent || "")
+        .split("\n")
+        .filter(Boolean);
       return {
         height: Math.round(raw.getBoundingClientRect().height),
         scrollTop: Math.round(raw.scrollTop),
+        gutterScrollSync: gutterElement?.dataset.scrollSync || "",
+        lastLine: gutterLines[gutterLines.length - 1] || "",
       };
     });
     expect(rawStateAfterSave.height).toBeGreaterThanOrEqual(rawStateBeforeSave.height - 12);
     expect(rawStateAfterSave.scrollTop).toBeGreaterThan(rawStateBeforeSave.scrollTop / 2);
+    expect(rawStateAfterSave.lastLine).toBe("84");
+    expect(rawStateAfterSave.gutterScrollSync).toBe(String(rawStateAfterSave.scrollTop));
 
     const savedSetRecords = await page.evaluate(
       ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "[]"),

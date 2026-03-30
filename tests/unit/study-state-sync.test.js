@@ -14,6 +14,10 @@ describe("Study state review preferences", () => {
       memoryTargetPercent: 85,
       intervalMultiplier: 1,
     });
+    expect(snapshot.cardContentPreferences).toEqual({
+      frontFontSize: 24,
+      backFontSize: 18,
+    });
   });
 
   it("should clamp review preferences for synced payloads", () => {
@@ -28,6 +32,35 @@ describe("Study state review preferences", () => {
     expect(snapshot.reviewPreferences).toEqual({
       memoryTargetPercent: 95,
       intervalMultiplier: 0.8,
+    });
+    expect(snapshot.cardContentPreferences).toEqual({
+      frontFontSize: 24,
+      backFontSize: 18,
+    });
+  });
+
+  it("should clamp card content font preferences for local and synced payloads", () => {
+    const localSnapshot = normalizeStudyStateSnapshot({
+      cardContentPreferences: {
+        frontFontSize: 80,
+        backFontSize: 9,
+      },
+    });
+    const syncedSnapshot = normalizeSyncedUserState({
+      selectedSetIds: ["demo"],
+      cardContentPreferences: {
+        frontFontSize: 12,
+        backFontSize: 40,
+      },
+    });
+
+    expect(localSnapshot.cardContentPreferences).toEqual({
+      frontFontSize: 32,
+      backFontSize: 14,
+    });
+    expect(syncedSnapshot.cardContentPreferences).toEqual({
+      frontFontSize: 14,
+      backFontSize: 32,
     });
   });
 });

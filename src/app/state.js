@@ -32,8 +32,15 @@ export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
 export let isAnalyticsVisible = false;
 export let reviewPreferences = { memoryTargetPercent: 85, intervalMultiplier: 1 };
+export let cardContentPreferences = { frontFontSize: 24, backFontSize: 18 };
 export let authStateToken = 0;
 export let currentScreen = "auth";
+
+function clampCardContentFontSize(value, fallbackValue) {
+  const parsedValue = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsedValue)) return fallbackValue;
+  return Math.min(Math.max(parsedValue, 14), 32);
+}
 
 export function setCurrentCardIndex(v) { currentCardIndex = v; }
 export function setIsFlipped(v) { isFlipped = v; }
@@ -53,6 +60,16 @@ export function setReviewPreferences(v) {
         intervalMultiplier: Number(v.intervalMultiplier) || 1,
       }
     : { memoryTargetPercent: 85, intervalMultiplier: 1 };
+}
+export function setCardContentPreferences(v) {
+  const frontFallback = cardContentPreferences?.frontFontSize ?? 24;
+  const backFallback = cardContentPreferences?.backFontSize ?? 18;
+  cardContentPreferences = v && typeof v === "object" && !Array.isArray(v)
+    ? {
+        frontFontSize: clampCardContentFontSize(v.frontFontSize, frontFallback),
+        backFontSize: clampCardContentFontSize(v.backFontSize, backFallback),
+      }
+    : { frontFontSize: 24, backFontSize: 18 };
 }
 export function incrementAuthStateToken() { authStateToken += 1; return authStateToken; }
 export function setCurrentScreen(v) { currentScreen = v; }

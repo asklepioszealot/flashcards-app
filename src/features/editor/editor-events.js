@@ -373,6 +373,27 @@ export function saveRawEditorState(draft, rawInput = document.getElementById("ed
     selectionEnd: typeof rawInput.selectionEnd === "number" ? rawInput.selectionEnd : null,
     shouldRestoreFocus: document.activeElement === rawInput,
   });
+  syncRawEditorGutter(rawInput);
+}
+
+function buildRawEditorLineNumbers(value) {
+  return Array.from(
+    { length: Math.max(String(value ?? "").split("\n").length, 1) },
+    (_, index) => String(index + 1),
+  ).join("\n");
+}
+
+export function syncRawEditorGutter(rawInput = document.getElementById("editor-raw-input")) {
+  const gutter = document.getElementById("editor-raw-gutter");
+  const gutterLines = document.getElementById("editor-raw-gutter-lines");
+  if (!rawInput || !gutter || !gutterLines) return;
+  const lineNumbers = buildRawEditorLineNumbers(rawInput.value);
+  const scrollTop = rawInput.scrollTop || 0;
+  if (gutterLines.textContent !== lineNumbers) {
+    gutterLines.textContent = lineNumbers;
+  }
+  gutter.dataset.scrollSync = String(Math.round(scrollTop));
+  gutterLines.style.transform = `translateY(-${scrollTop}px)`;
 }
 
 export function restoreRawEditorState(draft) {
@@ -384,6 +405,7 @@ export function restoreRawEditorState(draft) {
     rawInput.style.height = `${rawEditorState.height}px`;
   }
   rawInput.scrollTop = rawEditorState.scrollTop || 0;
+  syncRawEditorGutter(rawInput);
   if (!rawEditorState.shouldRestoreFocus) return;
 
   rawInput.focus();
@@ -623,6 +645,7 @@ export function bindEditorEvents(draft) {
   const rawInput = document.getElementById("editor-raw-input");
   if (rawInput) {
     const syncRawInputState = () => saveRawEditorState(draft, rawInput);
+    syncRawEditorGutter(rawInput);
     rawInput.addEventListener("input", () => {
       draft.rawSource = rawInput.value;
       import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));

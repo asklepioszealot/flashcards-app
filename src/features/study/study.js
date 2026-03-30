@@ -13,8 +13,10 @@ import {
   reviewSchedule,
   activeFilter, setActiveFilter,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
+  cardContentPreferences, setCardContentPreferences,
   editorState,
 } from "../../app/state.js";
+import { MIN_CARD_CONTENT_FONT_SIZE, MAX_CARD_CONTENT_FONT_SIZE } from "../../shared/constants.js";
 import {
   buildCardKey,
   getCardKey,
@@ -29,13 +31,35 @@ import { renderAnswerMarkdown } from "../../core/set-codec.js";
 import { sanitizeMarkdownHtml } from "../../core/security.js";
 import { showScreen } from "../../app/screen.js";
 import { saveStudyState, getPersistedStudyStateSnapshot } from "../study-state/study-state.js";
-import { escapeMarkup } from "../../shared/utils.js";
+import { escapeMarkup, normalizeCardContentPreferences } from "../../shared/utils.js";
 import { formatRelativeReviewLabel, getReviewUrgency, summarizeReviewSchedule } from "./scheduler.js";
 import { renderIcon, setButtonIcon } from "../../ui/icons.js";
 
 // Register nextCard as the advance callback to break the circular import
 // (assessment.js needs nextCard but cannot import from study.js)
 setAssessmentAdvanceCallback(() => nextCard());
+
+const CARD_CONTENT_SETTINGS_PANEL_ID = "card-content-settings-panel";
+const CARD_CONTENT_SETTINGS_TOGGLE_ID = "card-content-settings-toggle-btn";
+const CARD_CONTENT_FRONT_INPUT_ID = "card-content-front-font-size";
+const CARD_CONTENT_BACK_INPUT_ID = "card-content-back-font-size";
+
+function getCardContentSettingsElements() {
+  return {
+    panel: document.getElementById(CARD_CONTENT_SETTINGS_PANEL_ID),
+    toggleButton: document.getElementById(CARD_CONTENT_SETTINGS_TOGGLE_ID),
+    frontInput: document.getElementById(CARD_CONTENT_FRONT_INPUT_ID),
+    backInput: document.getElementById(CARD_CONTENT_BACK_INPUT_ID),
+  };
+}
+
+function syncCardContentSettingsToggleUi(toggleButton, visible) {
+  if (!toggleButton) return;
+  toggleButton.setAttribute("aria-expanded", visible ? "true" : "false");
+  toggleButton.setAttribute("aria-label", visible ? "Kart font ayarlarını kapat" : "Kart font ayarlarını aç");
+  toggleButton.classList.toggle("is-active", visible);
+  toggleButton.title = visible ? "Kart font ayarlarını kapat" : "Kart font ayarlarını aç";
+}
 
 export function syncAutoAdvanceToggleUI() {
   const toggle = document.getElementById("auto-advance-toggle-manager");
@@ -46,6 +70,62 @@ export function syncAutoAdvanceToggleUI() {
     status.setAttribute("aria-label", autoAdvanceEnabled ? "Otomatik ilerle açık" : "Otomatik ilerle kapalı");
     status.dataset.state = autoAdvanceEnabled ? "enabled" : "disabled";
   }
+}
+
+export function applyCardContentPreferencesUi() {
+  document.documentElement.style.setProperty("--card-content-font-front", `${cardContentPreferences.frontFontSize}px`);
+  document.documentElement.style.setProperty("--card-content-font-back", `${cardContentPreferences.backFontSize}px`);
+}
+
+export function syncCardContentPreferencesUi() {
+  const { frontInput, backInput } = getCardContentSettingsElements();
+  if (frontInput) frontInput.value = String(cardContentPreferences.frontFontSize);
+  if (backInput) backInput.value = String(cardContentPreferences.backFontSize);
+  if (frontInput) {
+    frontInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
+    frontInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
+  }
+  if (backInput) {
+    backInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
+    backInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
+  }
+  applyCardContentPreferencesUi();
+}
+
+export function setCardContentSettingsVisibility(isVisible) {
+  const { panel, toggleButton } = getCardContentSettingsElements();
+  if (panel) panel.hidden = !isVisible;
+  syncCardContentSettingsToggleUi(toggleButton, isVisible);
+  if (isVisible) syncCardContentPreferencesUi();
+}
+
+export function toggleCardContentSettingsPanel() {
+  const { panel } = getCardContentSettingsElements();
+  setCardContentSettingsVisibility(panel?.hidden !== false);
+}
+
+export function closeCardContentSettingsPanel() {
+  setCardContentSettingsVisibility(false);
+}
+
+export function updateCardContentFontSize(fieldName, rawValue, options = {}) {
+  const key = fieldName === "back" ? "backFontSize" : "frontFontSize";
+  const shouldResync = options.resync !== false;
+  const parsedValue = Number.parseInt(String(rawValue ?? "").trim(), 10);
+  if (!Number.isFinite(parsedValue)) {
+    if (shouldResync) syncCardContentPreferencesUi();
+    return cardContentPreferences;
+  }
+
+  const nextPreferences = normalizeCardContentPreferences({
+    ...cardContentPreferences,
+    [key]: parsedValue,
+  });
+  setCardContentPreferences(nextPreferences);
+  if (shouldResync) syncCardContentPreferencesUi();
+  else applyCardContentPreferencesUi();
+  if (options.persist !== false) saveStudyState();
+  return nextPreferences;
 }
 
 function getStudyCardKeys() {
