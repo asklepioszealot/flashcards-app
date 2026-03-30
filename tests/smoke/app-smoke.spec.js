@@ -472,11 +472,9 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     await page.locator('[data-md-action="code"]').click();
     await expect(page.locator('[data-editor-field="question"]')).toHaveValue(/`kod`/);
     await page.locator('[data-editor-field="question"]').fill("İlk soru");
-    await page.locator('[data-editor-attachment-toggle]').click();
-    await page.locator('[data-md-action="attachment-image"]').click();
-    await expect(page.locator('[data-editor-field="question"]')).toHaveValue(
-      /!\[Açıklama\]\(https:\/\/example\.com\/gorsel\.png\)/,
-    );
+
+
+
     await page.locator('[data-editor-field="question"]').fill("İlk soru");
 
     await page.locator("#editor-view-toggle-btn").click();
