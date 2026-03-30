@@ -425,6 +425,67 @@ test.describe("Flashcards smoke", () => {
       )).toBe("24px");
   });
 
+  test("navigating from a flipped card advances immediately", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        flow: {
+          setName: "Flow Demo",
+          fileName: "flow-demo.json",
+          cards: [
+            { id: "flow-1", q: "Birinci soru", a: "Birinci cevap", subject: "Genel" },
+            { id: "flow-2", q: "Ikinci soru", a: "Ikinci cevap", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["flow"],
+    });
+
+    await page.locator("#start-btn").click();
+    await page.locator("#flashcard").click();
+    await expect(page.locator("#flashcard")).toHaveClass(/flipped/);
+
+    await page.locator("#next-btn").click();
+    const navigationFrame = await page.evaluate(() =>
+      new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          resolve({
+            question: document.querySelector("#question-text")?.textContent?.trim() || "",
+            frontOpacity: getComputedStyle(document.querySelector(".card-front")).opacity,
+            isFlipped: document.querySelector("#flashcard")?.classList.contains("flipped") || false,
+          });
+        });
+      }),
+    );
+
+    expect(navigationFrame.question).toBe("Ikinci soru");
+    expect(Number(navigationFrame.frontOpacity)).toBeGreaterThan(0.95);
+    expect(navigationFrame.isFlipped).toBe(false);
+  });
+
+  test("auto-advance from a flipped card does not wait before showing the next question", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        flowAutoAdvance: {
+          setName: "Flow Auto Advance Demo",
+          fileName: "flow-auto-advance-demo.json",
+          cards: [
+            { id: "flow-auto-1", q: "Birinci soru", a: "Birinci cevap", subject: "Genel" },
+            { id: "flow-auto-2", q: "Ikinci soru", a: "Ikinci cevap", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["flowAutoAdvance"],
+    });
+
+    await page.locator("#start-btn").click();
+    await page.locator("#flashcard").click();
+    await expect(page.locator("#flashcard")).toHaveClass(/flipped/);
+    await page.locator('#assessment-panel button.assess-btn.know').click();
+    await expect(page.locator("#card-counter")).toHaveText("2 / 2", { timeout: 150 });
+    await expect(page.locator("#question-text")).toHaveText("Ikinci soru");
+    await expect(page.locator("#flashcard")).not.toHaveClass(/flipped/);
+  });
+
   test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {

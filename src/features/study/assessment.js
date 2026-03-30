@@ -129,11 +129,11 @@ export function assessCard(level) {
   import("../study/study.js").then(({ syncReviewScheduleUi }) => syncReviewScheduleUi());
   import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
   if (autoAdvanceEnabled) {
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       if (currentCardIndex < filteredFlashcards.length - 1 && typeof _nextCardFn === "function") {
         _nextCardFn();
       }
-    }, 400);
+    });
   }
 }
 

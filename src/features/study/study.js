@@ -50,6 +50,7 @@ const CARD_CONTENT_BACK_INPUT_ID = "card-content-back-font-size";
 const CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID = "card-content-fullscreen-front-font-size";
 const CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID = "card-content-fullscreen-back-font-size";
 const CARD_CONTENT_RESET_BUTTON_ID = "card-content-reset-btn";
+const CARD_INSTANT_RESET_CLASS = "card--instant-reset";
 
 function getCardContentSettingsElements() {
   return {
@@ -197,7 +198,24 @@ export function syncReviewScheduleUi() {
   currentCardElement.dataset.state = getReviewUrgency(entry);
 }
 
-export function displayCard() {
+function syncCardFlipState(options = {}) {
+  const flashcard = document.getElementById("flashcard");
+  const shouldInstantReset = options.instant === true;
+  if (shouldInstantReset && flashcard) {
+    flashcard.classList.add(CARD_INSTANT_RESET_CLASS);
+  }
+  if (isFlipped) {
+    flashcard?.classList.remove("flipped");
+    setIsFlipped(false);
+  }
+  if (shouldInstantReset && flashcard) {
+    requestAnimationFrame(() => {
+      flashcard.classList.remove(CARD_INSTANT_RESET_CLASS);
+    });
+  }
+}
+
+export function displayCard(options = {}) {
   if (!filteredFlashcards.length) return;
   const card = filteredFlashcards[cardOrder[currentCardIndex]];
   document.getElementById("question-text").innerHTML = renderAnswerMarkdown(card.q);
@@ -207,10 +225,7 @@ export function displayCard() {
   document.getElementById("subject-display-front").textContent = card.subject;
   document.getElementById("prev-btn").disabled = currentCardIndex === 0;
   document.getElementById("next-btn").disabled = currentCardIndex === filteredFlashcards.length - 1;
-  if (isFlipped) {
-    document.getElementById("flashcard").classList.remove("flipped");
-    setIsFlipped(false);
-  }
+  syncCardFlipState({ instant: options.instantFlipReset === true });
   showAssessmentPanel(false);
   updateAssessmentButtons(getAssessmentLevel(card) || null);
   syncReviewScheduleUi();
@@ -220,14 +235,14 @@ export function displayCard() {
 export const previousCard = () => {
   if (currentCardIndex > 0) {
     setCurrentCardIndex(currentCardIndex - 1);
-    displayCard();
+    displayCard({ instantFlipReset: true });
   }
 };
 
 export const nextCard = () => {
   if (currentCardIndex < filteredFlashcards.length - 1) {
     setCurrentCardIndex(currentCardIndex + 1);
-    displayCard();
+    displayCard({ instantFlipReset: true });
   }
 };
 
@@ -337,7 +352,7 @@ export function jumpToCard() {
   const cardNumber = Number.parseInt(input.value, 10);
   if (cardNumber >= 1 && cardNumber <= filteredFlashcards.length) {
     setCurrentCardIndex(cardNumber - 1);
-    displayCard();
+    displayCard({ instantFlipReset: true });
     input.value = "";
     return;
   }
@@ -353,7 +368,7 @@ export function shuffleCards() {
   }
   setCardOrder(newCardOrder);
   setCurrentCardIndex(0);
-  displayCard();
+  displayCard({ instantFlipReset: true });
 }
 
 export function printCards() {
