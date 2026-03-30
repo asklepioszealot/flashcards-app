@@ -35,3 +35,4 @@ vite-*.log
 .codex/
 .agents/
 .agent/
+GitHub CLI/
