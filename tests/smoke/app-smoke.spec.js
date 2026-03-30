@@ -391,6 +391,40 @@ test.describe("Flashcards smoke", () => {
     });
   });
 
+  test("fullscreen study mode uses dedicated font variables", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        fullscreenTypography: {
+          setName: "Fullscreen Typography Demo",
+          fileName: "fullscreen-typography-demo.json",
+          cards: [
+            { q: "Tam ekran soru", a: "Tam ekran cevap", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["fullscreenTypography"],
+    });
+
+    await page.locator("#card-content-settings-toggle-btn").click();
+    await page.locator("#card-content-fullscreen-front-font-size").fill("30");
+    await page.locator("#card-content-fullscreen-back-font-size").fill("24");
+
+    await page.locator("#start-btn").click();
+    await page.locator("#fullscreen-toggle-btn").click();
+    await expect(page.locator(".card-container")).toHaveClass(/fullscreen-active/);
+
+    await expect.poll(async () =>
+      page.evaluate(() =>
+        getComputedStyle(document.querySelector(".card-container.fullscreen-active #question-text")).fontSize,
+      )).toBe("30px");
+
+    await page.locator("#flashcard").click();
+    await expect.poll(async () =>
+      page.evaluate(() =>
+        getComputedStyle(document.querySelector(".card-container.fullscreen-active #answer-text")).fontSize,
+      )).toBe("24px");
+  });
+
   test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
