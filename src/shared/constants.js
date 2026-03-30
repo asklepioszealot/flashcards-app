@@ -15,6 +15,7 @@ export const LEGACY_KEYS = {
 };
 export const USER_STUDY_STATE_KEY = "study_state_sync";
 export const USER_SET_SOURCE_PATHS_KEY = "set_source_paths";
+export const USER_REMOVED_LOCAL_SET_MATCHES_KEY = "removed_local_set_matches";
 export const WEB_FILE_SOURCE_PREFIX = "webfile://";
 export const BROWSER_FILE_HANDLE_DB_NAME = `${APP_NAMESPACE}::browser-file-handles`;
 export const BROWSER_FILE_HANDLE_STORE = "handles";

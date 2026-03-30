@@ -15,6 +15,8 @@ import {
   WEB_FILE_SOURCE_PREFIX,
   BROWSER_FILE_HANDLE_DB_NAME,
   BROWSER_FILE_HANDLE_STORE,
+  USER_REMOVED_LOCAL_SET_MATCHES_KEY,
+  USER_SET_SOURCE_PATHS_KEY,
 } from "../../shared/constants.js";
 import {
   normalizeSetRecord,
@@ -298,6 +300,8 @@ export const normalizeSetCollection = (records) =>
     });
 
 // ── Source path persistence helpers (exported for study-state.js) ──
+const MAX_REMOVED_LOCAL_SET_MATCHES = 20;
+
 function normalizePersistedSetSourcePathMap(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -315,7 +319,9 @@ function normalizePersistedSetSourcePathMap(value) {
 
 function getPersistedSetSourcePathMap() {
   const { getUserJson } = _getStorageHelpers();
-  return normalizePersistedSetSourcePathMap(getUserJson ? getUserJson("set_source_paths", {}) : {});
+  return normalizePersistedSetSourcePathMap(
+    getUserJson ? getUserJson(USER_SET_SOURCE_PATHS_KEY, {}) : {},
+  );
 }
 
 // We use a lazy reference to avoid circular import with study-state.js
@@ -342,8 +348,81 @@ export function syncPersistedSetSourcePaths() {
   });
 
   if (JSON.stringify(currentMap) !== JSON.stringify(nextMap)) {
-    _setUserJson("set_source_paths", nextMap);
+    _setUserJson(USER_SET_SOURCE_PATHS_KEY, nextMap);
   }
+}
+
+function isPersistableRemovedSetMatch(record) {
+  const sourcePath = String(record?.sourcePath || "").trim();
+  return Boolean(sourcePath) && !isWebLinkedSourcePath(sourcePath);
+}
+
+function normalizeRemovedLocalSetMatches(value) {
+  if (!Array.isArray(value)) return [];
+  const normalizedRecords = normalizeSetCollection(value)
+    .filter((record) => isPersistableRemovedSetMatch(record))
+    .slice(0, MAX_REMOVED_LOCAL_SET_MATCHES);
+
+  const seenSourcePaths = new Set();
+  return normalizedRecords.filter((record) => {
+    const sourcePath = String(record.sourcePath || "").trim();
+    if (!sourcePath || seenSourcePaths.has(sourcePath)) return false;
+    seenSourcePaths.add(sourcePath);
+    return true;
+  });
+}
+
+function getRemovedLocalSetMatches() {
+  const { getUserJson } = _getStorageHelpers();
+  return normalizeRemovedLocalSetMatches(
+    getUserJson ? getUserJson(USER_REMOVED_LOCAL_SET_MATCHES_KEY, []) : [],
+  );
+}
+
+function setRemovedLocalSetMatches(records) {
+  if (!_setUserJson) return;
+  _setUserJson(
+    USER_REMOVED_LOCAL_SET_MATCHES_KEY,
+    normalizeRemovedLocalSetMatches(records),
+  );
+}
+
+export function rememberRemovedSetMatches(records) {
+  if (!_setUserJson || !_getUserJson) return;
+
+  const nextRecords = [];
+  const seenSourcePaths = new Set();
+
+  normalizeSetCollection(records).forEach((record) => {
+    const sourcePath = String(record?.sourcePath || "").trim();
+    if (!isPersistableRemovedSetMatch(record) || seenSourcePaths.has(sourcePath)) return;
+    seenSourcePaths.add(sourcePath);
+    nextRecords.push(record);
+  });
+
+  getRemovedLocalSetMatches().forEach((record) => {
+    const sourcePath = String(record?.sourcePath || "").trim();
+    if (!sourcePath || seenSourcePaths.has(sourcePath)) return;
+    seenSourcePaths.add(sourcePath);
+    nextRecords.push(record);
+  });
+
+  setRemovedLocalSetMatches(nextRecords);
+}
+
+export function findRemovedSetMatch(sourcePath) {
+  const normalizedSourcePath = String(sourcePath || "").trim();
+  if (!normalizedSourcePath) return null;
+  return getRemovedLocalSetMatches().find((record) => record.sourcePath === normalizedSourcePath) || null;
+}
+
+export function forgetRemovedSetMatch(sourcePath) {
+  const normalizedSourcePath = String(sourcePath || "").trim();
+  if (!normalizedSourcePath || !_setUserJson || !_getUserJson) return;
+  const remainingRecords = getRemovedLocalSetMatches().filter(
+    (record) => record.sourcePath !== normalizedSourcePath,
+  );
+  setRemovedLocalSetMatches(remainingRecords);
 }
 
 export function hydrateLoadedSets(records, persistedSourcePaths = {}) {
@@ -386,10 +465,12 @@ function decodeBase64ToUint8Array(value) {
 }
 
 function resolveExistingImportRecord(sourcePath, fileName) {
-  return sourcePath
-    ? Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
-      || findExistingSetMatch(fileName)
-    : findExistingSetMatch(fileName);
+  if (sourcePath) {
+    return Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
+      || findRemovedSetMatch(sourcePath)
+      || findExistingSetMatch(fileName);
+  }
+  return findExistingSetMatch(fileName);
 }
 
 async function persistImportedRecord(nextRecord, existingRecord, options = {}) {
@@ -408,6 +489,10 @@ async function persistImportedRecord(nextRecord, existingRecord, options = {}) {
   }
 
   const savedRecord = await platformAdapter.saveSet(nextRecord);
+  if (sourcePath) forgetRemovedSetMatch(sourcePath);
+  if (savedRecord?.sourcePath && savedRecord.sourcePath !== sourcePath) {
+    forgetRemovedSetMatch(savedRecord.sourcePath);
+  }
   if (allowSourceLink && webFileHandle && savedRecord?.sourcePath) {
     bindBrowserFileHandle(savedRecord.sourcePath, webFileHandle);
   }
@@ -559,6 +644,7 @@ export async function removeSets(setIds) {
   if (!removedEntries.length) return;
   try {
     await platformAdapter.deleteSets(removedEntries.map((entry) => entry.setId));
+    rememberRemovedSetMatches(removedEntries.map((entry) => entry.setData));
     removedEntries.forEach((entry) => {
       if (isBrowserRelinkableSourcePath(entry.setData?.sourcePath)) {
         browserFileHandles.delete(entry.setData.sourcePath);
