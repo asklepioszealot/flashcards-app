@@ -11,6 +11,7 @@ import {
   MIN_EDITOR_SPLIT_RATIO,
   MAX_EDITOR_SPLIT_RATIO,
   EDITOR_SPLIT_KEYBOARD_STEP,
+  MIN_EDITOR_RAW_HEIGHT,
   FLASHCARD_MEDIA_ACCEPT,
 } from "../../shared/constants.js";
 import { escapeAttributeSelectorValue } from "../../shared/utils.js";
@@ -367,13 +368,18 @@ export function saveRawEditorState(draft, rawInput = document.getElementById("ed
   if (!draft || !rawInput) return;
   draft.rawEditorState = ensureEditorRawState({
     ...draft.rawEditorState,
-    height: rawInput.offsetHeight || rawInput.getBoundingClientRect().height || draft.rawEditorState?.height,
     scrollTop: rawInput.scrollTop || 0,
     selectionStart: typeof rawInput.selectionStart === "number" ? rawInput.selectionStart : null,
     selectionEnd: typeof rawInput.selectionEnd === "number" ? rawInput.selectionEnd : null,
     shouldRestoreFocus: document.activeElement === rawInput,
   });
   syncRawEditorGutter(rawInput);
+}
+
+export function syncRawEditorHeight(rawInput = document.getElementById("editor-raw-input")) {
+  if (!rawInput) return;
+  rawInput.style.height = "auto";
+  rawInput.style.height = `${Math.max(rawInput.scrollHeight || 0, MIN_EDITOR_RAW_HEIGHT)}px`;
 }
 
 function buildRawEditorLineNumbers(value) {
@@ -401,9 +407,7 @@ export function restoreRawEditorState(draft) {
   if (!draft || !rawInput) return;
   const rawEditorState = ensureEditorRawState(draft.rawEditorState);
   draft.rawEditorState = rawEditorState;
-  if (Number.isFinite(rawEditorState.height)) {
-    rawInput.style.height = `${rawEditorState.height}px`;
-  }
+  syncRawEditorHeight(rawInput);
   rawInput.scrollTop = rawEditorState.scrollTop || 0;
   syncRawEditorGutter(rawInput);
   if (!rawEditorState.shouldRestoreFocus) return;
@@ -644,8 +648,11 @@ export function bindEditorEvents(draft) {
   });
   const rawInput = document.getElementById("editor-raw-input");
   if (rawInput) {
-    const syncRawInputState = () => saveRawEditorState(draft, rawInput);
-    syncRawEditorGutter(rawInput);
+    const syncRawInputState = () => {
+      syncRawEditorHeight(rawInput);
+      saveRawEditorState(draft, rawInput);
+    };
+    syncRawInputState();
     rawInput.addEventListener("input", () => {
       draft.rawSource = rawInput.value;
       import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));

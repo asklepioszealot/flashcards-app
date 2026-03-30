@@ -293,8 +293,7 @@ export function renderEditorForm(draft) {
 }
 
 const renderEditorRaw = (draft) => {
-  const rawEditorState = ensureEditorRawState(draft.rawEditorState);
-  const rawHeightStyle = Number.isFinite(rawEditorState.height) ? ` style="height:${rawEditorState.height}px;"` : "";
+  ensureEditorRawState(draft.rawEditorState);
   const lineNumbers = Array.from(
     { length: Math.max(String(draft.rawSource || "").split("\n").length, 1) },
     (_, index) => String(index + 1),
@@ -306,7 +305,7 @@ const renderEditorRaw = (draft) => {
         <div class="editor-raw-gutter" id="editor-raw-gutter" aria-hidden="true">
           <div class="editor-raw-gutter-lines" id="editor-raw-gutter-lines">${escapeMarkup(lineNumbers)}</div>
         </div>
-        <textarea id="editor-raw-input" name="editor-raw-input" class="editor-raw" spellcheck="false" wrap="off"${rawHeightStyle}>${escapeMarkup(draft.rawSource)}</textarea>
+        <textarea id="editor-raw-input" name="editor-raw-input" class="editor-raw" spellcheck="false" wrap="off">${escapeMarkup(draft.rawSource)}</textarea>
       </div>
     </div>`;
 };

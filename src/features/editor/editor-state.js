@@ -9,7 +9,7 @@ import {
 import {
   DEFAULT_EDITOR_FIELD_HEIGHTS, MIN_EDITOR_FIELD_HEIGHTS,
   DEFAULT_EDITOR_SPLIT_RATIO, MIN_EDITOR_SPLIT_RATIO, MAX_EDITOR_SPLIT_RATIO,
-  MIN_EDITOR_RAW_HEIGHT, MAX_EDITOR_HISTORY_LENGTH,
+  MAX_EDITOR_HISTORY_LENGTH,
 } from "../../shared/constants.js";
 import { nowIso } from "../../shared/utils.js";
 import {
@@ -46,13 +46,11 @@ export function normalizeEditorSplitRatio(value) {
 }
 
 export function ensureEditorRawState(rawState = {}) {
-  const height = Number.parseFloat(rawState?.height);
   const scrollTop = Number.parseFloat(rawState?.scrollTop);
   const selectionStart = Number.isInteger(rawState?.selectionStart) ? rawState.selectionStart : null;
   const selectionEnd = Number.isInteger(rawState?.selectionEnd) ? rawState.selectionEnd : selectionStart;
 
   return {
-    height: Number.isFinite(height) ? Math.max(Math.round(height), MIN_EDITOR_RAW_HEIGHT) : MIN_EDITOR_RAW_HEIGHT,
     scrollTop: Number.isFinite(scrollTop) ? Math.max(scrollTop, 0) : 0,
     selectionStart,
     selectionEnd,

@@ -506,7 +506,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#set-manager")).toBeVisible();
   });
 
-test("edit mode opens separate editor, preserves raw editor state, and saves question text", async ({ page }) => {
+test("edit mode opens separate editor, auto-sizes raw editor, and saves question text", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
         editor: {
@@ -613,47 +613,42 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
       const raw = document.querySelector("#editor-raw-input");
       const gutterElement = document.querySelector("#editor-raw-gutter");
       const gutterLinesElement = document.querySelector("#editor-raw-gutter-lines");
+      const rawStyles = getComputedStyle(raw);
       const gutterLines = String(gutterLinesElement?.textContent || "")
         .split("\n")
         .filter(Boolean);
-      raw.style.height = "680px";
-      raw.scrollTop = raw.scrollHeight;
-      raw.dispatchEvent(new Event("scroll"));
-      raw.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
       return {
-        height: Math.round(raw.getBoundingClientRect().height),
-        scrollTop: Math.round(raw.scrollTop),
-        gutterScrollSync: gutterElement?.dataset.scrollSync || "",
+        clientHeight: Math.round(raw.clientHeight),
+        scrollHeight: Math.round(raw.scrollHeight),
+        resize: rawStyles.resize,
         lastLine: gutterLines[gutterLines.length - 1] || "",
         lineCount: gutterLines.length,
         wrap: raw.getAttribute("wrap"),
+        gutterScrollSync: gutterElement?.dataset.scrollSync || "",
       };
     });
     expect(rawStateBeforeSave.wrap).toBe("off");
     expect(rawStateBeforeSave.lastLine).toBe("84");
     expect(rawStateBeforeSave.lineCount).toBe(84);
-    expect(rawStateBeforeSave.gutterScrollSync).toBe(String(rawStateBeforeSave.scrollTop));
+    expect(rawStateBeforeSave.resize).toBe("none");
+    expect(Math.abs(rawStateBeforeSave.clientHeight - rawStateBeforeSave.scrollHeight)).toBeLessThanOrEqual(2);
 
     await page.locator("#editor-save-btn").click();
     await expect(page.locator("#editor-status")).toContainText("kaydedildi");
     const rawStateAfterSave = await page.evaluate(() => {
       const raw = document.querySelector("#editor-raw-input");
-      const gutterElement = document.querySelector("#editor-raw-gutter");
       const gutterLinesElement = document.querySelector("#editor-raw-gutter-lines");
       const gutterLines = String(gutterLinesElement?.textContent || "")
         .split("\n")
         .filter(Boolean);
       return {
-        height: Math.round(raw.getBoundingClientRect().height),
-        scrollTop: Math.round(raw.scrollTop),
-        gutterScrollSync: gutterElement?.dataset.scrollSync || "",
+        clientHeight: Math.round(raw.clientHeight),
+        scrollHeight: Math.round(raw.scrollHeight),
         lastLine: gutterLines[gutterLines.length - 1] || "",
       };
     });
-    expect(rawStateAfterSave.height).toBeGreaterThanOrEqual(rawStateBeforeSave.height - 12);
-    expect(rawStateAfterSave.scrollTop).toBeGreaterThan(rawStateBeforeSave.scrollTop / 2);
+    expect(Math.abs(rawStateAfterSave.clientHeight - rawStateAfterSave.scrollHeight)).toBeLessThanOrEqual(2);
     expect(rawStateAfterSave.lastLine).toBe("84");
-    expect(rawStateAfterSave.gutterScrollSync).toBe(String(rawStateAfterSave.scrollTop));
 
     const savedSetRecords = await page.evaluate(
       ({ storageKey }) => JSON.parse(localStorage.getItem(storageKey) || "[]"),
