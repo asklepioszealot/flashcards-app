@@ -128,7 +128,12 @@ export async function handleAuthStateChange(user, event = "unknown") {
     setSelectedSets(new Set());
     setAssessments({});
     setIsAnalyticsVisible(false);
-    setCardContentPreferences({ frontFontSize: 24, backFontSize: 18 });
+    setCardContentPreferences({
+      frontFontSize: 24,
+      backFontSize: 18,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
+    });
     resetEditorState();
     renderSetList();
     const { applyCardContentPreferencesUi, closeCardContentSettingsPanel, syncCardContentPreferencesUi } = await import("../study/study.js");

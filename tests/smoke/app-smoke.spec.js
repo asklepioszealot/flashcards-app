@@ -303,7 +303,7 @@ test.describe("Flashcards smoke", () => {
     await expect.poll(async () => readUserScopedText(page, "analytics_visible")).toBe("0");
   });
 
-  test("card content settings panel updates font sizes and persists per account", async ({ page }) => {
+  test("card content settings panel supports normal and fullscreen font sizes with reset", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
         typography: {
@@ -321,6 +321,9 @@ test.describe("Flashcards smoke", () => {
     const settingsPanel = page.locator("#card-content-settings-panel");
     const frontInput = page.locator("#card-content-front-font-size");
     const backInput = page.locator("#card-content-back-font-size");
+    const fullscreenFrontInput = page.locator("#card-content-fullscreen-front-font-size");
+    const fullscreenBackInput = page.locator("#card-content-fullscreen-back-font-size");
+    const resetButton = page.locator("#card-content-reset-btn");
 
     await expect(settingsToggle).toBeVisible();
     await expect(settingsPanel).toBeHidden();
@@ -328,12 +331,18 @@ test.describe("Flashcards smoke", () => {
     await expect(settingsPanel).toBeVisible();
     await expect(frontInput).toHaveValue("24");
     await expect(backInput).toHaveValue("18");
+    await expect(fullscreenFrontInput).toHaveValue("28");
+    await expect(fullscreenBackInput).toHaveValue("20");
 
     await frontInput.fill("26");
     await backInput.fill("22");
+    await fullscreenFrontInput.fill("30");
+    await fullscreenBackInput.fill("24");
     await expect.poll(async () => readUserScopedJson(page, "card_content_preferences")).toEqual({
       frontFontSize: 26,
       backFontSize: 22,
+      fullscreenFrontFontSize: 30,
+      fullscreenBackFontSize: 24,
     });
 
     const rootFontVars = await page.evaluate(() => {
@@ -366,6 +375,20 @@ test.describe("Flashcards smoke", () => {
     await settingsToggle.click();
     await expect(frontInput).toHaveValue("26");
     await expect(backInput).toHaveValue("22");
+    await expect(fullscreenFrontInput).toHaveValue("30");
+    await expect(fullscreenBackInput).toHaveValue("24");
+
+    await resetButton.click();
+    await expect(frontInput).toHaveValue("24");
+    await expect(backInput).toHaveValue("18");
+    await expect(fullscreenFrontInput).toHaveValue("28");
+    await expect(fullscreenBackInput).toHaveValue("20");
+    await expect.poll(async () => readUserScopedJson(page, "card_content_preferences")).toEqual({
+      frontFontSize: 24,
+      backFontSize: 18,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
+    });
   });
 
   test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {

@@ -16,7 +16,11 @@ import {
   cardContentPreferences, setCardContentPreferences,
   editorState,
 } from "../../app/state.js";
-import { MIN_CARD_CONTENT_FONT_SIZE, MAX_CARD_CONTENT_FONT_SIZE } from "../../shared/constants.js";
+import {
+  DEFAULT_CARD_CONTENT_PREFERENCES,
+  MIN_CARD_CONTENT_FONT_SIZE,
+  MAX_CARD_CONTENT_FONT_SIZE,
+} from "../../shared/constants.js";
 import {
   buildCardKey,
   getCardKey,
@@ -43,6 +47,9 @@ const CARD_CONTENT_SETTINGS_PANEL_ID = "card-content-settings-panel";
 const CARD_CONTENT_SETTINGS_TOGGLE_ID = "card-content-settings-toggle-btn";
 const CARD_CONTENT_FRONT_INPUT_ID = "card-content-front-font-size";
 const CARD_CONTENT_BACK_INPUT_ID = "card-content-back-font-size";
+const CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID = "card-content-fullscreen-front-font-size";
+const CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID = "card-content-fullscreen-back-font-size";
+const CARD_CONTENT_RESET_BUTTON_ID = "card-content-reset-btn";
 
 function getCardContentSettingsElements() {
   return {
@@ -50,6 +57,9 @@ function getCardContentSettingsElements() {
     toggleButton: document.getElementById(CARD_CONTENT_SETTINGS_TOGGLE_ID),
     frontInput: document.getElementById(CARD_CONTENT_FRONT_INPUT_ID),
     backInput: document.getElementById(CARD_CONTENT_BACK_INPUT_ID),
+    fullscreenFrontInput: document.getElementById(CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID),
+    fullscreenBackInput: document.getElementById(CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID),
+    resetButton: document.getElementById(CARD_CONTENT_RESET_BUTTON_ID),
   };
 }
 
@@ -75,12 +85,16 @@ export function syncAutoAdvanceToggleUI() {
 export function applyCardContentPreferencesUi() {
   document.documentElement.style.setProperty("--card-content-font-front", `${cardContentPreferences.frontFontSize}px`);
   document.documentElement.style.setProperty("--card-content-font-back", `${cardContentPreferences.backFontSize}px`);
+  document.documentElement.style.setProperty("--card-content-font-front-fullscreen", `${cardContentPreferences.fullscreenFrontFontSize}px`);
+  document.documentElement.style.setProperty("--card-content-font-back-fullscreen", `${cardContentPreferences.fullscreenBackFontSize}px`);
 }
 
 export function syncCardContentPreferencesUi() {
-  const { frontInput, backInput } = getCardContentSettingsElements();
+  const { frontInput, backInput, fullscreenFrontInput, fullscreenBackInput } = getCardContentSettingsElements();
   if (frontInput) frontInput.value = String(cardContentPreferences.frontFontSize);
   if (backInput) backInput.value = String(cardContentPreferences.backFontSize);
+  if (fullscreenFrontInput) fullscreenFrontInput.value = String(cardContentPreferences.fullscreenFrontFontSize);
+  if (fullscreenBackInput) fullscreenBackInput.value = String(cardContentPreferences.fullscreenBackFontSize);
   if (frontInput) {
     frontInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
     frontInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
@@ -88,6 +102,14 @@ export function syncCardContentPreferencesUi() {
   if (backInput) {
     backInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
     backInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
+  }
+  if (fullscreenFrontInput) {
+    fullscreenFrontInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
+    fullscreenFrontInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
+  }
+  if (fullscreenBackInput) {
+    fullscreenBackInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
+    fullscreenBackInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
   }
   applyCardContentPreferencesUi();
 }
@@ -109,7 +131,12 @@ export function closeCardContentSettingsPanel() {
 }
 
 export function updateCardContentFontSize(fieldName, rawValue, options = {}) {
-  const key = fieldName === "back" ? "backFontSize" : "frontFontSize";
+  const key = {
+    front: "frontFontSize",
+    back: "backFontSize",
+    fullscreenFront: "fullscreenFrontFontSize",
+    fullscreenBack: "fullscreenBackFontSize",
+  }[fieldName] || "frontFontSize";
   const shouldResync = options.resync !== false;
   const parsedValue = Number.parseInt(String(rawValue ?? "").trim(), 10);
   if (!Number.isFinite(parsedValue)) {
@@ -126,6 +153,13 @@ export function updateCardContentFontSize(fieldName, rawValue, options = {}) {
   else applyCardContentPreferencesUi();
   if (options.persist !== false) saveStudyState();
   return nextPreferences;
+}
+
+export function resetCardContentPreferences() {
+  setCardContentPreferences(DEFAULT_CARD_CONTENT_PREFERENCES);
+  syncCardContentPreferencesUi();
+  saveStudyState();
+  return cardContentPreferences;
 }
 
 function getStudyCardKeys() {

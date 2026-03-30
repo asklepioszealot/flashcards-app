@@ -894,6 +894,11 @@
         max-width: 320px;
       }
 
+      .card-content-settings-actions {
+        display: flex;
+        justify-content: flex-start;
+      }
+
       .card-content-settings-hint {
         color: var(--color-text-secondary);
         font-size: 13px;
@@ -3665,7 +3670,7 @@
             <h2>Kart İçeriği</h2>
           </div>
           <div class="analytics-header-actions">
-            <p class="analytics-summary-copy card-content-settings-hint">Kartın ön ve arka yüzündeki metin boyutunu ayrı ayrı belirleyebilirsin.</p>
+            <p class="analytics-summary-copy card-content-settings-hint">Normal görünüm ve tam ekran için ön/arka yüz fontlarını ayrı ayrı belirleyebilirsin.</p>
             <button class="analytics-close-btn" id="card-content-settings-close-btn" type="button" aria-label="Kart font ayarlarını kapat" title="Kart font ayarlarını kapat">
               <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-x"></use></svg>
             </button>
@@ -3682,12 +3687,23 @@
             <div class="analytics-card-body">
               <div class="card-content-settings-form">
                 <div class="field-group">
-                  <label for="card-content-back-font-size">Kartın arka yüzündeki içeriğin font büyüklüğünü belirle</label>
+                  <label for="card-content-front-font-size">Normal görünümde ön yüz font büyüklüğü</label>
+                  <input id="card-content-front-font-size" name="card-content-front-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                </div>
+                <div class="field-group">
+                  <label for="card-content-back-font-size">Normal görünümde arka yüz font büyüklüğü</label>
                   <input id="card-content-back-font-size" name="card-content-back-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
                 </div>
                 <div class="field-group">
-                  <label for="card-content-front-font-size">Kartın ön yüzündeki içeriğin font büyüklüğünü belirle</label>
-                  <input id="card-content-front-font-size" name="card-content-front-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                  <label for="card-content-fullscreen-front-font-size">Tam ekranda ön yüz font büyüklüğü</label>
+                  <input id="card-content-fullscreen-front-font-size" name="card-content-fullscreen-front-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                </div>
+                <div class="field-group">
+                  <label for="card-content-fullscreen-back-font-size">Tam ekranda arka yüz font büyüklüğü</label>
+                  <input id="card-content-fullscreen-back-font-size" name="card-content-fullscreen-back-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
+                </div>
+                <div class="card-content-settings-actions">
+                  <button class="btn btn-small btn-secondary" id="card-content-reset-btn" type="button">Varsayılan fontlara dön</button>
                 </div>
               </div>
             </div>

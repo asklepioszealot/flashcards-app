@@ -149,6 +149,7 @@ export function bindStaticEvents() {
     closeCardContentSettingsPanel,
     syncCardContentPreferencesUi,
     updateCardContentFontSize,
+    resetCardContentPreferences,
   }) => {
     bindEvent(document.getElementById("jump-input"), "keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -171,17 +172,38 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("card-content-back-font-size"), "input", (event) => {
       updateCardContentFontSize("back", event.currentTarget?.value, { resync: false });
     });
+    bindEvent(document.getElementById("card-content-fullscreen-front-font-size"), "input", (event) => {
+      updateCardContentFontSize("fullscreenFront", event.currentTarget?.value, { resync: false });
+    });
+    bindEvent(document.getElementById("card-content-fullscreen-back-font-size"), "input", (event) => {
+      updateCardContentFontSize("fullscreenBack", event.currentTarget?.value, { resync: false });
+    });
     bindEvent(document.getElementById("card-content-front-font-size"), "change", (event) => {
       updateCardContentFontSize("front", event.currentTarget?.value);
     });
     bindEvent(document.getElementById("card-content-back-font-size"), "change", (event) => {
       updateCardContentFontSize("back", event.currentTarget?.value);
     });
+    bindEvent(document.getElementById("card-content-fullscreen-front-font-size"), "change", (event) => {
+      updateCardContentFontSize("fullscreenFront", event.currentTarget?.value);
+    });
+    bindEvent(document.getElementById("card-content-fullscreen-back-font-size"), "change", (event) => {
+      updateCardContentFontSize("fullscreenBack", event.currentTarget?.value);
+    });
     bindEvent(document.getElementById("card-content-front-font-size"), "blur", () => {
       syncCardContentPreferencesUi();
     });
     bindEvent(document.getElementById("card-content-back-font-size"), "blur", () => {
       syncCardContentPreferencesUi();
+    });
+    bindEvent(document.getElementById("card-content-fullscreen-front-font-size"), "blur", () => {
+      syncCardContentPreferencesUi();
+    });
+    bindEvent(document.getElementById("card-content-fullscreen-back-font-size"), "blur", () => {
+      syncCardContentPreferencesUi();
+    });
+    bindEvent(document.getElementById("card-content-reset-btn"), "click", () => {
+      resetCardContentPreferences();
     });
     syncCardContentPreferencesUi();
     bindEvent(document.getElementById("topic-select"), "change", () => filterByTopic());
