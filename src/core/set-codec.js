@@ -290,6 +290,19 @@ function stringifyParagraph(node) {
     .trim();
 }
 
+function stringifyBlockquote(node) {
+  const content = stringifyInlineNodes(node.childNodes)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (!content) return "";
+
+  return content
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
+}
+
 function stringifyTable(tableNode) {
   const rows = Array.from(tableNode.querySelectorAll("tr"))
     .map((row) =>
@@ -334,14 +347,7 @@ function stringifyBlockNode(node) {
   }
   if (tagName === "hr") return "---";
   if (tagName === "p") return stringifyParagraph(node);
-  if (tagName === "blockquote") {
-    const content = stringifyBlockChildren(node.childNodes);
-    if (!content) return "";
-    return content
-      .split("\n")
-      .map((line) => `> ${line}`)
-      .join("\n");
-  }
+  if (tagName === "blockquote") return stringifyBlockquote(node);
   if (tagName === "ul") {
     return Array.from(node.children)
       .filter((child) => child.tagName?.toLowerCase() === "li")
