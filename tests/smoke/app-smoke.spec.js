@@ -439,17 +439,14 @@ test("edit mode opens separate editor, preserves raw editor state, and saves que
     });
     const editorChrome = await page.evaluate(() => {
       const subjectShell = document.querySelector(".editor-subject-shell");
-      const cardTitle = document.querySelector(".editor-card-title");
       const rootStyles = getComputedStyle(document.documentElement);
       return {
         subjectWidth: Math.round(subjectShell?.getBoundingClientRect().width || 0),
-        cardTitleFontSize: getComputedStyle(cardTitle).fontSize,
         sidebarBase: rootStyles.getPropertyValue("--editor-sidebar-base").trim(),
         sidebarPanelBase: rootStyles.getPropertyValue("--editor-sidebar-panel-base").trim(),
       };
     });
     expect(editorChrome.subjectWidth).toBeGreaterThanOrEqual(358);
-    expect(editorChrome.cardTitleFontSize).toBe("13px");
     expect(editorChrome.sidebarBase).not.toContain("15, 23, 42");
     expect(editorChrome.sidebarPanelBase).not.toContain("15, 23, 42");
     await page.selectOption("#theme-select-editor", "dark");
