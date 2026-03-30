@@ -43,6 +43,8 @@ export const DEFAULT_REVIEW_PREFERENCES = Object.freeze({
 export const DEFAULT_CARD_CONTENT_PREFERENCES = Object.freeze({
   frontFontSize: 24,
   backFontSize: 18,
+  fullscreenFrontFontSize: 28,
+  fullscreenBackFontSize: 20,
 });
 export const MIN_CARD_CONTENT_FONT_SIZE = 14;
 export const MAX_CARD_CONTENT_FONT_SIZE = 32;

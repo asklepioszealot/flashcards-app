@@ -98,6 +98,8 @@ export function normalizeCardContentPreferences(value, fallback = DEFAULT_CARD_C
   const source = isPlainObject(value) ? value : base;
   const frontFontSize = Number.parseInt(source?.frontFontSize, 10);
   const backFontSize = Number.parseInt(source?.backFontSize, 10);
+  const fullscreenFrontFontSize = Number.parseInt(source?.fullscreenFrontFontSize, 10);
+  const fullscreenBackFontSize = Number.parseInt(source?.fullscreenBackFontSize, 10);
 
   return {
     frontFontSize: Number.isFinite(frontFontSize)
@@ -106,6 +108,12 @@ export function normalizeCardContentPreferences(value, fallback = DEFAULT_CARD_C
     backFontSize: Number.isFinite(backFontSize)
       ? Math.min(Math.max(backFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
       : base.backFontSize,
+    fullscreenFrontFontSize: Number.isFinite(fullscreenFrontFontSize)
+      ? Math.min(Math.max(fullscreenFrontFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
+      : base.fullscreenFrontFontSize,
+    fullscreenBackFontSize: Number.isFinite(fullscreenBackFontSize)
+      ? Math.min(Math.max(fullscreenBackFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
+      : base.fullscreenBackFontSize,
   };
 }
 

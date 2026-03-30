@@ -17,6 +17,8 @@ describe("Study state review preferences", () => {
     expect(snapshot.cardContentPreferences).toEqual({
       frontFontSize: 24,
       backFontSize: 18,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
     });
   });
 
@@ -36,6 +38,8 @@ describe("Study state review preferences", () => {
     expect(snapshot.cardContentPreferences).toEqual({
       frontFontSize: 24,
       backFontSize: 18,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
     });
   });
 
@@ -44,6 +48,8 @@ describe("Study state review preferences", () => {
       cardContentPreferences: {
         frontFontSize: 80,
         backFontSize: 9,
+        fullscreenFrontFontSize: 13,
+        fullscreenBackFontSize: 40,
       },
     });
     const syncedSnapshot = normalizeSyncedUserState({
@@ -51,16 +57,38 @@ describe("Study state review preferences", () => {
       cardContentPreferences: {
         frontFontSize: 12,
         backFontSize: 40,
+        fullscreenFrontFontSize: 99,
+        fullscreenBackFontSize: 10,
       },
     });
 
     expect(localSnapshot.cardContentPreferences).toEqual({
       frontFontSize: 32,
       backFontSize: 14,
+      fullscreenFrontFontSize: 14,
+      fullscreenBackFontSize: 32,
     });
     expect(syncedSnapshot.cardContentPreferences).toEqual({
       frontFontSize: 14,
       backFontSize: 32,
+      fullscreenFrontFontSize: 32,
+      fullscreenBackFontSize: 14,
+    });
+  });
+
+  it("should preserve legacy local card font preferences and fill fullscreen defaults", () => {
+    const snapshot = normalizeStudyStateSnapshot({
+      cardContentPreferences: {
+        frontFontSize: 26,
+        backFontSize: 19,
+      },
+    });
+
+    expect(snapshot.cardContentPreferences).toEqual({
+      frontFontSize: 26,
+      backFontSize: 19,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
     });
   });
 });

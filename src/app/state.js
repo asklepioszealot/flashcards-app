@@ -32,7 +32,12 @@ export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
 export let isAnalyticsVisible = false;
 export let reviewPreferences = { memoryTargetPercent: 85, intervalMultiplier: 1 };
-export let cardContentPreferences = { frontFontSize: 24, backFontSize: 18 };
+export let cardContentPreferences = {
+  frontFontSize: 24,
+  backFontSize: 18,
+  fullscreenFrontFontSize: 28,
+  fullscreenBackFontSize: 20,
+};
 export let authStateToken = 0;
 export let currentScreen = "auth";
 
@@ -64,12 +69,21 @@ export function setReviewPreferences(v) {
 export function setCardContentPreferences(v) {
   const frontFallback = cardContentPreferences?.frontFontSize ?? 24;
   const backFallback = cardContentPreferences?.backFontSize ?? 18;
+  const fullscreenFrontFallback = cardContentPreferences?.fullscreenFrontFontSize ?? 28;
+  const fullscreenBackFallback = cardContentPreferences?.fullscreenBackFontSize ?? 20;
   cardContentPreferences = v && typeof v === "object" && !Array.isArray(v)
     ? {
         frontFontSize: clampCardContentFontSize(v.frontFontSize, frontFallback),
         backFontSize: clampCardContentFontSize(v.backFontSize, backFallback),
+        fullscreenFrontFontSize: clampCardContentFontSize(v.fullscreenFrontFontSize, fullscreenFrontFallback),
+        fullscreenBackFontSize: clampCardContentFontSize(v.fullscreenBackFontSize, fullscreenBackFallback),
       }
-    : { frontFontSize: 24, backFontSize: 18 };
+    : {
+        frontFontSize: 24,
+        backFontSize: 18,
+        fullscreenFrontFontSize: 28,
+        fullscreenBackFontSize: 20,
+      };
 }
 export function incrementAuthStateToken() { authStateToken += 1; return authStateToken; }
 export function setCurrentScreen(v) { currentScreen = v; }
