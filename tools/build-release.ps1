@@ -154,7 +154,11 @@ try {
 
   $tauriConfigPath = Join-Path $repoRoot "src-tauri\tauri.conf.json"
   $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+  $productName = [string]$tauriConfig.productName
   $version = [string]$tauriConfig.version
+  if ([string]::IsNullOrWhiteSpace($productName)) {
+    $productName = "Flashcards App"
+  }
   if ([string]::IsNullOrWhiteSpace($version)) {
     $version = "unknown"
   }
@@ -168,8 +172,15 @@ try {
   $releaseDir = Join-Path $repoRoot ("release\" + $timestamp + "_v" + $version + "_" + $commit)
   New-Item -Path $releaseDir -ItemType Directory -Force | Out-Null
 
-  $portableName = "Pediatri_Flashcards_Portable_v{0}_{1}.exe" -f $version, $commit
-  $setupName = "Pediatri_Flashcards_Kurulum_v{0}_{1}.exe" -f $version, $commit
+  $artifactNamesScript = Join-Path $repoRoot "tools\release-artifact-names.mjs"
+  $artifactNamesJson = & node $artifactNamesScript $productName $version $commit
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($artifactNamesJson)) {
+    throw "Release artifact names could not be generated."
+  }
+
+  $artifactNames = $artifactNamesJson | ConvertFrom-Json
+  $portableName = [string]$artifactNames.portableName
+  $setupName = [string]$artifactNames.setupName
   $portableTarget = Join-Path $releaseDir $portableName
   $setupTarget = Join-Path $releaseDir $setupName
 
@@ -177,8 +188,8 @@ try {
   Copy-Item -Path $portableSource -Destination $portableTarget -Force
   Copy-Item -Path $setupSource.FullName -Destination $setupTarget -Force
 
-  $legacyPortablePath = Join-Path $repoRoot "Pediatri_Flashcards_Portable.exe"
-  $legacySetupPath = Join-Path $repoRoot "Pediatri_Flashcards_Kurulum.exe"
+  $legacyPortablePath = Join-Path $repoRoot ([string]$artifactNames.legacyPortableName)
+  $legacySetupPath = Join-Path $repoRoot ([string]$artifactNames.legacySetupName)
 
   if (-not $NoLegacyCopy) {
     Write-Host "[4/6] Syncing legacy root file names..."
