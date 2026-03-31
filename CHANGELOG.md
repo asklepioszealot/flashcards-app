@@ -4,6 +4,13 @@ Bu dosya [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatina gore
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-03-31
+
+### Changed
+- Desktop release surumu `0.1.3` olarak bump edildi.
+- Desktop release basligi ve GitHub asset isim ailesi `Flashcards App` olarak birlestirildi.
+- Yerel release script'i timestamp'li portable ve setup kopyalarini `Flashcards App` adlariyla uretir hale getirildi.
+
 ## [0.1.2] - 2026-03-31
 
 ### Added
