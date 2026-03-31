@@ -352,9 +352,20 @@ export function syncPersistedSetSourcePaths() {
   }
 }
 
-function isPersistableRemovedSetMatch(record) {
+function buildRemovedSetMatchKey(record) {
   const sourcePath = String(record?.sourcePath || "").trim();
-  return Boolean(sourcePath) && !isWebLinkedSourcePath(sourcePath);
+  if (sourcePath) return `source:${sourcePath}`;
+  const fileName = String(record?.fileName || "").trim().toLowerCase();
+  if (fileName) return `file:${fileName}`;
+  const slug = String(record?.slug || "").trim().toLowerCase();
+  if (slug) return `slug:${slug}`;
+  return "";
+}
+
+function isPersistableRemovedSetMatch(record) {
+  const fileName = String(record?.fileName || "").trim();
+  const sourcePath = String(record?.sourcePath || "").trim();
+  return Boolean(fileName) || Boolean(sourcePath);
 }
 
 function normalizeRemovedLocalSetMatches(value) {
@@ -365,9 +376,9 @@ function normalizeRemovedLocalSetMatches(value) {
 
   const seenSourcePaths = new Set();
   return normalizedRecords.filter((record) => {
-    const sourcePath = String(record.sourcePath || "").trim();
-    if (!sourcePath || seenSourcePaths.has(sourcePath)) return false;
-    seenSourcePaths.add(sourcePath);
+    const matchKey = buildRemovedSetMatchKey(record);
+    if (!matchKey || seenSourcePaths.has(matchKey)) return false;
+    seenSourcePaths.add(matchKey);
     return true;
   });
 }
@@ -391,37 +402,67 @@ export function rememberRemovedSetMatches(records) {
   if (!_setUserJson || !_getUserJson) return;
 
   const nextRecords = [];
-  const seenSourcePaths = new Set();
+  const seenMatchKeys = new Set();
 
   normalizeSetCollection(records).forEach((record) => {
-    const sourcePath = String(record?.sourcePath || "").trim();
-    if (!isPersistableRemovedSetMatch(record) || seenSourcePaths.has(sourcePath)) return;
-    seenSourcePaths.add(sourcePath);
+    const matchKey = buildRemovedSetMatchKey(record);
+    if (!isPersistableRemovedSetMatch(record) || !matchKey || seenMatchKeys.has(matchKey)) return;
+    seenMatchKeys.add(matchKey);
     nextRecords.push(record);
   });
 
   getRemovedLocalSetMatches().forEach((record) => {
-    const sourcePath = String(record?.sourcePath || "").trim();
-    if (!sourcePath || seenSourcePaths.has(sourcePath)) return;
-    seenSourcePaths.add(sourcePath);
+    const matchKey = buildRemovedSetMatchKey(record);
+    if (!matchKey || seenMatchKeys.has(matchKey)) return;
+    seenMatchKeys.add(matchKey);
     nextRecords.push(record);
   });
 
   setRemovedLocalSetMatches(nextRecords);
 }
 
-export function findRemovedSetMatch(sourcePath) {
-  const normalizedSourcePath = String(sourcePath || "").trim();
-  if (!normalizedSourcePath) return null;
-  return getRemovedLocalSetMatches().find((record) => record.sourcePath === normalizedSourcePath) || null;
+export function findRemovedSetMatch(options = {}) {
+  const normalizedSourcePath =
+    typeof options === "string"
+      ? String(options).trim()
+      : String(options?.sourcePath || "").trim();
+  if (normalizedSourcePath) {
+    return getRemovedLocalSetMatches().find((record) => record.sourcePath === normalizedSourcePath) || null;
+  }
+
+  const normalizedFileName =
+    typeof options === "object"
+      ? String(options?.fileName || "").trim().toLowerCase()
+      : "";
+  if (!normalizedFileName) return null;
+
+  return getRemovedLocalSetMatches().find((record) => {
+    const recordFileName = String(record?.fileName || "").trim().toLowerCase();
+    return recordFileName === normalizedFileName;
+  }) || null;
 }
 
-export function forgetRemovedSetMatch(sourcePath) {
-  const normalizedSourcePath = String(sourcePath || "").trim();
-  if (!normalizedSourcePath || !_setUserJson || !_getUserJson) return;
-  const remainingRecords = getRemovedLocalSetMatches().filter(
-    (record) => record.sourcePath !== normalizedSourcePath,
-  );
+export function forgetRemovedSetMatch(options = {}) {
+  if (!_setUserJson || !_getUserJson) return;
+
+  const normalizedSourcePath =
+    typeof options === "string"
+      ? String(options).trim()
+      : String(options?.sourcePath || "").trim();
+  const normalizedFileName =
+    typeof options === "object"
+      ? String(options?.fileName || "").trim().toLowerCase()
+      : "";
+  if (!normalizedSourcePath && !normalizedFileName) return;
+
+  const remainingRecords = getRemovedLocalSetMatches().filter((record) => {
+    if (normalizedSourcePath && record.sourcePath === normalizedSourcePath) return false;
+    if (normalizedFileName) {
+      const recordFileName = String(record?.fileName || "").trim().toLowerCase();
+      if (recordFileName === normalizedFileName) return false;
+    }
+    return true;
+  });
   setRemovedLocalSetMatches(remainingRecords);
 }
 
@@ -467,10 +508,11 @@ function decodeBase64ToUint8Array(value) {
 function resolveExistingImportRecord(sourcePath, fileName) {
   if (sourcePath) {
     return Object.values(loadedSets).find((record) => record.sourcePath === sourcePath)
-      || findRemovedSetMatch(sourcePath)
+      || findRemovedSetMatch({ sourcePath, fileName })
       || findExistingSetMatch(fileName);
   }
-  return findExistingSetMatch(fileName);
+  return findExistingSetMatch(fileName)
+    || findRemovedSetMatch({ fileName });
 }
 
 async function persistImportedRecord(nextRecord, existingRecord, options = {}) {
@@ -489,9 +531,9 @@ async function persistImportedRecord(nextRecord, existingRecord, options = {}) {
   }
 
   const savedRecord = await platformAdapter.saveSet(nextRecord);
-  if (sourcePath) forgetRemovedSetMatch(sourcePath);
+  forgetRemovedSetMatch({ sourcePath, fileName: nextRecord.fileName || savedRecord?.fileName || "" });
   if (savedRecord?.sourcePath && savedRecord.sourcePath !== sourcePath) {
-    forgetRemovedSetMatch(savedRecord.sourcePath);
+    forgetRemovedSetMatch({ sourcePath: savedRecord.sourcePath, fileName: savedRecord.fileName || "" });
   }
   if (allowSourceLink && webFileHandle && savedRecord?.sourcePath) {
     bindBrowserFileHandle(savedRecord.sourcePath, webFileHandle);

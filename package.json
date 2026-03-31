@@ -31,7 +31,13 @@
     "type": "git",
     "url": "git+https://github.com/asklepioszealot/flashcards-app.git"
   },
-  "keywords": ["flashcards", "spaced-repetition", "study", "medical", "pediatri"],
+  "keywords": [
+    "flashcards",
+    "spaced-repetition",
+    "study",
+    "medical",
+    "pediatri"
+  ],
   "author": "AsklepiosZealot",
   "license": "ISC",
   "type": "commonjs",
@@ -47,7 +53,7 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.100.1",
+    "@supabase/supabase-js": "^2.101.0",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.0",
     "dompurify": "^3.3.3",

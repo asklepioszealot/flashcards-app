@@ -19,6 +19,7 @@ __pycache__/
 # Local build pointer
 LATEST_RELEASE_POINTER.txt
 runtime-config.local.json
+.env.local
 
 # Playwright artifacts
 playwright-report/

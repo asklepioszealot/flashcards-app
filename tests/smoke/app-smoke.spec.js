@@ -1423,6 +1423,38 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     ).toHaveLength(1);
   });
 
+  test("reimporting the same uploaded file preserves study progress", async ({ page }) => {
+    const fixturePath = path.resolve(
+      process.cwd(),
+      "tests",
+      "fixtures",
+      "smoke-set.json",
+    );
+
+    await clearStorage(page);
+    await continueWithDemo(page);
+    await page.setInputFiles("#file-picker", fixturePath);
+    await expect(page.locator("#set-list")).toContainText("Smoke Flashcard Set");
+
+    await page.locator("#start-btn").click();
+    await assessCurrentCard(page, "know");
+    await expect(page.locator("#score-percent")).toHaveText("1/1 (%100)");
+
+    await page
+      .locator("button.btn-small.btn-secondary", { hasText: "Setlere Dön" })
+      .click();
+
+    await page.locator('[data-set-delete]').click();
+    await expect(page.locator("#set-list")).toContainText("Henüz set yüklenmedi.");
+
+    await page.setInputFiles("#file-picker", fixturePath);
+    await expect(page.locator("#set-list")).toContainText("Smoke Flashcard Set");
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#score-percent")).toHaveText("1/1 (%100)");
+    await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
+  });
+
   test("clicking same assessment twice clears the card status", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {

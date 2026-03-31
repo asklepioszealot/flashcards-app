@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
 const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -118,13 +118,23 @@ function readLocalRuntimeConfig() {
   }
 }
 
-function makeRuntimeConfig() {
-  if (process.env.FORCE_MOCK_AUTH === "1") {
+function readEnvValue(env, keys) {
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
+function makeRuntimeConfig(env = process.env) {
+  if (env.FORCE_MOCK_AUTH === "1") {
     return {
       supabaseUrl: "",
       supabaseAnonKey: "",
       authMode: "mock",
-      enableDemoAuth: process.env.ENABLE_DEMO_AUTH !== "0",
+      enableDemoAuth: env.ENABLE_DEMO_AUTH !== "0",
       driveClientId: "",
       driveApiKey: "",
       driveAppId: "",
@@ -132,17 +142,28 @@ function makeRuntimeConfig() {
   }
 
   const localRuntimeConfig = readLocalRuntimeConfig();
-  const supabaseUrl = process.env.SUPABASE_URL || localRuntimeConfig.supabaseUrl || "";
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || localRuntimeConfig.supabaseAnonKey || "";
+  const supabaseUrl =
+    readEnvValue(env, ["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"])
+    || localRuntimeConfig.supabaseUrl
+    || "";
+  const supabaseAnonKey =
+    readEnvValue(env, [
+      "SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY",
+    ])
+    || localRuntimeConfig.supabaseAnonKey
+    || localRuntimeConfig.supabasePublishableKey
+    || "";
   const authMode = supabaseUrl && supabaseAnonKey ? "supabase" : "mock";
   const enableDemoAuth =
-    process.env.ENABLE_DEMO_AUTH != null
-      ? process.env.ENABLE_DEMO_AUTH !== "0"
+    env.ENABLE_DEMO_AUTH != null
+      ? env.ENABLE_DEMO_AUTH !== "0"
       : localRuntimeConfig.enableDemoAuth !== false;
 
-  const driveClientId = process.env.DRIVE_CLIENT_ID || localRuntimeConfig.driveClientId || "";
-  const driveApiKey = process.env.DRIVE_API_KEY || localRuntimeConfig.driveApiKey || "";
-  const driveAppId = process.env.DRIVE_APP_ID || localRuntimeConfig.driveAppId || "";
+  const driveClientId = env.DRIVE_CLIENT_ID || localRuntimeConfig.driveClientId || "";
+  const driveApiKey = env.DRIVE_API_KEY || localRuntimeConfig.driveApiKey || "";
+  const driveAppId = env.DRIVE_APP_ID || localRuntimeConfig.driveAppId || "";
 
   return {
     supabaseUrl,
@@ -177,9 +198,13 @@ function emitStaticArtifacts() {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
+  const env = {
+    ...process.env,
+    ...loadEnv(mode, repoRoot, ""),
+  };
   const buildInfo = makeBuildInfo();
-  const runtimeConfig = makeRuntimeConfig();
+  const runtimeConfig = makeRuntimeConfig(env);
 
   return {
     build: {
