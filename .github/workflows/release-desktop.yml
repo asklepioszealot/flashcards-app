@@ -72,9 +72,9 @@ jobs:
           args: --bundles nsis
           generateReleaseNotes: true
           prerelease: false
-          releaseBody: Windows desktop release for Pediatri Flashcards.
+          releaseBody: Windows desktop release for Flashcards App.
           releaseDraft: false
-          releaseName: Pediatri Flashcards Desktop v__VERSION__
+          releaseName: Flashcards App v__VERSION__
           tagName: ${{ steps.app_version.outputs.tag }}
           updaterJsonPreferNsis: true
           includeUpdaterJson: true

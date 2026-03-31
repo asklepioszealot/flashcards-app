@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Pediatri Flashcards",
+  "productName": "Flashcards App v0.1.2",
   "version": "0.1.2",
   "identifier": "com.asklepioszealot.flashcards",
   "build": {
@@ -12,7 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Pediatri Flashcards",
+        "title": "Flashcards App v0.1.2",
         "width": 800,
         "height": 600,
         "resizable": true,
