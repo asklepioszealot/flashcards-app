@@ -20,6 +20,7 @@ describe("Study state review preferences", () => {
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
     });
+    expect(snapshot.showReviewScheduleInfo).toBe(false);
   });
 
   it("should clamp review preferences for synced payloads", () => {
@@ -90,5 +91,18 @@ describe("Study state review preferences", () => {
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
     });
+  });
+
+  it("should preserve the review schedule visibility preference for local and synced payloads", () => {
+    const localSnapshot = normalizeStudyStateSnapshot({
+      showReviewScheduleInfo: true,
+    });
+    const syncedSnapshot = normalizeSyncedUserState({
+      selectedSetIds: ["demo"],
+      showReviewScheduleInfo: true,
+    });
+
+    expect(localSnapshot.showReviewScheduleInfo).toBe(true);
+    expect(syncedSnapshot.showReviewScheduleInfo).toBe(true);
   });
 });

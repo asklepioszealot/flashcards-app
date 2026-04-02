@@ -30,6 +30,7 @@ export let reviewSchedule = {};
 export let activeFilter = "all";
 export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
+export let showReviewScheduleInfo = false;
 export let isAnalyticsVisible = false;
 export let reviewPreferences = { memoryTargetPercent: 85, intervalMultiplier: 1 };
 export let cardContentPreferences = {
@@ -57,6 +58,7 @@ export function setReviewSchedule(v) { reviewSchedule = v && typeof v === "objec
 export function setActiveFilter(v) { activeFilter = v; }
 export function setIsFullscreen(v) { isFullscreen = v; }
 export function setAutoAdvanceEnabled(v) { autoAdvanceEnabled = Boolean(v); }
+export function setShowReviewScheduleInfo(v) { showReviewScheduleInfo = v === true; }
 export function setIsAnalyticsVisible(v) { isAnalyticsVisible = Boolean(v); }
 export function setReviewPreferences(v) {
   reviewPreferences = v && typeof v === "object" && !Array.isArray(v)

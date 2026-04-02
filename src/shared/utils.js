@@ -144,6 +144,11 @@ export function normalizeStudyStateSnapshot(snapshot, fallback = {}) {
       : fallback.autoAdvanceEnabled !== undefined
         ? fallback.autoAdvanceEnabled !== false
         : true,
+    showReviewScheduleInfo: snapshot?.showReviewScheduleInfo !== undefined
+      ? snapshot.showReviewScheduleInfo === true
+      : fallback.showReviewScheduleInfo !== undefined
+        ? fallback.showReviewScheduleInfo === true
+        : false,
     isAnalyticsVisible: snapshot?.isAnalyticsVisible !== undefined
       ? snapshot.isAnalyticsVisible === true
       : fallback.isAnalyticsVisible !== undefined

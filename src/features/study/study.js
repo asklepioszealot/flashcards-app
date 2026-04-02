@@ -13,6 +13,7 @@ import {
   reviewSchedule,
   activeFilter, setActiveFilter,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
+  showReviewScheduleInfo, setShowReviewScheduleInfo,
   cardContentPreferences, setCardContentPreferences,
   editorState,
 } from "../../app/state.js";
@@ -50,6 +51,7 @@ const CARD_CONTENT_BACK_INPUT_ID = "card-content-back-font-size";
 const CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID = "card-content-fullscreen-front-font-size";
 const CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID = "card-content-fullscreen-back-font-size";
 const CARD_CONTENT_RESET_BUTTON_ID = "card-content-reset-btn";
+const REVIEW_SCHEDULE_VISIBILITY_TOGGLE_ID = "review-schedule-visibility-toggle";
 const CARD_INSTANT_RESET_CLASS = "card--instant-reset";
 
 function getCardContentSettingsElements() {
@@ -61,6 +63,7 @@ function getCardContentSettingsElements() {
     fullscreenFrontInput: document.getElementById(CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID),
     fullscreenBackInput: document.getElementById(CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID),
     resetButton: document.getElementById(CARD_CONTENT_RESET_BUTTON_ID),
+    reviewScheduleVisibilityToggle: document.getElementById(REVIEW_SCHEDULE_VISIBILITY_TOGGLE_ID),
   };
 }
 
@@ -81,6 +84,22 @@ export function syncAutoAdvanceToggleUI() {
     status.setAttribute("aria-label", autoAdvanceEnabled ? "Otomatik ilerle açık" : "Otomatik ilerle kapalı");
     status.dataset.state = autoAdvanceEnabled ? "enabled" : "disabled";
   }
+}
+
+export function syncReviewScheduleVisibilityUi() {
+  const { reviewScheduleVisibilityToggle } = getCardContentSettingsElements();
+  const summaryElement = document.getElementById("review-due-summary");
+  const currentCardElement = document.getElementById("review-current-card");
+  if (reviewScheduleVisibilityToggle) reviewScheduleVisibilityToggle.checked = showReviewScheduleInfo;
+  if (summaryElement) summaryElement.hidden = !showReviewScheduleInfo;
+  if (currentCardElement) currentCardElement.hidden = !showReviewScheduleInfo;
+}
+
+export function setReviewScheduleVisibility(isVisible, options = {}) {
+  setShowReviewScheduleInfo(isVisible === true);
+  syncReviewScheduleVisibilityUi();
+  if (options.persist !== false) saveStudyState();
+  return showReviewScheduleInfo;
 }
 
 export function applyCardContentPreferencesUi() {
@@ -185,10 +204,14 @@ export function syncReviewScheduleUi() {
           : "scheduled";
   }
 
-  if (!currentCardElement) return;
+  if (!currentCardElement) {
+    syncReviewScheduleVisibilityUi();
+    return;
+  }
   if (!filteredFlashcards.length) {
     currentCardElement.textContent = "Bu kart: planlı tekrar yok";
     currentCardElement.dataset.state = "empty";
+    syncReviewScheduleVisibilityUi();
     return;
   }
 
@@ -196,6 +219,7 @@ export function syncReviewScheduleUi() {
   const entry = getReviewScheduleEntry(currentCard);
   currentCardElement.textContent = `Bu kart: ${formatRelativeReviewLabel(entry)}`;
   currentCardElement.dataset.state = getReviewUrgency(entry);
+  syncReviewScheduleVisibilityUi();
 }
 
 function syncCardFlipState(options = {}) {

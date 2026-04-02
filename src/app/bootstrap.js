@@ -148,8 +148,10 @@ export function bindStaticEvents() {
     toggleCardContentSettingsPanel,
     closeCardContentSettingsPanel,
     syncCardContentPreferencesUi,
+    syncReviewScheduleVisibilityUi,
     updateCardContentFontSize,
     resetCardContentPreferences,
+    setReviewScheduleVisibility,
   }) => {
     bindEvent(document.getElementById("jump-input"), "keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -159,6 +161,9 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("start-btn"), "click", () => startStudy());
     bindEvent(document.getElementById("auto-advance-toggle-manager"), "change", (event) => {
       setAutoAdvance(event.currentTarget?.checked);
+    });
+    bindEvent(document.getElementById("review-schedule-visibility-toggle"), "change", (event) => {
+      setReviewScheduleVisibility(event.currentTarget?.checked);
     });
     bindEvent(document.getElementById("card-content-settings-toggle-btn"), "click", () => {
       toggleCardContentSettingsPanel();
@@ -206,6 +211,7 @@ export function bindStaticEvents() {
       resetCardContentPreferences();
     });
     syncCardContentPreferencesUi();
+    syncReviewScheduleVisibilityUi();
     bindEvent(document.getElementById("topic-select"), "change", () => filterByTopic());
     bindEvent(document.getElementById("show-set-manager-btn"), "click", () => showSetManager());
     bindEvent(document.getElementById("shuffle-btn"), "click", () => shuffleCards());

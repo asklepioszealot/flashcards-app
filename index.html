@@ -898,6 +898,22 @@
         max-width: 320px;
       }
 
+      .card-content-settings-form .field-group.field-group--wide {
+        max-width: none;
+      }
+
+      .card-content-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .card-content-toggle-copy {
+        display: grid;
+        gap: 6px;
+      }
+
       .card-content-settings-actions {
         display: flex;
         justify-content: flex-start;
@@ -3690,6 +3706,18 @@
             </div>
             <div class="analytics-card-body">
               <div class="card-content-settings-form">
+                <div class="field-group field-group--wide">
+                  <div class="card-content-toggle-row">
+                    <div class="card-content-toggle-copy">
+                      <label for="review-schedule-visibility-toggle">Tekrar planı yazılarını göster</label>
+                      <div class="analytics-card-meta">"Tekrar Planı" ve "Bu kart" satırlarını çalışma ekranında görünür yapar.</div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input id="review-schedule-visibility-toggle" name="review-schedule-visibility-toggle" type="checkbox" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
                 <div class="field-group">
                   <label for="card-content-front-font-size">Normal görünümde ön yüz font büyüklüğü</label>
                   <input id="card-content-front-font-size" name="card-content-front-font-size" type="number" min="14" max="32" step="1" inputmode="numeric" />
@@ -3915,8 +3943,8 @@
         </div>
 
         <div class="review-schedule-bar">
-          <div class="review-schedule-pill" id="review-due-summary" data-state="new">Tekrar Planı: 0 bugün · 0 yakında · 0 yeni</div>
-          <div class="review-schedule-pill" id="review-current-card" data-state="new">Bu kart: ilk değerlendirme bekleniyor</div>
+          <div class="review-schedule-pill" id="review-due-summary" data-state="new" hidden>Tekrar Planı: 0 bugün · 0 yakında · 0 yeni</div>
+          <div class="review-schedule-pill" id="review-current-card" data-state="new" hidden>Bu kart: ilk değerlendirme bekleniyor</div>
         </div>
       </div>
 

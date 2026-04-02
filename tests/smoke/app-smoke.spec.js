@@ -391,6 +391,41 @@ test.describe("Flashcards smoke", () => {
     });
   });
 
+  test("review schedule pills stay hidden by default until enabled from settings", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        visibility: {
+          setName: "Visibility Demo",
+          fileName: "visibility-demo.json",
+          cards: [
+            { q: "Soru 1", a: "Cevap 1", subject: "Genel" },
+          ],
+        },
+      },
+      selectedSetIds: ["visibility"],
+    });
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#review-due-summary")).toBeHidden();
+    await expect(page.locator("#review-current-card")).toBeHidden();
+
+    await page.locator("#show-set-manager-btn").click();
+    await page.locator("#card-content-settings-toggle-btn").click();
+
+    const reviewVisibilityInput = page.locator("#review-schedule-visibility-toggle");
+    const reviewVisibilitySwitch = page.locator(".toggle-switch", { has: reviewVisibilityInput });
+
+    await expect(reviewVisibilityInput).not.toBeChecked();
+    await reviewVisibilitySwitch.click();
+    await expect(reviewVisibilityInput).toBeChecked();
+    await expect.poll(async () => readUserScopedText(page, "review_schedule_info_visible")).toBe("1");
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#review-due-summary")).toBeVisible();
+    await expect(page.locator("#review-current-card")).toBeVisible();
+    await expect(page.locator("#review-current-card")).toContainText("ilk değerlendirme bekleniyor");
+  });
+
   test("fullscreen study mode uses dedicated font variables", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {

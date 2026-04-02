@@ -12,6 +12,7 @@ import {
   assessments, setAssessments,
   reviewSchedule, setReviewSchedule,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
+  showReviewScheduleInfo, setShowReviewScheduleInfo,
   isAnalyticsVisible, setIsAnalyticsVisible,
   reviewPreferences, setReviewPreferences,
   cardContentPreferences, setCardContentPreferences,
@@ -58,6 +59,7 @@ export function getLegacyStudyStateSnapshot() {
   const storedReviewSchedule = getUserJson("review_schedule", {});
   const storedSession = getUserJson("session", null);
   const autoAdvanceRaw = getUserText("auto_advance");
+  const reviewScheduleInfoRaw = getUserText("review_schedule_info_visible");
   const analyticsVisibleRaw = getUserText("analytics_visible");
   const storedReviewPreferences = getUserJson("review_preferences", null);
   const storedCardContentPreferences = getUserJson("card_content_preferences", null);
@@ -67,6 +69,7 @@ export function getLegacyStudyStateSnapshot() {
     reviewSchedule: isPlainObject(storedReviewSchedule) ? storedReviewSchedule : {},
     session: isPlainObject(storedSession) ? storedSession : null,
     autoAdvanceEnabled: autoAdvanceRaw === null ? true : autoAdvanceRaw === "1",
+    showReviewScheduleInfo: reviewScheduleInfoRaw === "1",
     isAnalyticsVisible: analyticsVisibleRaw === "1",
     reviewPreferences: storedReviewPreferences,
     cardContentPreferences: storedCardContentPreferences,
@@ -97,6 +100,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
       autoAdvanceEnabled,
     },
     autoAdvanceEnabled,
+    showReviewScheduleInfo,
     isAnalyticsVisible,
     reviewPreferences,
     cardContentPreferences,
@@ -112,6 +116,7 @@ export function persistStudyStateSnapshot(snapshot) {
   setUserJson("assessments", normalizedSnapshot.assessments);
   setUserJson("review_schedule", normalizedSnapshot.reviewSchedule);
   setUserText("auto_advance", normalizedSnapshot.autoAdvanceEnabled ? "1" : "0");
+  setUserText("review_schedule_info_visible", normalizedSnapshot.showReviewScheduleInfo ? "1" : "0");
   setUserText("analytics_visible", normalizedSnapshot.isAnalyticsVisible ? "1" : "0");
   setUserJson("review_preferences", normalizedSnapshot.reviewPreferences);
   setUserJson("card_content_preferences", normalizedSnapshot.cardContentPreferences);
@@ -145,6 +150,7 @@ export function applyStudyStateSnapshot(snapshot) {
   setAssessments(newAssessments);
   setReviewSchedule(isPlainObject(normalizedSnapshot.reviewSchedule) ? normalizedSnapshot.reviewSchedule : {});
   setAutoAdvanceEnabled(normalizedSnapshot.autoAdvanceEnabled !== false);
+  setShowReviewScheduleInfo(normalizedSnapshot.showReviewScheduleInfo === true);
   setIsAnalyticsVisible(normalizedSnapshot.isAnalyticsVisible === true);
   setReviewPreferences(normalizedSnapshot.reviewPreferences);
   setCardContentPreferences(normalizedSnapshot.cardContentPreferences);
@@ -153,10 +159,12 @@ export function applyStudyStateSnapshot(snapshot) {
     syncAutoAdvanceToggleUI,
     syncCardContentPreferencesUi,
     syncReviewScheduleUi,
+    syncReviewScheduleVisibilityUi,
   }) => {
     applyCardContentPreferencesUi();
     syncCardContentPreferencesUi();
     syncAutoAdvanceToggleUI();
+    syncReviewScheduleVisibilityUi();
     syncReviewScheduleUi();
   });
   import("../analytics/analytics.js").then(({ syncAnalyticsDashboard, syncAnalyticsVisibility }) => {
