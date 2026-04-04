@@ -10,6 +10,22 @@ const DEMO_USER = {
   email: "demo@local.flashcards",
   provider: "demo",
 };
+const EXPECTED_THEME_OPTIONS = [
+  "Aydınlık",
+  "Karanlık",
+  "Amber",
+  "Mavi",
+  "Ocean Depths",
+  "Sunset Boulevard",
+  "Forest Canopy",
+  "Modern Minimalist",
+  "Golden Hour",
+  "Arctic Frost",
+  "Desert Rose",
+  "Tech Innovation",
+  "Botanical Garden",
+  "Midnight Galaxy",
+];
 
 function appUrl() {
   return `http://127.0.0.1:${APP_PORT}/`;
@@ -198,12 +214,7 @@ test.describe("Flashcards smoke", () => {
 
     await expect(page.locator("#auth-screen")).toBeVisible();
     await expect(page.locator("#theme-select-auth")).toBeVisible();
-    await expect(page.locator("#theme-select-auth option")).toHaveText([
-      "AYDINLIK",
-      "KARANLIK",
-      "AMBER",
-      "MAVİ",
-    ]);
+    await expect(page.locator("#theme-select-auth option")).toHaveText(EXPECTED_THEME_OPTIONS);
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
 
@@ -236,6 +247,21 @@ test.describe("Flashcards smoke", () => {
         page.evaluate(() => document.documentElement.getAttribute("data-theme")),
       )
       .toBe("ember");
+
+    await themeSelect.selectOption("ocean-depths");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => ({
+          theme: document.documentElement.getAttribute("data-theme"),
+          scheme: document.documentElement.getAttribute("data-color-scheme"),
+          accent: getComputedStyle(document.documentElement).getPropertyValue("--color-accent").trim(),
+        })),
+      )
+      .toEqual({
+        theme: "ocean-depths",
+        scheme: "dark",
+        accent: "#2d8b8b",
+      });
 
     await themeSelect.selectOption("light");
     await expect
@@ -678,12 +704,7 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     expect(darkEditorChrome.sidebarBase).toContain("15, 23, 42");
     expect(darkEditorChrome.sidebarPanelBase).toContain("15, 23, 42");
     await page.selectOption("#theme-select-editor", "light");
-    await expect(page.locator("#theme-select-editor option")).toHaveText([
-      "AYDINLIK",
-      "KARANLIK",
-      "AMBER",
-      "MAVİ",
-    ]);
+    await expect(page.locator("#theme-select-editor option")).toHaveText(EXPECTED_THEME_OPTIONS);
     await expect(page.locator('[data-md-action="undo"]')).toBeVisible();
     await expect(page.locator('[data-md-action="redo"]')).toBeVisible();
     await expect(page.locator('[data-md-action="code"]')).toBeVisible();
@@ -1587,12 +1608,7 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     });
 
     await page.locator("#start-btn").click();
-    await expect(page.locator("#theme-select-study option")).toHaveText([
-      "AYDINLIK",
-      "KARANLIK",
-      "AMBER",
-      "MAVİ",
-    ]);
+    await expect(page.locator("#theme-select-study option")).toHaveText(EXPECTED_THEME_OPTIONS);
 
     const scoreBarStructure = await page.evaluate(() => {
       const scoreBar = document.querySelector("#score-bar");

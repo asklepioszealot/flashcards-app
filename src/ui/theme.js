@@ -1,41 +1,8 @@
-const THEME_METADATA = Object.freeze({
-  light: Object.freeze({
-    label: "AYDINLIK",
-    sortGroup: 0,
-    sortLabel: "Aydinlik",
-  }),
-  midnight: Object.freeze({
-    label: "KARANLIK",
-    sortGroup: 1,
-    sortLabel: "Karanlik",
-  }),
-  dark: Object.freeze({
-    label: "MAVİ",
-    sortGroup: 2,
-    sortLabel: "Mavi",
-  }),
-  ember: Object.freeze({
-    label: "AMBER",
-    sortGroup: 2,
-    sortLabel: "Amber",
-  }),
-});
-
-export const AVAILABLE_THEMES = Object.freeze(Object.keys(THEME_METADATA));
-
-function compareThemes(leftThemeName, rightThemeName) {
-  const leftTheme = THEME_METADATA[leftThemeName] || {};
-  const rightTheme = THEME_METADATA[rightThemeName] || {};
-  const leftGroup = Number.isInteger(leftTheme.sortGroup) ? leftTheme.sortGroup : 2;
-  const rightGroup = Number.isInteger(rightTheme.sortGroup) ? rightTheme.sortGroup : 2;
-  if (leftGroup !== rightGroup) return leftGroup - rightGroup;
-
-  const leftLabel = leftTheme.sortLabel || leftTheme.label || leftThemeName;
-  const rightLabel = rightTheme.sortLabel || rightTheme.label || rightThemeName;
-  return String(leftLabel).localeCompare(String(rightLabel), "tr", { sensitivity: "base" });
-}
-
-const ORDERED_THEMES = Object.freeze([...AVAILABLE_THEMES].sort(compareThemes));
+import {
+  AVAILABLE_THEMES,
+  ORDERED_THEMES,
+  getThemePreset,
+} from "./theme-presets.js";
 
 function normalizeTheme(themeName) {
   return AVAILABLE_THEMES.includes(themeName) ? themeName : "light";
@@ -47,7 +14,7 @@ function listControlIds(options = {}) {
 }
 
 export function getThemeLabel(themeName) {
-  return THEME_METADATA[themeName]?.label || String(themeName || "light").toUpperCase();
+  return getThemePreset(themeName).label || String(themeName || "light");
 }
 
 export function renderThemeOptions(controlIds) {
@@ -80,6 +47,18 @@ function syncThemeControls(controlIds, themeName) {
   controlIds.forEach((controlId) => setSelectState(controlId, themeName));
 }
 
+function applyThemeCssVariables(themeName) {
+  const preset = getThemePreset(themeName);
+  const root = document.documentElement;
+
+  Object.entries(preset.variables).forEach(([variableName, variableValue]) => {
+    root.style.setProperty(variableName, variableValue);
+  });
+
+  root.style.colorScheme = preset.colorScheme;
+  root.setAttribute("data-color-scheme", preset.colorScheme);
+}
+
 function applyThemeAttribute(themeName) {
   if (themeName === "light") {
     document.documentElement.removeAttribute("data-theme");
@@ -92,6 +71,7 @@ function applyThemeAttribute(themeName) {
 export function setThemeState(themeName, options = {}) {
   const normalizedTheme = normalizeTheme(themeName);
   syncThemeControls(listControlIds(options), normalizedTheme);
+  applyThemeCssVariables(normalizedTheme);
   applyThemeAttribute(normalizedTheme);
   return normalizedTheme;
 }
@@ -142,4 +122,5 @@ export const ThemeManager = Object.freeze({
   setThemeState,
 });
 
+export { AVAILABLE_THEMES };
 export default ThemeManager;

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { getThemeLabel } from "../../src/ui/theme.js";
+import { AVAILABLE_THEMES, getThemeLabel } from "../../src/ui/theme.js";
 
 describe("Theme labels", () => {
-  it("should render theme names in uppercase", () => {
-    expect(getThemeLabel("light")).toBe("AYDINLIK");
-    expect(getThemeLabel("midnight")).toBe("KARANLIK");
-    expect(getThemeLabel("ember")).toBe("AMBER");
-    expect(getThemeLabel("dark")).toBe("MAVİ");
+  it("renders legacy and Theme Factory labels", () => {
+    expect(AVAILABLE_THEMES).toHaveLength(14);
+    expect(getThemeLabel("light")).toBe("Aydınlık");
+    expect(getThemeLabel("midnight")).toBe("Karanlık");
+    expect(getThemeLabel("ember")).toBe("Amber");
+    expect(getThemeLabel("dark")).toBe("Mavi");
+    expect(getThemeLabel("ocean-depths")).toBe("Ocean Depths");
+    expect(getThemeLabel("midnight-galaxy")).toBe("Midnight Galaxy");
   });
 });

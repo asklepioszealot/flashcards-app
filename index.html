@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
       [hidden] {
         display: none !important;
@@ -25,14 +25,18 @@
         --color-accent: #10b981; /* Emerald 500 */
         --color-accent-hover: #059669; /* Emerald 600 */
         --color-accent-soft: rgba(16, 185, 129, 0.12);
+        --color-accent-text: #ffffff;
         --color-emphasis: #047857; /* Emerald 700 */
         --color-emphasis-strong: #064e3b; /* Emerald 900 */
         --color-emphasis-soft: rgba(4, 120, 87, 0.14);
         --color-border: rgba(15, 23, 42, 0.1);
         --color-card-front: #ffffff;
         --color-card-back: #f1f5f9; /* Slate 100 */
+        --color-focus-ring: rgba(16, 185, 129, 0.32);
         --card-content-font-front: 24px;
         --card-content-font-back: 18px;
+        --header-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+        --card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
         --screen-glow: rgba(16, 185, 129, 0.14);
         --screen-wash: rgba(255, 255, 255, 0.4);
         --auth-panel-glow: rgba(16, 185, 129, 0.22);
@@ -60,126 +64,8 @@
         --markdown-warning-bg: rgba(244, 176, 62, 0.12);
       }
 
-      [data-theme="dark"] {
-        --color-bg-primary: #0f172a; /* Slate 900 */
-        --color-bg-secondary: #1e293b; /* Slate 800 */
-        --color-header-bg: rgba(30, 41, 59, 0.85);
-        --color-text-primary: #f8fafc; /* Slate 50 */
-        --color-text-secondary: #94a3b8; /* Slate 400 */
-        --color-accent: #4f8cff; /* Bright Blue */
-        --color-accent-hover: #3b74ea; /* Deep Blue */
-        --color-accent-soft: rgba(79, 140, 255, 0.18);
-        --color-emphasis: #c4b5fd; /* Violet 300 */
-        --color-emphasis-strong: #e9d5ff; /* Purple 200 */
-        --color-border: rgba(255, 255, 255, 0.1);
-        --color-card-front: #1e293b; /* Slate 800 */
-        --color-card-back: #334155; /* Slate 700 */
-        --screen-glow: rgba(79, 140, 255, 0.2);
-        --screen-wash: rgba(15, 23, 42, 0.4);
-        --auth-panel-glow: rgba(196, 181, 253, 0.18);
-        --auth-panel-start: rgba(15, 23, 42, 0.96);
-        --auth-panel-end: rgba(91, 33, 182, 0.9);
-        --shell-shadow: rgba(2, 6, 23, 0.32);
-        --build-meta-bg: rgba(35, 40, 38, 0.8);
-        --editor-sidebar-outline: rgba(96, 165, 250, 0.14);
-        --editor-sidebar-glow: rgba(52, 211, 153, 0.08);
-        --editor-sidebar-base: rgba(15, 23, 42, 0.94);
-        --editor-sidebar-panel-outline: rgba(110, 231, 183, 0.12);
-        --editor-sidebar-panel-base: rgba(15, 23, 42, 0.34);
-        --editor-list-hover-border: rgba(110, 231, 183, 0.34);
-        --editor-list-hover-bg: rgba(255, 255, 255, 0.03);
-        --editor-list-active-border: rgba(52, 211, 153, 0.42);
-        --editor-detail-outline: rgba(96, 165, 250, 0.14);
-        --editor-detail-glow: rgba(96, 165, 250, 0.08);
-        --editor-detail-base: rgba(15, 23, 42, 0.28);
-        --editor-card-open-border: rgba(96, 165, 250, 0.22);
-        --editor-card-active-border: rgba(96, 165, 250, 0.16);
-        --editor-card-head-glow: rgba(110, 231, 183, 0.08);
-        --editor-card-head-glow-hover: rgba(110, 231, 183, 0.12);
-      }
-
-      [data-theme="ember"] {
-        --color-bg-primary: #191511;
-        --color-bg-secondary: #241d18;
-        --color-header-bg: rgba(36, 29, 24, 0.9);
-        --color-text-primary: #f5ede3;
-        --color-text-secondary: #d2c2b3;
-        --color-accent: #c97a33;
-        --color-accent-hover: #dc8b40;
-        --color-accent-soft: rgba(201, 122, 51, 0.16);
-        --color-emphasis: #e3b069;
-        --color-emphasis-strong: #f1d19f;
-        --color-border: rgba(241, 209, 159, 0.12);
-        --color-card-front: #241d18;
-        --color-card-back: #30261f;
-        --screen-glow: rgba(201, 122, 51, 0.14);
-        --screen-wash: rgba(44, 34, 27, 0.42);
-        --auth-panel-glow: rgba(227, 176, 105, 0.18);
-        --auth-panel-start: rgba(28, 22, 18, 0.98);
-        --auth-panel-end: rgba(117, 67, 26, 0.9);
-        --shell-shadow: rgba(0, 0, 0, 0.3);
-        --build-meta-bg: rgba(52, 40, 31, 0.84);
-        --editor-sidebar-outline: rgba(201, 122, 51, 0.2);
-        --editor-sidebar-glow: rgba(227, 176, 105, 0.08);
-        --editor-sidebar-base: rgba(27, 21, 17, 0.96);
-        --editor-sidebar-panel-outline: rgba(241, 209, 159, 0.14);
-        --editor-sidebar-panel-base: rgba(44, 34, 27, 0.78);
-        --editor-list-hover-border: rgba(227, 176, 105, 0.34);
-        --editor-list-hover-bg: rgba(227, 176, 105, 0.05);
-        --editor-list-active-border: rgba(227, 176, 105, 0.46);
-        --editor-detail-outline: rgba(201, 122, 51, 0.18);
-        --editor-detail-glow: rgba(201, 122, 51, 0.08);
-        --editor-detail-base: rgba(29, 23, 19, 0.8);
-        --editor-card-open-border: rgba(201, 122, 51, 0.24);
-        --editor-card-active-border: rgba(227, 176, 105, 0.18);
-        --editor-card-head-glow: rgba(227, 176, 105, 0.08);
-        --editor-card-head-glow-hover: rgba(227, 176, 105, 0.12);
-        --markdown-quote-bg: rgba(201, 122, 51, 0.12);
-        --markdown-table-head-bg: rgba(201, 122, 51, 0.16);
-        --markdown-warning-bg: rgba(239, 68, 68, 0.12);
-      }
-
-      [data-theme="midnight"] {
-        --color-bg-primary: #040405;
-        --color-bg-secondary: #101012;
-        --color-header-bg: rgba(16, 16, 18, 0.92);
-        --color-text-primary: #e4e4e7;
-        --color-text-secondary: #a1a1aa;
-        --color-text-muted: #71717a;
-        --color-accent: #52525b;
-        --color-accent-hover: #3f3f46;
-        --color-accent-soft: rgba(161, 161, 170, 0.16);
-        --color-emphasis: #f5c451;
-        --color-emphasis-strong: #ffffff;
-        --color-emphasis-soft: rgba(245, 196, 81, 0.22);
-        --color-border: #454550;
-        --color-card-front: #101012;
-        --color-card-back: #1b1b20;
-        --screen-glow: rgba(245, 196, 81, 0.08);
-        --screen-wash: rgba(4, 4, 5, 0.62);
-        --auth-panel-glow: rgba(245, 196, 81, 0.1);
-        --auth-panel-start: rgba(4, 4, 5, 0.98);
-        --auth-panel-end: rgba(28, 28, 31, 0.95);
-        --shell-shadow: rgba(0, 0, 0, 0.42);
-        --build-meta-bg: rgba(16, 16, 18, 0.9);
-        --editor-sidebar-outline: rgba(82, 82, 91, 0.34);
-        --editor-sidebar-glow: rgba(245, 196, 81, 0.06);
-        --editor-sidebar-base: rgba(4, 4, 5, 0.98);
-        --editor-sidebar-panel-outline: rgba(82, 82, 91, 0.28);
-        --editor-sidebar-panel-base: rgba(16, 16, 18, 0.86);
-        --editor-list-hover-border: rgba(245, 196, 81, 0.28);
-        --editor-list-hover-bg: rgba(245, 196, 81, 0.05);
-        --editor-list-active-border: rgba(245, 196, 81, 0.36);
-        --editor-detail-outline: rgba(82, 82, 91, 0.28);
-        --editor-detail-glow: rgba(245, 196, 81, 0.05);
-        --editor-detail-base: rgba(12, 12, 14, 0.9);
-        --editor-card-open-border: rgba(245, 196, 81, 0.24);
-        --editor-card-active-border: rgba(245, 196, 81, 0.16);
-        --editor-card-head-glow: rgba(245, 196, 81, 0.06);
-        --editor-card-head-glow-hover: rgba(245, 196, 81, 0.1);
-        --markdown-quote-bg: rgba(245, 196, 81, 0.1);
-        --markdown-table-head-bg: rgba(82, 82, 91, 0.28);
-        --markdown-warning-bg: rgba(245, 196, 81, 0.14);
+      [data-color-scheme="dark"] {
+        color-scheme: dark;
       }
 
       * {
@@ -263,7 +149,7 @@
       select:focus-visible,
       input:focus-visible,
       textarea:focus-visible {
-        outline: 3px solid rgba(0, 128, 255, 0.36);
+        outline: 3px solid var(--color-focus-ring);
         outline-offset: 2px;
       }
 
@@ -292,7 +178,7 @@
         position: sticky;
         top: 20px;
         z-index: 100;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        box-shadow: var(--header-shadow);
       }
 
       .header-left {
@@ -371,7 +257,7 @@
         cursor: pointer;
         transition: all 0.2s ease;
         background: var(--color-accent);
-        color: white;
+        color: var(--color-accent-text);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -494,7 +380,7 @@
         max-width: none;
         width: 100%;
         margin: 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        box-shadow: var(--card-shadow);
         border: 1px solid var(--color-border);
         cursor: pointer;
         position: relative;
@@ -594,7 +480,7 @@
         border-radius: 0.35em;
       }
 
-      [data-theme="dark"] .highlight-critical {
+      [data-color-scheme="dark"] .highlight-critical {
         color: var(--color-emphasis-strong);
         font-weight: 700;
       }
@@ -604,7 +490,7 @@
         font-weight: 700;
       }
 
-      [data-theme="dark"] .highlight-important {
+      [data-color-scheme="dark"] .highlight-important {
         color: var(--color-emphasis);
         font-weight: 400;
       }
@@ -614,7 +500,7 @@
         font-weight: 700;
       }
 
-      [data-theme="dark"] .card-back .card-content strong {
+      [data-color-scheme="dark"] .card-back .card-content strong {
         color: var(--color-emphasis-strong);
       }
 
