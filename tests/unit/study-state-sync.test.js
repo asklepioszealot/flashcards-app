@@ -19,6 +19,7 @@ describe("Study state review preferences", () => {
       backFontSize: 18,
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
+      showTopicSourceName: false,
     });
     expect(snapshot.showReviewScheduleInfo).toBe(false);
   });
@@ -41,6 +42,7 @@ describe("Study state review preferences", () => {
       backFontSize: 18,
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
+      showTopicSourceName: false,
     });
   });
 
@@ -68,12 +70,14 @@ describe("Study state review preferences", () => {
       backFontSize: 14,
       fullscreenFrontFontSize: 14,
       fullscreenBackFontSize: 32,
+      showTopicSourceName: false,
     });
     expect(syncedSnapshot.cardContentPreferences).toEqual({
       frontFontSize: 14,
       backFontSize: 32,
       fullscreenFrontFontSize: 32,
       fullscreenBackFontSize: 14,
+      showTopicSourceName: false,
     });
   });
 
@@ -90,6 +94,7 @@ describe("Study state review preferences", () => {
       backFontSize: 19,
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
+      showTopicSourceName: false,
     });
   });
 

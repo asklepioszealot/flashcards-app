@@ -24,11 +24,22 @@ import { cleanupAssessmentsForSet } from "../study/assessment.js";
 import { saveStudyState } from "../study-state/study-state.js";
 import { formatEditorConflictTimestamp } from "./editor-render.js";
 
+function didEditorRecordChange(previousRecord, nextRecord) {
+  if (!nextRecord) return false;
+  if (!previousRecord) return true;
+  const previousRawSource = String(previousRecord.rawSource || backfillRawSource(previousRecord));
+  return (
+    previousRawSource !== String(nextRecord.rawSource || "")
+    || String(previousRecord.setName || "") !== String(nextRecord.setName || "")
+    || String(previousRecord.fileName || "") !== String(nextRecord.fileName || "")
+    || String(previousRecord.sourceFormat || "") !== String(nextRecord.sourceFormat || "")
+  );
+}
+
 export async function saveEditorDrafts() {
   if (!editorState.draftOrder.length) return;
   try {
     persistCurrentEditorUiState(getCurrentEditorDraft());
-    showEditorStatus("Değişiklikler kaydediliyor...");
     const savePlan = editorState.draftOrder.map((setId) => {
       const draft = editorState.drafts[setId];
       return {
@@ -40,7 +51,12 @@ export async function saveEditorDrafts() {
           baseUpdatedAt: draft.baseUpdatedAt,
         },
       };
-    });
+    }).filter((planEntry) => planEntry.draft?.dirty || didEditorRecordChange(planEntry.previousRecord, planEntry.nextRecord));
+    if (!savePlan.length) {
+      showEditorStatus("Kaydedilecek değişiklik yok.", "success");
+      return;
+    }
+    showEditorStatus("Değişiklikler kaydediliyor...");
     const browserLinkPreparation = await prepareBrowserSaveTargets(savePlan);
     if (!browserLinkPreparation.ready) {
       showEditorStatus("Kaydetme iptal edildi. Bağlı dosyayı seçmeden aynı dosyaya yazılamaz.", "error");

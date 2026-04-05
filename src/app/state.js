@@ -38,6 +38,7 @@ export let cardContentPreferences = {
   backFontSize: 18,
   fullscreenFrontFontSize: 28,
   fullscreenBackFontSize: 20,
+  showTopicSourceName: false,
 };
 export let authStateToken = 0;
 export let currentScreen = "auth";
@@ -73,18 +74,21 @@ export function setCardContentPreferences(v) {
   const backFallback = cardContentPreferences?.backFontSize ?? 18;
   const fullscreenFrontFallback = cardContentPreferences?.fullscreenFrontFontSize ?? 28;
   const fullscreenBackFallback = cardContentPreferences?.fullscreenBackFontSize ?? 20;
+  const showTopicSourceFallback = cardContentPreferences?.showTopicSourceName === true;
   cardContentPreferences = v && typeof v === "object" && !Array.isArray(v)
     ? {
         frontFontSize: clampCardContentFontSize(v.frontFontSize, frontFallback),
         backFontSize: clampCardContentFontSize(v.backFontSize, backFallback),
         fullscreenFrontFontSize: clampCardContentFontSize(v.fullscreenFrontFontSize, fullscreenFrontFallback),
         fullscreenBackFontSize: clampCardContentFontSize(v.fullscreenBackFontSize, fullscreenBackFallback),
+        showTopicSourceName: v.showTopicSourceName === true,
       }
     : {
         frontFontSize: 24,
         backFontSize: 18,
         fullscreenFrontFontSize: 28,
         fullscreenBackFontSize: 20,
+        showTopicSourceName: showTopicSourceFallback,
       };
 }
 export function incrementAuthStateToken() { authStateToken += 1; return authStateToken; }

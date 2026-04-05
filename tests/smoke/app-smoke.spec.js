@@ -369,6 +369,7 @@ test.describe("Flashcards smoke", () => {
       backFontSize: 22,
       fullscreenFrontFontSize: 30,
       fullscreenBackFontSize: 24,
+      showTopicSourceName: false,
     });
 
     const rootFontVars = await page.evaluate(() => {
@@ -414,7 +415,54 @@ test.describe("Flashcards smoke", () => {
       backFontSize: 18,
       fullscreenFrontFontSize: 28,
       fullscreenBackFontSize: 20,
+      showTopicSourceName: false,
     });
+  });
+
+  test("topic filter can optionally show source file names from settings", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        alpha: {
+          setName: "Alpha Set",
+          fileName: "alpha-source.md",
+          cards: [{ q: "Alpha soru", a: "Alpha cevap", subject: "Genel" }],
+        },
+        beta: {
+          setName: "Beta Set",
+          fileName: "beta-source.md",
+          cards: [{ q: "Beta soru", a: "Beta cevap", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: ["alpha", "beta"],
+    });
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#topic-select option")).toHaveText(["Tüm Başlıklar", "Genel"]);
+
+    await page.locator("#show-set-manager-btn").click();
+    await page.locator("#card-content-settings-toggle-btn").click();
+    const topicSourceToggle = page.locator("#topic-source-visibility-toggle");
+    const topicSourceSwitch = page.locator(".toggle-switch", { has: topicSourceToggle });
+    await expect(topicSourceToggle).not.toBeChecked();
+    await topicSourceSwitch.click();
+    await expect.poll(async () => readUserScopedJson(page, "card_content_preferences")).toEqual({
+      frontFontSize: 24,
+      backFontSize: 18,
+      fullscreenFrontFontSize: 28,
+      fullscreenBackFontSize: 20,
+      showTopicSourceName: true,
+    });
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#topic-select option")).toHaveText([
+      "Tüm Başlıklar",
+      "Genel · alpha-source.md",
+      "Genel · beta-source.md",
+    ]);
+
+    await page.selectOption("#topic-select", { label: "Genel · beta-source.md" });
+    await expect(page.locator("#card-counter")).toHaveText("1 / 1");
+    await expect(page.locator("#question-text")).toHaveText("Beta soru");
   });
 
   test("review schedule pills stay hidden by default until enabled from settings", async ({ page }) => {
@@ -547,7 +595,7 @@ test.describe("Flashcards smoke", () => {
     await expect(page.locator("#flashcard")).not.toHaveClass(/flipped/);
   });
 
-  test("set list scrolls after two decks and bulk toggle selects all or none", async ({ page }) => {
+  test("set list shows three decks by default and keeps that height after a study round trip", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
         alpha: {
@@ -565,32 +613,54 @@ test.describe("Flashcards smoke", () => {
           fileName: "gamma.json",
           cards: [{ q: "G1", a: "C3", subject: "Genel" }],
         },
+        delta: {
+          setName: "Delta Seti",
+          fileName: "delta.json",
+          cards: [{ q: "D1", a: "C4", subject: "Genel" }],
+        },
       },
       selectedSetIds: [],
     });
 
     await expect(page.locator("#set-manager")).toBeVisible();
     await expect(page.locator("#set-list-tools")).toBeVisible();
-    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("3/3 seçili");
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("4/4 seçili");
     await expect(page.locator("#set-bulk-menu-trigger")).toHaveCount(0);
 
-    const scrollState = await page.locator("#set-list").evaluate((node) => ({
-      className: node.className,
-      clientHeight: node.clientHeight,
-      scrollHeight: node.scrollHeight,
-    }));
+    const readSetListState = async () => page.locator("#set-list").evaluate((node) => {
+      const rows = [...node.querySelectorAll(".set-item:not(.empty)")];
+      return {
+        className: node.className,
+        clientHeight: Math.round(node.clientHeight),
+        scrollHeight: Math.round(node.scrollHeight),
+        firstThreeHeight: Math.round(
+          rows.slice(0, 3).reduce((total, row) => total + row.getBoundingClientRect().height, 0),
+        ),
+      };
+    });
+    let scrollState = await readSetListState();
     expect(scrollState.className).toContain("set-list--scrollable");
     expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+    expect(Math.abs(scrollState.clientHeight - scrollState.firstThreeHeight)).toBeLessThanOrEqual(24);
+
+    await page.locator("#start-btn").click();
+    await page.locator("#show-set-manager-btn").click();
+    await expect(page.locator("#set-manager")).toBeVisible();
+
+    scrollState = await readSetListState();
+    expect(scrollState.className).toContain("set-list--scrollable");
+    expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+    expect(Math.abs(scrollState.clientHeight - scrollState.firstThreeHeight)).toBeLessThanOrEqual(24);
 
     await page.locator("#set-bulk-toggle").click();
-    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("0/3 seçili");
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("0/4 seçili");
     await expect(page.locator("#start-btn")).toBeDisabled();
     await expect(page.locator('#set-list input[type="checkbox"]:checked')).toHaveCount(0);
 
     await page.locator("#set-bulk-toggle").click();
-    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("3/3 seçili");
+    await expect(page.locator("#set-bulk-toggle-meta")).toHaveText("4/4 seçili");
     await expect(page.locator("#start-btn")).toBeEnabled();
-    await expect(page.locator('#set-list input[type="checkbox"]:checked')).toHaveCount(3);
+    await expect(page.locator('#set-list input[type="checkbox"]:checked')).toHaveCount(4);
   });
 
   test("remember me defaults to checked and persists mock auth to localStorage", async ({
@@ -992,6 +1062,58 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     expect(saveState.writeCalls.at(-1)).toContain("Bağ kurularak kaydedilen soru");
   });
 
+  test("saving one edited draft skips untouched sets", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        "set-a": {
+          setName: "Set A",
+          fileName: "set-a.md",
+          sourcePath: "https://example.com/set-a.md",
+          sourceFormat: "markdown",
+          rawSource: "# Set A\n\n### A soru\nKonu: Genel\n\nA cevap",
+          cards: [{ id: "set-a-card-1", q: "A soru", a: "A cevap", subject: "Genel" }],
+        },
+        "set-b": {
+          setName: "Set B",
+          fileName: "set-b.md",
+          sourcePath: "",
+          sourceFormat: "markdown",
+          rawSource: "# Set B\n\n### B soru\nKonu: Genel\n\nB cevap",
+          cards: [{ id: "set-b-card-1", q: "B soru", a: "B cevap", subject: "Genel" }],
+        },
+      },
+      selectedSetIds: ["set-a", "set-b"],
+    });
+
+    await page.evaluate(() => {
+      window.__pickerCalls = 0;
+      window.showOpenFilePicker = async () => {
+        window.__pickerCalls += 1;
+        return [];
+      };
+    });
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    await page.locator('[data-editor-field="question"][data-card-id="set-a-card-1"]').fill("A soru güncellendi");
+    await page.locator("#editor-save-btn").click();
+    await expect(page.locator("#editor-status")).toContainText("kaydedildi");
+
+    const savedState = await page.evaluate(({ storageKey }) => {
+      const records = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return {
+        records,
+        pickerCalls: window.__pickerCalls || 0,
+      };
+    }, { storageKey: userScopedKey(DEMO_USER.id, "set_records") });
+
+    expect(savedState.pickerCalls).toBe(0);
+    expect(savedState.records.find((record) => record.id === "set-a")?.cards[0]?.q).toBe("A soru güncellendi");
+    expect(savedState.records.find((record) => record.id === "set-b")?.cards[0]?.q).toBe("B soru");
+    expect(savedState.records.find((record) => record.id === "set-b")?.sourcePath).toBe("");
+  });
+
   test("browser-linked source path survives reload when the loaded set payload omits it", async ({ page }) => {
     await clearStorage(page);
     await continueWithDemo(page);
@@ -1335,6 +1457,44 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     expect(savedSetRecords[0].rawSource).toContain("| Tetkik | Yorum |");
   });
 
+  test("editor card list keeps its scroll position when selecting a lower card", async ({ page }) => {
+    await seedLocalSets(page, {
+      sets: {
+        editor: {
+          setName: "Editor Scroll Demo",
+          fileName: "editor-scroll-demo.json",
+          cards: Array.from({ length: 24 }, (_, index) => ({
+            id: `card-${index + 1}`,
+            q: `Kart ${index + 1}`,
+            a: `Cevap ${index + 1}`,
+            subject: "Genel",
+          })),
+        },
+      },
+      selectedSetIds: ["editor"],
+    });
+
+    await page.locator("#edit-selected-btn").click();
+    await expect(page.locator("#editor-screen")).toBeVisible();
+
+    const scrollBefore = await page.evaluate(() => {
+      const list = document.querySelector(".editor-list-items");
+      const target = document.querySelector('[data-editor-select-card="card-18"]');
+      target?.scrollIntoView({ block: "center" });
+      return Math.round(list?.scrollTop ?? 0);
+    });
+    expect(scrollBefore).toBeGreaterThan(0);
+
+    await page.locator('[data-editor-select-card="card-18"]').click();
+    await expect(page.locator('[data-editor-select-card="card-18"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-editor-field="question"][data-card-id="card-18"]')).toHaveValue("Kart 18");
+
+    const scrollAfter = await page.evaluate(() =>
+      Math.round(document.querySelector(".editor-list-items")?.scrollTop ?? 0),
+    );
+    expect(scrollAfter).toBeGreaterThan(scrollBefore - 40);
+  });
+
   test("subject label is only under the card, not next to the counter", async ({
     page,
   }) => {
@@ -1477,6 +1637,55 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     expect(
       setScopedEntries.filter(([, value]) => value === "review"),
     ).toHaveLength(1);
+  });
+
+  test("topic filter updates the progress summary and bar widths for the selected heading", async ({
+    page,
+  }) => {
+    await seedLocalSets(page, {
+      sets: {
+        progress: {
+          setName: "Progress Demo",
+          fileName: "progress-demo.json",
+          cards: [
+            { q: "Kardiyo 1", a: "Cevap 1", subject: "Kardiyo" },
+            { q: "Kardiyo 2", a: "Cevap 2", subject: "Kardiyo" },
+            { q: "Nöro 1", a: "Cevap 3", subject: "Nöro" },
+            { q: "Nöro 2", a: "Cevap 4", subject: "Nöro" },
+          ],
+        },
+      },
+      selectedSetIds: ["progress"],
+    });
+
+    await page.locator("#start-btn").click();
+    await assessCurrentCard(page, "know");
+    await jumpToCard(page, 3);
+    await assessCurrentCard(page, "review");
+
+    await page.selectOption("#topic-select", { label: "Kardiyo" });
+    await expect(page.locator("#score-percent")).toHaveText("1/2 (%50)");
+    await expect(page.locator("#score-know")).toHaveText("1");
+    await expect(page.locator("#score-review")).toHaveText("0");
+
+    const kardiyoWidths = await page.evaluate(() => ({
+      know: document.querySelector("#progress-fill-know")?.style.width || "",
+      review: document.querySelector("#progress-fill-review")?.style.width || "",
+    }));
+    expect(kardiyoWidths.know).toBe("50%");
+    expect(kardiyoWidths.review).toBe("0%");
+
+    await page.selectOption("#topic-select", { label: "Nöro" });
+    await expect(page.locator("#score-percent")).toHaveText("1/2 (%50)");
+    await expect(page.locator("#score-know")).toHaveText("0");
+    await expect(page.locator("#score-review")).toHaveText("1");
+
+    const noroWidths = await page.evaluate(() => ({
+      know: document.querySelector("#progress-fill-know")?.style.width || "",
+      review: document.querySelector("#progress-fill-review")?.style.width || "",
+    }));
+    expect(noroWidths.know).toBe("0%");
+    expect(noroWidths.review).toBe("50%");
   });
 
   test("reimporting the same uploaded file preserves study progress", async ({ page }) => {

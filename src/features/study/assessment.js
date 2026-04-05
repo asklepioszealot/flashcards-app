@@ -17,6 +17,41 @@ import { scheduleNextReview } from "./scheduler.js";
 // ── advance callback (set by study.js to avoid circular import) ──
 let _nextCardFn = null;
 export function setAssessmentAdvanceCallback(fn) { _nextCardFn = fn; }
+const TOPIC_FILTER_ALL_VALUE = "hepsi";
+const TOPIC_FILTER_SUBJECT_PREFIX = "subject:";
+const TOPIC_FILTER_SET_PREFIX = "set-subject:";
+
+function parseSelectedTopicFilterValue(value) {
+  const normalizedValue = String(value ?? "");
+  if (!normalizedValue || normalizedValue === TOPIC_FILTER_ALL_VALUE) {
+    return { setId: null, subject: null };
+  }
+  if (normalizedValue.startsWith(TOPIC_FILTER_SET_PREFIX)) {
+    const encodedPayload = normalizedValue.slice(TOPIC_FILTER_SET_PREFIX.length);
+    const [encodedSetId = "", encodedSubject = ""] = encodedPayload.split("|");
+    return {
+      setId: decodeURIComponent(encodedSetId),
+      subject: decodeURIComponent(encodedSubject),
+    };
+  }
+  if (normalizedValue.startsWith(TOPIC_FILTER_SUBJECT_PREFIX)) {
+    return {
+      setId: null,
+      subject: decodeURIComponent(normalizedValue.slice(TOPIC_FILTER_SUBJECT_PREFIX.length)),
+    };
+  }
+  return { setId: null, subject: normalizedValue };
+}
+
+function getScoreScopeCards() {
+  const selectedTopicValue = document.getElementById("topic-select")?.value || TOPIC_FILTER_ALL_VALUE;
+  const selectedTopic = parseSelectedTopicFilterValue(selectedTopicValue);
+  if (!selectedTopic.subject) return allFlashcards;
+  return allFlashcards.filter((card) => {
+    if (card.subject !== selectedTopic.subject) return false;
+    return selectedTopic.setId ? card.__setId === selectedTopic.setId : true;
+  });
+}
 
 export function buildCardKey(setId, card, index) {
   const normalizedSetId = String(setId ?? "unknown");
@@ -77,13 +112,14 @@ export function updateScoreDisplay() {
   let know = 0;
   let review = 0;
   let dunno = 0;
-  allFlashcards.forEach((card) => {
+  const scoreScopeCards = getScoreScopeCards();
+  scoreScopeCards.forEach((card) => {
     const status = getAssessmentLevel(card);
     if (status === "know") know += 1;
     else if (status === "review") review += 1;
     else if (status === "dunno") dunno += 1;
   });
-  const total = allFlashcards.length;
+  const total = scoreScopeCards.length;
   const assessed = know + review + dunno;
   const percentage = total ? Math.round((assessed / total) * 100) : 0;
   document.getElementById("score-know").textContent = know;

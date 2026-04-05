@@ -52,7 +52,11 @@ const CARD_CONTENT_FULLSCREEN_FRONT_INPUT_ID = "card-content-fullscreen-front-fo
 const CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID = "card-content-fullscreen-back-font-size";
 const CARD_CONTENT_RESET_BUTTON_ID = "card-content-reset-btn";
 const REVIEW_SCHEDULE_VISIBILITY_TOGGLE_ID = "review-schedule-visibility-toggle";
+const TOPIC_SOURCE_VISIBILITY_TOGGLE_ID = "topic-source-visibility-toggle";
 const CARD_INSTANT_RESET_CLASS = "card--instant-reset";
+const TOPIC_FILTER_ALL_VALUE = "hepsi";
+const TOPIC_FILTER_SUBJECT_PREFIX = "subject:";
+const TOPIC_FILTER_SET_PREFIX = "set-subject:";
 
 function getCardContentSettingsElements() {
   return {
@@ -64,7 +68,76 @@ function getCardContentSettingsElements() {
     fullscreenBackInput: document.getElementById(CARD_CONTENT_FULLSCREEN_BACK_INPUT_ID),
     resetButton: document.getElementById(CARD_CONTENT_RESET_BUTTON_ID),
     reviewScheduleVisibilityToggle: document.getElementById(REVIEW_SCHEDULE_VISIBILITY_TOGGLE_ID),
+    topicSourceVisibilityToggle: document.getElementById(TOPIC_SOURCE_VISIBILITY_TOGGLE_ID),
   };
+}
+
+function encodeTopicFilterPart(value) {
+  return encodeURIComponent(String(value ?? ""));
+}
+
+function buildSubjectTopicFilterValue(subject) {
+  return `${TOPIC_FILTER_SUBJECT_PREFIX}${encodeTopicFilterPart(subject)}`;
+}
+
+function buildSetSubjectTopicFilterValue(setId, subject) {
+  return `${TOPIC_FILTER_SET_PREFIX}${encodeTopicFilterPart(setId)}|${encodeTopicFilterPart(subject)}`;
+}
+
+function parseTopicFilterValue(value) {
+  const normalizedValue = String(value ?? "");
+  if (!normalizedValue || normalizedValue === TOPIC_FILTER_ALL_VALUE) {
+    return { mode: "all", setId: null, subject: null };
+  }
+  if (normalizedValue.startsWith(TOPIC_FILTER_SET_PREFIX)) {
+    const encodedPayload = normalizedValue.slice(TOPIC_FILTER_SET_PREFIX.length);
+    const [encodedSetId = "", encodedSubject = ""] = encodedPayload.split("|");
+    return {
+      mode: "set-subject",
+      setId: decodeURIComponent(encodedSetId),
+      subject: decodeURIComponent(encodedSubject),
+    };
+  }
+  if (normalizedValue.startsWith(TOPIC_FILTER_SUBJECT_PREFIX)) {
+    return {
+      mode: "subject",
+      setId: null,
+      subject: decodeURIComponent(normalizedValue.slice(TOPIC_FILTER_SUBJECT_PREFIX.length)),
+    };
+  }
+  return {
+    mode: "subject",
+    setId: null,
+    subject: normalizedValue,
+  };
+}
+
+function getTopicOptionSourceLabel(card) {
+  const setRecord = loadedSets[card?.__setId] || null;
+  return String(setRecord?.fileName || setRecord?.setName || card?.__setId || "").trim();
+}
+
+function resolveTopicFilterSelectionValue(rawValue, preferredCard = null) {
+  const select = document.getElementById("topic-select");
+  if (!select) return TOPIC_FILTER_ALL_VALUE;
+  const optionValues = new Set([...select.options].map((option) => option.value));
+  if (!rawValue || rawValue === TOPIC_FILTER_ALL_VALUE) return TOPIC_FILTER_ALL_VALUE;
+  if (optionValues.has(rawValue)) return rawValue;
+
+  const parsedValue = parseTopicFilterValue(rawValue);
+  if (!parsedValue.subject) return TOPIC_FILTER_ALL_VALUE;
+  if (cardContentPreferences.showTopicSourceName) {
+    const preferredSetId = preferredCard?.__setId || parsedValue.setId;
+    if (preferredSetId) {
+      const preferredValue = buildSetSubjectTopicFilterValue(preferredSetId, parsedValue.subject);
+      if (optionValues.has(preferredValue)) return preferredValue;
+    }
+    const matchingOption = [...select.options].find((option) => parseTopicFilterValue(option.value).subject === parsedValue.subject);
+    return matchingOption?.value || TOPIC_FILTER_ALL_VALUE;
+  }
+
+  const subjectValue = buildSubjectTopicFilterValue(parsedValue.subject);
+  return optionValues.has(subjectValue) ? subjectValue : TOPIC_FILTER_ALL_VALUE;
 }
 
 function syncCardContentSettingsToggleUi(toggleButton, visible) {
@@ -110,11 +183,18 @@ export function applyCardContentPreferencesUi() {
 }
 
 export function syncCardContentPreferencesUi() {
-  const { frontInput, backInput, fullscreenFrontInput, fullscreenBackInput } = getCardContentSettingsElements();
+  const {
+    frontInput,
+    backInput,
+    fullscreenFrontInput,
+    fullscreenBackInput,
+    topicSourceVisibilityToggle,
+  } = getCardContentSettingsElements();
   if (frontInput) frontInput.value = String(cardContentPreferences.frontFontSize);
   if (backInput) backInput.value = String(cardContentPreferences.backFontSize);
   if (fullscreenFrontInput) fullscreenFrontInput.value = String(cardContentPreferences.fullscreenFrontFontSize);
   if (fullscreenBackInput) fullscreenBackInput.value = String(cardContentPreferences.fullscreenBackFontSize);
+  if (topicSourceVisibilityToggle) topicSourceVisibilityToggle.checked = cardContentPreferences.showTopicSourceName === true;
   if (frontInput) {
     frontInput.min = String(MIN_CARD_CONTENT_FONT_SIZE);
     frontInput.max = String(MAX_CARD_CONTENT_FONT_SIZE);
@@ -176,9 +256,22 @@ export function updateCardContentFontSize(fieldName, rawValue, options = {}) {
 }
 
 export function resetCardContentPreferences() {
-  setCardContentPreferences(DEFAULT_CARD_CONTENT_PREFERENCES);
+  setCardContentPreferences({
+    ...DEFAULT_CARD_CONTENT_PREFERENCES,
+    showTopicSourceName: cardContentPreferences.showTopicSourceName === true,
+  });
   syncCardContentPreferencesUi();
   saveStudyState();
+  return cardContentPreferences;
+}
+
+export function setTopicSourceVisibility(isVisible, options = {}) {
+  setCardContentPreferences({
+    ...cardContentPreferences,
+    showTopicSourceName: isVisible === true,
+  });
+  syncCardContentPreferencesUi();
+  if (options.persist !== false) saveStudyState();
   return cardContentPreferences;
 }
 
@@ -273,12 +366,28 @@ export const nextCard = () => {
 export function populateTopicFilter() {
   const select = document.getElementById("topic-select");
   if (!select) return;
-  const subjects = [...new Set(allFlashcards.map((card) => card.subject))].sort((leftValue, rightValue) => leftValue.localeCompare(rightValue, "tr"));
+  const topicOptions = cardContentPreferences.showTopicSourceName
+    ? Array.from(
+        new Map(
+          allFlashcards
+            .map((card) => {
+              const subject = String(card.subject || "").trim();
+              const sourceLabel = getTopicOptionSourceLabel(card);
+              return [
+                buildSetSubjectTopicFilterValue(card.__setId, subject),
+                { value: buildSetSubjectTopicFilterValue(card.__setId, subject), label: `${subject} · ${sourceLabel}` },
+              ];
+            }),
+        ).values(),
+      ).sort((leftValue, rightValue) => leftValue.label.localeCompare(rightValue.label, "tr"))
+    : [...new Set(allFlashcards.map((card) => card.subject))]
+        .sort((leftValue, rightValue) => leftValue.localeCompare(rightValue, "tr"))
+        .map((subject) => ({ value: buildSubjectTopicFilterValue(subject), label: subject }));
   select.innerHTML = '<option value="hepsi">Tüm Başlıklar</option>';
-  subjects.forEach((subject) => {
+  topicOptions.forEach(({ value, label }) => {
     const option = document.createElement("option");
-    option.value = subject;
-    option.textContent = subject;
+    option.value = value;
+    option.textContent = label;
     select.appendChild(option);
   });
 }
@@ -289,8 +398,14 @@ export function applyAssessmentFilter(options = {}) {
   document.querySelectorAll(".filter-btn").forEach((button) => {
     button.classList.toggle("active", button.dataset.filterValue === activeFilter);
   });
-  const selectedTopic = document.getElementById("topic-select").value;
-  const baseCards = selectedTopic === "hepsi" ? [...allFlashcards] : allFlashcards.filter((card) => card.subject === selectedTopic);
+  const selectedTopicValue = document.getElementById("topic-select").value;
+  const selectedTopic = parseTopicFilterValue(selectedTopicValue);
+  const baseCards = selectedTopic.mode === "all"
+    ? [...allFlashcards]
+    : allFlashcards.filter((card) => {
+        if (card.subject !== selectedTopic.subject) return false;
+        return selectedTopic.setId ? card.__setId === selectedTopic.setId : true;
+      });
   let newFiltered;
   if (activeFilter === "know") newFiltered = baseCards.filter((card) => getAssessmentLevel(card) === "know");
   else if (activeFilter === "review") newFiltered = baseCards.filter((card) => getAssessmentLevel(card) === "review");
@@ -354,8 +469,11 @@ export function startStudy() {
 
   const snapshot = getPersistedStudyStateSnapshot();
   const session = snapshot?.session && typeof snapshot.session === "object" ? snapshot.session : null;
-  if (session?.topic && document.getElementById("topic-select")) {
-    document.getElementById("topic-select").value = session.topic;
+  const preferredCard = typeof session?.currentCardKey === "string"
+    ? allFlashcards.find((card) => getCardKey(card) === session.currentCardKey) || null
+    : null;
+  if (document.getElementById("topic-select")) {
+    document.getElementById("topic-select").value = resolveTopicFilterSelectionValue(session?.topic, preferredCard);
   }
   setActiveFilter(session?.activeFilter || "all");
   showScreen("study");

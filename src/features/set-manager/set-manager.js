@@ -748,18 +748,30 @@ export function updateManagerUserChip() {
   import("../desktop-update/desktop-update.js").then(({ syncDesktopUpdateButton }) => syncDesktopUpdateButton());
 }
 
-export function updateSetListScrollState(listElement, setCount) {
+const DEFAULT_VISIBLE_SET_ROWS = 3;
+const MAX_SET_LIST_MEASUREMENT_RETRIES = 4;
+
+export function updateSetListScrollState(listElement, setCount, retryCount = 0) {
   if (!listElement) return;
   listElement.classList.remove("set-list--scrollable");
   listElement.style.removeProperty("--set-list-max-height");
-  if (setCount <= 2) return;
+  const visibleRowCount = Math.min(DEFAULT_VISIBLE_SET_ROWS, Math.max(setCount, 0));
+  if (setCount <= visibleRowCount) return;
 
   const rows = [...listElement.querySelectorAll(".set-item:not(.empty)")];
-  if (rows.length < 2) return;
+  if (rows.length < visibleRowCount) return;
 
-  const visibleHeight = rows
-    .slice(0, 2)
-    .reduce((totalHeight, row) => totalHeight + row.getBoundingClientRect().height, 0);
+  const measuredRows = rows
+    .slice(0, visibleRowCount)
+    .map((row) => row.getBoundingClientRect().height)
+    .filter((height) => height > 0);
+  if (measuredRows.length < visibleRowCount) {
+    if (retryCount >= MAX_SET_LIST_MEASUREMENT_RETRIES) return;
+    window.requestAnimationFrame(() => updateSetListScrollState(listElement, setCount, retryCount + 1));
+    return;
+  }
+
+  const visibleHeight = measuredRows.reduce((totalHeight, rowHeight) => totalHeight + rowHeight, 0);
   const computedStyle = window.getComputedStyle(listElement);
   const paddingTop = Number.parseFloat(computedStyle.paddingTop) || 0;
   const paddingBottom = Number.parseFloat(computedStyle.paddingBottom) || 0;

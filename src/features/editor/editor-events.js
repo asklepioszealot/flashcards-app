@@ -21,6 +21,7 @@ import {
   getEditorFieldMinimumHeight,
   normalizeEditorSplitRatio,
   ensureEditorRawState,
+  markDraftDirty,
 } from "./editor-state.js";
 import { renderAnswerMarkdown } from "../../core/set-codec.js";
 import {
@@ -40,7 +41,7 @@ const sessionTopicRenamePromptDismissedSetIds = new Set();
 
 function markEditorDraftDirty(draft) {
   if (!draft?.setId) return;
-  import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));
+  markDraftDirty(draft.setId, true);
 }
 
 function renderEditorDraftTabs() {
@@ -376,6 +377,16 @@ export function saveRawEditorState(draft, rawInput = document.getElementById("ed
   syncRawEditorGutter(rawInput);
 }
 
+export function saveEditorListScrollState(draft, listElement = document.querySelector(".editor-list-items")) {
+  if (!draft || !listElement) return;
+  draft.listScrollTop = Math.max(Math.round(listElement.scrollTop || 0), 0);
+}
+
+export function restoreEditorListScrollState(draft, listElement = document.querySelector(".editor-list-items")) {
+  if (!draft || !listElement) return;
+  listElement.scrollTop = Math.max(Number(draft.listScrollTop) || 0, 0);
+}
+
 export function syncRawEditorHeight(rawInput = document.getElementById("editor-raw-input")) {
   if (!rawInput) return;
   rawInput.style.height = "auto";
@@ -430,6 +441,7 @@ export function persistCurrentEditorUiState(draft) {
   if (!draft) return;
   persistFocusedEditorFieldState(draft);
   saveRawEditorState(draft);
+  saveEditorListScrollState(draft);
 }
 
 export function syncEditorFieldFromTextarea(draft, textarea, options = {}) {
@@ -456,7 +468,7 @@ export function syncEditorFieldFromTextarea(draft, textarea, options = {}) {
   }
   rememberEditorFieldSelection(textarea);
   saveEditorFieldHeight(draft, textarea);
-  import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));
+  markDraftDirty(draft.setId, true);
   import("./editor-render.js").then(({ renderEditorTabs }) => renderEditorTabs());
 }
 
@@ -655,7 +667,7 @@ export function bindEditorEvents(draft) {
     syncRawInputState();
     rawInput.addEventListener("input", () => {
       draft.rawSource = rawInput.value;
-      import("./editor-state.js").then(({ markDraftDirty }) => markDraftDirty(draft.setId, true));
+      markDraftDirty(draft.setId, true);
       import("./editor-render.js").then(({ renderEditorTabs }) => renderEditorTabs());
       syncRawInputState();
     });

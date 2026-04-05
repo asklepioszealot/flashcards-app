@@ -114,6 +114,7 @@ export function normalizeCardContentPreferences(value, fallback = DEFAULT_CARD_C
     fullscreenBackFontSize: Number.isFinite(fullscreenBackFontSize)
       ? Math.min(Math.max(fullscreenBackFontSize, MIN_CARD_CONTENT_FONT_SIZE), MAX_CARD_CONTENT_FONT_SIZE)
       : base.fullscreenBackFontSize,
+    showTopicSourceName: source?.showTopicSourceName === true,
   };
 }
 

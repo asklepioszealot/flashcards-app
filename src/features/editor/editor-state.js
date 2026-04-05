@@ -67,6 +67,9 @@ export function ensureEditorDraftUiState(draft) {
   if (typeof draft.listPanelOpen !== "boolean") {
     draft.listPanelOpen = true;
   }
+  draft.listScrollTop = Number.isFinite(Number(draft.listScrollTop))
+    ? Math.max(Number(draft.listScrollTop), 0)
+    : 0;
   if (typeof draft.deleteSelectionMode !== "boolean") {
     draft.deleteSelectionMode = false;
   }

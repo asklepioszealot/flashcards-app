@@ -19,6 +19,7 @@ import {
   restoreRawEditorState,
   getEditorFieldHeight,
   getEditorSplitRatio,
+  restoreEditorListScrollState,
 } from "./editor-events.js";
 import { renderEditorFormattingToolbar } from "./editor-toolbar.js";
 import { showEditorStatus } from "../auth/auth.js";
@@ -345,6 +346,7 @@ export function renderEditor() {
   panel.className = `editor-panel ${draft.viewMode === "form" ? "editor-panel--form" : "editor-panel--raw"}`;
   panel.innerHTML = draft.viewMode === "form" ? renderEditorForm(draft) : renderEditorRaw(draft);
   bindEditorEvents(draft);
+  restoreEditorListScrollState(draft);
   flushEditorPendingScroll();
   flushEditorFocusedField();
   restoreRawEditorState(draft);
