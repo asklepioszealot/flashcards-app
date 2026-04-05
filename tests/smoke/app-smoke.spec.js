@@ -1799,6 +1799,89 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     await expect(container).not.toHaveClass(/fullscreen-active/);
   });
 
+  test("arrow keys scroll flipped card content without moving the page", async ({ page }) => {
+    const longAnswer = Array.from(
+      { length: 80 },
+      (_, index) => `- Satir ${index + 1}: Uzun cevap icerigi`,
+    ).join("\n");
+
+    await seedLocalSets(page, {
+      sets: {
+        scrollLock: {
+          setName: "Scroll Lock Demo",
+          fileName: "scroll-lock-demo.json",
+          cards: [
+            {
+              id: "scroll-lock-card-1",
+              q: "Uzun cevap testi",
+              a: longAnswer,
+              subject: "Genel",
+            },
+          ],
+        },
+      },
+      selectedSetIds: ["scrollLock"],
+    });
+
+    await page.locator("#start-btn").click();
+    await page.evaluate(() => {
+      document.body.style.paddingBottom = "1200px";
+      window.scrollTo(0, 0);
+    });
+
+    await page.locator("#flashcard").click();
+    await expect(page.locator("#flashcard")).toHaveClass(/flipped/);
+
+    const initialState = await page.evaluate(() => {
+      const back = document.querySelector(".card-back");
+      return {
+        pageScrollable: document.documentElement.scrollHeight > window.innerHeight,
+        cardScrollable: (back?.scrollHeight ?? 0) > (back?.clientHeight ?? 0),
+        pageScrollY: window.scrollY,
+        cardScrollTop: back?.scrollTop ?? 0,
+      };
+    });
+
+    expect(initialState.pageScrollable).toBe(true);
+    expect(initialState.cardScrollable).toBe(true);
+
+    await page.keyboard.press("ArrowDown");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => document.querySelector(".card-back")?.scrollTop ?? 0),
+      )
+      .toBeGreaterThan(initialState.cardScrollTop);
+
+    const afterArrowDown = await page.evaluate(() => ({
+      pageScrollY: window.scrollY,
+      cardScrollTop: document.querySelector(".card-back")?.scrollTop ?? 0,
+    }));
+
+    expect(afterArrowDown.pageScrollY).toBe(initialState.pageScrollY);
+    expect(afterArrowDown.cardScrollTop).toBeGreaterThan(initialState.cardScrollTop);
+
+    await page.evaluate(() => {
+      const back = document.querySelector(".card-back");
+      if (back) back.scrollTop = 140;
+      window.scrollTo(0, 260);
+    });
+
+    await page.keyboard.press("ArrowUp");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => document.querySelector(".card-back")?.scrollTop ?? 0),
+      )
+      .toBeLessThan(140);
+
+    const afterArrowUp = await page.evaluate(() => ({
+      pageScrollY: window.scrollY,
+      cardScrollTop: document.querySelector(".card-back")?.scrollTop ?? 0,
+    }));
+
+    expect(afterArrowUp.pageScrollY).toBe(260);
+    expect(afterArrowUp.cardScrollTop).toBeLessThan(140);
+  });
+
   test("export modal opens and csv download works", async ({ page }) => {
     page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
     await seedLocalSets(page, {

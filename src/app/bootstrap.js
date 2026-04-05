@@ -1,7 +1,7 @@
 // src/app/bootstrap.js
 // Application bootstrap: theme init, static event binding, window API exposure.
 
-import { storage, setStorage, setPlatformAdapter } from "./state.js";
+import { storage, setStorage, setPlatformAdapter, editorState, isFlipped, isFullscreen } from "./state.js";
 import { AppStorage } from "../core/storage.js";
 import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
@@ -247,51 +247,56 @@ export function bindStaticEvents() {
     undoLastRemoval();
   });
 
+  const loadEditorSaveModule = () => import("../features/editor/editor-save.js");
+  const loadStudyModule = () => import("../features/study/study.js");
+  const loadAssessmentModule = () => import("../features/study/assessment.js");
+
   // Global keyboard handler
-  document.addEventListener("keydown", async (event) => {
+  document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
 
-    const { editorState } = await import("./state.js");
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && editorState.isOpen) {
       event.preventDefault();
-      const { saveEditorDrafts } = await import("../features/editor/editor-save.js");
-      void saveEditorDrafts();
+      void loadEditorSaveModule().then(({ saveEditorDrafts }) => saveEditorDrafts());
       return;
     }
     if (tagName === "INPUT" || tagName === "SELECT" || tagName === "TEXTAREA") return;
 
-    const { isFullscreen, isFlipped } = await import("./state.js");
-    const { flipCard, toggleFullscreen, previousCard, nextCard } = await import("../features/study/study.js");
-    const { assessCard } = await import("../features/study/assessment.js");
+    const appIsVisible = document.getElementById("app-container").style.display !== "none";
 
-    if ((event.key === "f" || event.key === "F") && document.getElementById("app-container").style.display !== "none") {
+    if ((event.key === "f" || event.key === "F") && appIsVisible) {
       event.preventDefault();
-      toggleFullscreen();
+      void loadStudyModule().then(({ toggleFullscreen }) => toggleFullscreen());
       return;
     }
-    if ((event.key === "s" || event.key === "S") && document.getElementById("app-container").style.display !== "none") {
+    if ((event.key === "s" || event.key === "S") && appIsVisible) {
       event.preventDefault();
-      flipCard();
+      void loadStudyModule().then(({ flipCard }) => flipCard());
       return;
     }
     if (event.key === "Escape" && isFullscreen) {
-      toggleFullscreen();
+      event.preventDefault();
+      void loadStudyModule().then(({ toggleFullscreen }) => toggleFullscreen());
       return;
     }
-    if (event.key === "ArrowLeft") previousCard();
-    else if (event.key === "ArrowRight") nextCard();
-    else if (event.key === " ") {
+    if (event.key === "ArrowLeft") {
       event.preventDefault();
-      flipCard();
+      void loadStudyModule().then(({ previousCard }) => previousCard());
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      void loadStudyModule().then(({ nextCard }) => nextCard());
+    } else if (event.key === " ") {
+      event.preventDefault();
+      void loadStudyModule().then(({ flipCard }) => flipCard());
     } else if (event.key === "1" && isFlipped) {
       event.preventDefault();
-      assessCard("know");
+      void loadAssessmentModule().then(({ assessCard }) => assessCard("know"));
     } else if (event.key === "2" && isFlipped) {
       event.preventDefault();
-      assessCard("review");
+      void loadAssessmentModule().then(({ assessCard }) => assessCard("review"));
     } else if (event.key === "3" && isFlipped) {
       event.preventDefault();
-      assessCard("dunno");
+      void loadAssessmentModule().then(({ assessCard }) => assessCard("dunno"));
     } else if (event.key === "ArrowDown" && isFlipped) {
       event.preventDefault();
       document.querySelector(".card-back").scrollTop += 50;
