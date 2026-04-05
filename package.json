@@ -1,7 +1,7 @@
 {
   "name": "flashcards-app",
   "version": "1.0.0",
-  "description": "Modüler, JSON-tabanlı ve dinamik set yönetimli pediatri çalışma uygulaması.   Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz.",
+  "description": "Modüler, JSON-tabanlı ve dinamik set yönetimli çalışma uygulaması. Kartları çevirerek soru-cevap çalışabilir, kartları değerlendirebilir ve farklı konu setlerini yöneterek ilerlemenizi takip edebilirsiniz.",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -35,8 +35,7 @@
     "flashcards",
     "spaced-repetition",
     "study",
-    "medical",
-    "pediatri"
+    "medical"
   ],
   "author": "AsklepiosZealot",
   "license": "ISC",
