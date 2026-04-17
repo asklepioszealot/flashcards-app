@@ -24,6 +24,12 @@ const IMAGE_DATA_URI_PATTERN = /^data:image\/(?:png|gif|jpe?g|webp|avif);base64,
 const AUDIO_DATA_URI_PATTERN = /^data:audio\/(?:mpeg|mp3|ogg|wav|webm|aac|mp4);base64,[a-z0-9+/]+=*$/i;
 const WEB_URI_PATTERN = /^https?:\/\//i;
 
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
+    node.setAttribute("rel", "noopener noreferrer");
+  }
+});
+
 const BASIC_SANITIZATION_CONFIG = {
   ...BASE_SANITIZATION_CONFIG,
   ALLOWED_TAGS: ["b", "i", "strong", "em", "code", "pre", "table", "tr", "td", "th", "ul", "ol", "li", "br", "div", "span", "p"],

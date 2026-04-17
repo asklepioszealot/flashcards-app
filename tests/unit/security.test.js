@@ -54,11 +54,17 @@ describe("Security core module", () => {
     expect(output).not.toContain("javascript:");
   });
 
+  it("should add noopener noreferrer to blank-target links", () => {
+    const output = sanitizeMarkdownHtml('<a href="https://example.com" target="_blank">bağlantı</a>');
+
+    expect(output).toContain('<a href="https://example.com" target="_blank" rel="noopener noreferrer">bağlantı</a>');
+  });
+
   it("should sanitize rendered markdown output before it reaches the DOM", () => {
     const output = renderAnswerMarkdown("Merhaba\n\n<script>alert(1)</script>\n\n[bağlantı](https://example.com)");
 
     expect(output).toContain("<p>Merhaba</p>");
-    expect(output).toContain('<a href="https://example.com" target="_blank" rel="noreferrer noopener">bağlantı</a>');
+    expect(output).toContain('<a href="https://example.com" target="_blank" rel="noopener noreferrer">bağlantı</a>');
     expect(output).not.toContain("<script>");
   });
 
@@ -104,5 +110,15 @@ describe("Security core module", () => {
     expect(trackedSource).not.toMatch(/sk_(live|test)_[0-9A-Za-z]{16,}/);
     expect(trackedSource).not.toMatch(/AKIA[0-9A-Z]{16}/);
     expect(trackedSource).not.toContain("BEGIN PRIVATE KEY");
+  });
+
+  it("should include a restrictive CSP meta tag in index.html", () => {
+    const indexHtml = fs.readFileSync(path.join(repoRoot, "index.html"), "utf8");
+
+    expect(indexHtml).toContain('http-equiv="Content-Security-Policy"');
+    expect(indexHtml).toContain("default-src 'none'");
+    expect(indexHtml).toContain("script-src 'self' https://accounts.google.com https://apis.google.com");
+    expect(indexHtml).toContain("worker-src blob:");
+    expect(indexHtml).toContain("frame-ancestors 'none'");
   });
 });
