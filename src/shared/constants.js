@@ -20,9 +20,6 @@ export const WEB_FILE_SOURCE_PREFIX = "webfile://";
 export const BROWSER_FILE_HANDLE_DB_NAME = `${APP_NAMESPACE}::browser-file-handles`;
 export const BROWSER_FILE_HANDLE_STORE = "handles";
 
-export const DRIVE_CLIENT_ID = "102976125468-1mq0m7ptikns377eso8gmnaaioac17fv.apps.googleusercontent.com";
-export const DRIVE_API_KEY = "AIzaSyCUvy3PvFNpAVL9FYvLF22lzUPJ9xZHWrw";
-export const DRIVE_APP_ID = "102976125468";
 export const DRIVE_SCOPES = "https://www.googleapis.com/auth/drive.readonly";
 
 export const DESKTOP_UPDATE_DEFAULT_LABEL = "Güncellemeleri Kontrol Et";

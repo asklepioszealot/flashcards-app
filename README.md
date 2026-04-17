@@ -64,6 +64,25 @@ Smoke test icin:
 npm run test:smoke
 ```
 
+Google Drive'dan ice aktarma kullanacaksan local ayarlari repoya commit etmeden saglaman gerekir. Iki destekli yol var:
+
+1. `runtime-config.local.json` olusturmak
+2. `DRIVE_CLIENT_ID`, `DRIVE_API_KEY` ve tercihen `DRIVE_APP_ID` environment variable'larini tanimlamak
+
+Ornek `runtime-config.local.json`:
+
+```json
+{
+  "driveClientId": "ornek.apps.googleusercontent.com",
+  "driveApiKey": "AIza...",
+  "driveAppId": "1234567890"
+}
+```
+
+`runtime-config.local.json` ve `.env.local` zaten `.gitignore` icinde oldugu icin bu degerler repoya commit edilmemelidir.
+GitHub Pages deploy'u icin `DRIVE_API_KEY` degerini repo-level `Actions Secret` olarak, `DRIVE_CLIENT_ID` ve `DRIVE_APP_ID` degerlerini ise `Actions Variable` olarak eklemek gerekir.
+Ek koruma icin production deploy key'i ile local gelistirme key'ini ayri tutmak en dogru yaklasimdir. Browser'da kullanilan bir Google Drive API key deploy edilen istemci paketinde gorunebilir; asil koruma HTTP referrer ve API restriction ayarlaridir.
+
 Daha detayli teknik dokumanlar `docs/` klasorundedir.
 
 ## Not

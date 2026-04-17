@@ -1,6 +1,36 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 import { describe, it, expect } from "vitest";
 import { parseSetText, renderAnswerMarkdown } from "../../src/core/set-codec.js";
 import { sanitizeHtml, sanitizeMarkdownHtml } from "../../src/core/security.js";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+function getTrackedFilesForSecurityScan() {
+  const output = execFileSync(
+    "git",
+    [
+      "ls-files",
+      "src",
+      ".github/workflows",
+      "tools",
+      "vite.config.mjs",
+      "package.json",
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  return output
+    .split(/\r?\n/)
+    .map((filePath) => filePath.trim())
+    .filter(Boolean)
+    .filter((filePath) => !filePath.endsWith(".gitkeep"));
+}
 
 describe("Security core module", () => {
   it("should remove script tags and on* attributes but keep allowed tags", () => {
@@ -62,5 +92,17 @@ describe("Security core module", () => {
     expect(output).toContain("<audio");
     expect(output).toContain("Beyin MR");
     expect(output).not.toContain("javascript:");
+  });
+
+  it("should not keep hardcoded Google Drive API keys in source files", () => {
+    const trackedSource = getTrackedFilesForSecurityScan()
+      .map((relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), "utf8"))
+      .join("\n");
+
+    expect(trackedSource).not.toMatch(/AIza[0-9A-Za-z_-]{20,}/);
+    expect(trackedSource).not.toMatch(/ghp_[0-9A-Za-z]{20,}/);
+    expect(trackedSource).not.toMatch(/sk_(live|test)_[0-9A-Za-z]{16,}/);
+    expect(trackedSource).not.toMatch(/AKIA[0-9A-Z]{16}/);
+    expect(trackedSource).not.toContain("BEGIN PRIVATE KEY");
   });
 });

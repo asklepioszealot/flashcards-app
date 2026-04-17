@@ -6,7 +6,7 @@ import { AppStorage } from "../core/storage.js";
 import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
-import { hasSupabaseConfig } from "../core/runtime-config.js";
+import { hasDriveConfig, hasSupabaseConfig } from "../core/runtime-config.js";
 import { handleAuthStateChange, syncRememberMeUi, showAuthStatus } from "../features/auth/auth.js";
 import { ThemeManager } from "../ui/theme.js";
 import { showScreen } from "./screen.js";
@@ -76,6 +76,20 @@ function bindAll(selector, eventName, handler) {
 function closeDriveModal() {
   const modal = document.getElementById("drive-modal");
   if (modal) modal.style.display = "none";
+}
+
+function syncDriveImportButton() {
+  const driveImportButton = document.getElementById("drive-import-btn");
+  if (!driveImportButton) return;
+  const driveIsConfigured = hasDriveConfig();
+  driveImportButton.disabled = !driveIsConfigured;
+  if (driveIsConfigured) {
+    driveImportButton.removeAttribute("aria-disabled");
+    driveImportButton.removeAttribute("title");
+    return;
+  }
+  driveImportButton.setAttribute("aria-disabled", "true");
+  driveImportButton.setAttribute("title", "Google Drive icin local runtime-config veya DRIVE_* environment ayarlari gerekiyor.");
 }
 
 export function bindStaticEvents() {
@@ -311,6 +325,7 @@ export function bindStaticEvents() {
   });
 
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
+  syncDriveImportButton();
   syncDesktopUpdateButton();
 }
 
