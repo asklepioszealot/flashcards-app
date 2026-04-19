@@ -1,5 +1,7 @@
 const path = require("path");
 const { test, expect } = require("playwright/test");
+const { zipSync } = require("fflate");
+const initSqlJs = require("sql.js/dist/sql-wasm.js");
 
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
@@ -26,9 +28,52 @@ const EXPECTED_THEME_OPTIONS = [
   "Botanical Garden",
   "Midnight Galaxy",
 ];
+const FIELD_SEPARATOR = "\u001f";
 
 function appUrl() {
   return `http://127.0.0.1:${APP_PORT}/`;
+}
+
+function resolveSqlWasmPath() {
+  return path.resolve(process.cwd(), "node_modules", "sql.js", "dist", "sql-wasm.wasm");
+}
+
+async function createApkgUpload(fileName = "smoke-import.apkg") {
+  const SQL = await initSqlJs({
+    locateFile: () => resolveSqlWasmPath(),
+  });
+  const database = new SQL.Database();
+
+  database.run("CREATE TABLE col (decks TEXT)");
+  database.run("CREATE TABLE notes (id INTEGER PRIMARY KEY, flds TEXT, tags TEXT)");
+  database.run("CREATE TABLE cards (nid INTEGER, did INTEGER)");
+  database.run(
+    "INSERT INTO col (decks) VALUES (?)",
+    [JSON.stringify({ "1001": { name: "Tıp::Nöroloji" } })],
+  );
+  database.run("INSERT INTO notes (id, flds, tags) VALUES (?, ?, ?)", [
+    11,
+    [
+      "Beyin sapı nedir?",
+      "<p>Merkezi sinir sisteminin bir parçasıdır.</p>",
+    ].join(FIELD_SEPARATOR),
+    "noroloji",
+  ]);
+  database.run("INSERT INTO cards (nid, did) VALUES (?, ?)", [11, 1001]);
+
+  const collectionBytes = database.export();
+  database.close();
+
+  const archiveBytes = zipSync({
+    "collection.anki2": collectionBytes,
+    media: Buffer.from("{}"),
+  });
+
+  return {
+    name: fileName,
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from(archiveBytes),
+  };
 }
 
 function legacyCardId(question) {
@@ -150,6 +195,7 @@ async function continueWithDemo(page) {
   await page.goto(appUrl());
   const authScreen = page.locator("#auth-screen");
   if (await authScreen.isVisible()) {
+    await expect(page.locator("#auth-demo-btn")).toBeVisible();
     await page.locator("#auth-demo-btn").click();
   }
   await expect(page.locator("#set-manager")).toBeVisible();
@@ -281,6 +327,38 @@ test.describe("Flashcards smoke", () => {
     await expect(setManager).toBeHidden();
     await expect(page.locator("#analytics-dashboard")).toHaveCount(0);
     await expect(appContainer.locator(".kbd-hint")).toHaveCount(0);
+  });
+
+  test("set manager imports a supported apkg file and starts study", async ({ page }) => {
+    const fixture = await createApkgUpload();
+
+    await page.addInitScript(() => {
+      window.APP_CONFIG = {
+        supabaseUrl: "",
+        supabaseAnonKey: "",
+        authMode: "mock",
+        enableDemoAuth: true,
+        driveClientId: "",
+        driveApiKey: "",
+        driveAppId: "",
+      };
+    });
+    await clearStorage(page);
+    await continueWithDemo(page);
+    await page.setInputFiles("#file-picker", fixture);
+
+    await expect(
+      page.locator("#set-list .set-title", { hasText: "smoke-import" }),
+    ).toBeVisible();
+    await expect(page.locator("#start-btn")).toBeEnabled();
+
+    await page.locator("#start-btn").click();
+    await expect(page.locator("#question-text")).toHaveText("Beyin sapı nedir?");
+    await page.locator("#flashcard").click();
+    await expect(page.locator("#flashcard")).toHaveClass(/flipped/);
+    await expect(page.locator("#answer-text")).toContainText(
+      "Merkezi sinir sisteminin bir parçasıdır.",
+    );
   });
 
   test("analytics panel opens in set manager and persists visibility per account", async ({ page }) => {

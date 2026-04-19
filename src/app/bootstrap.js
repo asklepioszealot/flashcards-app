@@ -7,7 +7,15 @@ import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
 import { hasDriveConfig, hasSupabaseConfig } from "../core/runtime-config.js";
-import { handleAuthStateChange, syncRememberMeUi, showAuthStatus } from "../features/auth/auth.js";
+import {
+  attemptAuth,
+  handleAuthStateChange,
+  handleDemoAuth,
+  setRememberMePreference,
+  showAuthStatus,
+  signOut,
+  syncRememberMeUi,
+} from "../features/auth/auth.js";
 import { ThemeManager } from "../ui/theme.js";
 import { showScreen } from "./screen.js";
 import { scheduleStartupDesktopUpdateCheck, syncDesktopUpdateButton } from "../features/desktop-update/desktop-update.js";
@@ -99,18 +107,16 @@ export function bindStaticEvents() {
     });
   });
 
-  import("../features/auth/auth.js").then(({ attemptAuth, handleDemoAuth, signOut, setRememberMePreference }) => {
-    bindEvent(document.getElementById("auth-form"), "submit", (event) => {
-      event.preventDefault();
-      void attemptAuth("signin");
-    });
-    bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
-    bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
-    bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
-      setRememberMePreference(event.currentTarget?.checked !== false);
-    });
-    bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
+  bindEvent(document.getElementById("auth-form"), "submit", (event) => {
+    event.preventDefault();
+    void attemptAuth("signin");
   });
+  bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
+  bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
+  bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
+    setRememberMePreference(event.currentTarget?.checked !== false);
+  });
+  bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
 
   import("../features/desktop-update/desktop-update.js").then(({ checkDesktopForUpdates }) => {
     bindEvent(document.getElementById("check-updates-btn"), "click", () => void checkDesktopForUpdates("manual"));

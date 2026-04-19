@@ -1,4 +1,10 @@
-import { APP_CONFIG } from "../generated/runtime-config.js";
+const globalScope = typeof window !== "undefined" ? window : globalThis;
+const buildTimeAppConfig =
+  typeof __APP_CONFIG__ !== "undefined" &&
+  __APP_CONFIG__ &&
+  typeof __APP_CONFIG__ === "object"
+    ? __APP_CONFIG__
+    : {};
 
 const DEFAULT_CONFIG = Object.freeze({
   supabaseUrl: "",
@@ -11,9 +17,19 @@ const DEFAULT_CONFIG = Object.freeze({
 });
 
 export function getRuntimeConfig() {
-  return Object.freeze({
+  const runtimeOverride =
+    globalScope.APP_CONFIG && typeof globalScope.APP_CONFIG === "object"
+      ? globalScope.APP_CONFIG
+      : {};
+  const config = {
     ...DEFAULT_CONFIG,
-    ...APP_CONFIG,
+    ...buildTimeAppConfig,
+    ...runtimeOverride,
+  };
+
+  return Object.freeze({
+    ...config,
+    authMode: config.supabaseUrl && config.supabaseAnonKey ? "supabase" : "mock",
   });
 }
 
@@ -28,5 +44,5 @@ export function hasDriveConfig() {
 }
 
 export function isDesktopRuntime() {
-  return Boolean(globalThis.__TAURI__?.core?.invoke);
+  return Boolean(globalScope.__TAURI__?.core?.invoke);
 }
