@@ -117,7 +117,7 @@ describe("Security core module", () => {
 
     expect(indexHtml).toContain('http-equiv="Content-Security-Policy"');
     expect(indexHtml).toContain("default-src 'none'");
-    expect(indexHtml).toContain("script-src 'self' https://accounts.google.com https://apis.google.com");
+    expect(indexHtml).toContain("script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com");
     expect(indexHtml).toContain("worker-src blob:");
     expect(indexHtml).toContain("frame-ancestors 'none'");
   });

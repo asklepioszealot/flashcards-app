@@ -17,16 +17,36 @@ export function normalizeWindowsWorkingDirectory(inputPath) {
   return inputPath;
 }
 
-export function buildPwshInvocation({ cwd = process.cwd(), scriptPath, scriptArgs = [] } = {}) {
+function isWindowsAbsolutePath(inputPath) {
+  return typeof inputPath === "string" && /^[A-Za-z]:\\/.test(inputPath);
+}
+
+export function resolvePwshScriptPath({ cwd = process.cwd(), scriptPath } = {}) {
   if (typeof scriptPath !== "string" || scriptPath.length === 0) {
     throw new Error("scriptPath is required");
   }
 
   const normalizedCwd = normalizeWindowsWorkingDirectory(cwd);
   const normalizedScriptPath = normalizeWindowsWorkingDirectory(scriptPath);
-  const absoluteScriptPath = path.isAbsolute(normalizedScriptPath)
-    ? normalizedScriptPath
-    : path.resolve(normalizedCwd, normalizedScriptPath);
+
+  if (path.isAbsolute(normalizedScriptPath) || path.win32.isAbsolute(normalizedScriptPath)) {
+    return normalizedScriptPath;
+  }
+
+  const resolver = isWindowsAbsolutePath(normalizedCwd) ? path.win32 : path;
+  return resolver.resolve(normalizedCwd, normalizedScriptPath);
+}
+
+export function buildPwshInvocation({ cwd = process.cwd(), scriptPath, scriptArgs = [] } = {}) {
+  if (typeof scriptPath !== "string" || scriptPath.length === 0) {
+    throw new Error("scriptPath is required");
+  }
+
+  const normalizedCwd = normalizeWindowsWorkingDirectory(cwd);
+  const absoluteScriptPath = resolvePwshScriptPath({
+    cwd: normalizedCwd,
+    scriptPath,
+  });
 
   return {
     command: "pwsh",

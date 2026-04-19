@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPwshInvocation,
   normalizeWindowsWorkingDirectory,
+  resolvePwshScriptPath,
 } from "../../tools/run-pwsh-script.mjs";
 
 describe("run-pwsh-script", () => {
@@ -34,5 +35,14 @@ describe("run-pwsh-script", () => {
       "D:\\Git Projelerim\\flashcards-app\\tools\\build-release.ps1",
       "-NoLegacyCopy",
     ]);
+  });
+
+  it("resolves relative script paths against Windows cwd values with win32 semantics", () => {
+    expect(
+      resolvePwshScriptPath({
+        cwd: "D:\\Git Projelerim\\flashcards-app",
+        scriptPath: "./tools/build-release.ps1",
+      }),
+    ).toBe("D:\\Git Projelerim\\flashcards-app\\tools\\build-release.ps1");
   });
 });
