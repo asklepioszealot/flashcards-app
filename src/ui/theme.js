@@ -4,8 +4,6 @@ import {
   getThemePreset,
 } from "./theme-presets.js";
 
-const globalScope = typeof window !== "undefined" ? window : globalThis;
-
 function normalizeTheme(themeName) {
   return AVAILABLE_THEMES.includes(themeName) ? themeName : "light";
 }
@@ -86,7 +84,7 @@ export function setTheme(options = {}) {
   const normalizedTheme = setThemeState(nextTheme, options);
 
   if (options.storageKey) {
-    const storageApi = options.storageApi || globalScope.AppStorage;
+    const storageApi = options.storageApi;
     if (storageApi && typeof storageApi.setItem === "function") {
       storageApi.setItem(options.storageKey, normalizedTheme);
     }
@@ -100,7 +98,7 @@ export function setTheme(options = {}) {
 }
 
 export function initThemeFromStorage(options = {}) {
-  const storageApi = options.storageApi || globalScope.AppStorage;
+  const storageApi = options.storageApi;
   let themeName = "light";
 
   if (options.storageKey && storageApi && typeof storageApi.getItem === "function") {
@@ -123,8 +121,6 @@ export const ThemeManager = Object.freeze({
   setTheme,
   setThemeState,
 });
-
-globalScope.ThemeManager = ThemeManager;
 
 export { AVAILABLE_THEMES };
 export default ThemeManager;
