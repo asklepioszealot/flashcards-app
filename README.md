@@ -64,12 +64,6 @@ Smoke test icin:
 npm run test:smoke
 ```
 
-Release planini artefakt yazmadan kontrol etmek icin:
-
-```powershell
-npm run release:dry-run
-```
-
 Google Drive'dan ice aktarma kullanacaksan local ayarlari repoya commit etmeden saglaman gerekir. Iki destekli yol var:
 
 1. `runtime-config.local.json` olusturmak

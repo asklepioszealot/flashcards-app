@@ -30,7 +30,6 @@ npx tauri signer generate -w ~/.tauri/flashcards-app-updater.key
 
 ## Build
 
-- Gercek release oncesi `npm run release:dry-run` ile planlanan klasor/isimler ve updater durumunu kontrol et.
 - `npm run release` (varsayilan: legacy kok EXE kopyalamaz) calistir.
 - `release/` altindaki yeni klasorun olustugunu dogrula.
 - `LATEST_RELEASE_POINTER.txt` ve `release/.../OPEN_THIS_PORTABLE.txt` dosyalarindaki portable yolunun ayni oldugunu kontrol et.
