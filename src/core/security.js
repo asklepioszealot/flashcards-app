@@ -30,7 +30,13 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   }
 });
 
-const DEFAULT_SANITIZATION_CONFIG = {
+const BASIC_SANITIZATION_CONFIG = {
+  ...BASE_SANITIZATION_CONFIG,
+  ALLOWED_TAGS: ["b", "i", "strong", "em", "code", "pre", "table", "tr", "td", "th", "ul", "ol", "li", "br", "div", "span", "p"],
+  ALLOWED_ATTR: ["class"],
+};
+
+export const MARKDOWN_SANITIZATION_CONFIG = {
   ...BASE_SANITIZATION_CONFIG,
   ALLOWED_TAGS: [
     "a",
@@ -71,8 +77,6 @@ const DEFAULT_SANITIZATION_CONFIG = {
   ALLOWED_ATTR: ["class", "href", "target", "rel", "title", "aria-label", "src", "alt", "controls", "preload", "loading", "type"],
   ADD_DATA_URI_TAGS: ["img", "audio", "source"],
 };
-
-export const MARKDOWN_SANITIZATION_CONFIG = DEFAULT_SANITIZATION_CONFIG;
 
 function decodeAttributeValue(value) {
   return String(value ?? "")
@@ -150,17 +154,15 @@ export function sanitizeHtml(html, configOverrides = {}) {
     return "";
   }
 
-  const sanitized = DOMPurify.sanitize(html, {
-    ...DEFAULT_SANITIZATION_CONFIG,
+  return DOMPurify.sanitize(html, {
+    ...BASIC_SANITIZATION_CONFIG,
     ...configOverrides,
   });
-
-  return enforceSafeMediaAttributes(sanitized);
 }
 
 export function sanitizeMarkdownHtml(html, configOverrides = {}) {
-  return sanitizeHtml(html, {
+  return enforceSafeMediaAttributes(sanitizeHtml(html, {
     ...MARKDOWN_SANITIZATION_CONFIG,
     ...configOverrides,
-  });
+  }));
 }

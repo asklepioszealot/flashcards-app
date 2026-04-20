@@ -45,26 +45,6 @@ describe("Security core module", () => {
     expect(output).toBe("<em>Italics</em>");
   });
 
-  it("should keep safe image and audio sources while stripping unsafe media attributes", () => {
-    const output = sanitizeHtml(
-      [
-        '<img src="https://cdn.example.com/brain.png" alt="Beyin" onclick="alert(1)" />',
-        '<audio src="data:audio/mpeg;base64,QUJD" autoplay></audio>',
-        '<audio src="javascript:alert(2)"></audio>',
-      ].join(""),
-    );
-
-    expect(output).toContain(
-      '<img src="https://cdn.example.com/brain.png" alt="Beyin" loading="lazy">',
-    );
-    expect(output).toContain(
-      '<audio src="data:audio/mpeg;base64,QUJD" controls="" preload="metadata"></audio>',
-    );
-    expect(output).not.toContain("onclick");
-    expect(output).not.toContain("autoplay");
-    expect(output).not.toContain("javascript:");
-  });
-
   it("should keep markdown-safe structure while stripping dangerous links", () => {
     const input = `<h2>Başlık</h2><a href="javascript:alert(1)" target="_blank" rel="noopener">Bağlantı</a><blockquote class="markdown-callout warning">Uyarı</blockquote>`;
     const output = sanitizeMarkdownHtml(input);
