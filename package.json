@@ -17,6 +17,7 @@
     "build:desktop": "node ./node_modules/@tauri-apps/cli/tauri.js build --bundles nsis",
     "release": "node ./tools/run-pwsh-script.mjs ./tools/build-release.ps1 -NoLegacyCopy",
     "release:no-legacy": "node ./tools/run-pwsh-script.mjs ./tools/build-release.ps1 -NoLegacyCopy",
+    "release:dry-run": "node ./tools/run-pwsh-script.mjs ./tools/build-release.ps1 -NoLegacyCopy -DryRun",
     "release:with-legacy": "node ./tools/run-pwsh-script.mjs ./tools/build-release.ps1",
     "validate:set": "node ./tools/validate-set.js",
     "validate:set:strict": "node ./tools/validate-set.js --require-files",

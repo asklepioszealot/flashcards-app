@@ -1,5 +1,6 @@
 param(
-  [switch]$NoLegacyCopy
+  [switch]$NoLegacyCopy,
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -109,21 +110,80 @@ try {
   $distIndexHash = Get-HashOrMissing -FilePath $distIndexPath
   $distMainHash = Get-HashOrMissing -FilePath $distMainPath
 
+  $tauriConfigPath = Join-Path $repoRoot "src-tauri\tauri.conf.json"
+  $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
+  $productName = [string]$tauriConfig.productName
+  $version = [string]$tauriConfig.version
+  if ([string]::IsNullOrWhiteSpace($productName)) {
+    $productName = "Flashcards App"
+  }
+  if ([string]::IsNullOrWhiteSpace($version)) {
+    $version = "unknown"
+  }
+
   $defaultUpdaterKeyPath = Join-Path $HOME ".tauri\flashcards-app-updater.key"
-  if (
-    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY) -and
-    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PATH) -and
-    (Test-Path $defaultUpdaterKeyPath)
-  ) {
+  $updaterKeySource = "missing"
+  if (-not [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+    $updaterKeySource = "env-inline"
+  } elseif (-not [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PATH)) {
+    $updaterKeySource = "env-path"
+  } elseif (Test-Path $defaultUpdaterKeyPath) {
+    $updaterKeySource = "local-default"
+  }
+  $updaterArtifactsEnabled = $updaterKeySource -ne "missing"
+
+  if ($updaterKeySource -eq "local-default" -and -not $DryRun) {
     $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content -Raw $defaultUpdaterKeyPath)
     Write-Host "[2/6] Using local updater key: $defaultUpdaterKeyPath"
   }
 
+  $commit = (git rev-parse --short HEAD).Trim()
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
+    $commit = "nogit"
+  }
+
+  $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+  $releasePlanScript = Join-Path $repoRoot "tools\release-plan.mjs"
+  $env:FLASHCARDS_RELEASE_BUILD_ID = $buildId
+  $env:FLASHCARDS_RELEASE_COMMIT = $commit
+  $env:FLASHCARDS_RELEASE_NO_LEGACY = if ($NoLegacyCopy) { "1" } else { "0" }
+  $env:FLASHCARDS_RELEASE_PRODUCT_NAME = $productName
+  $env:FLASHCARDS_RELEASE_REPO_ROOT = $repoRoot
+  $env:FLASHCARDS_RELEASE_TIMESTAMP = $timestamp
+  $env:FLASHCARDS_RELEASE_VERSION = $version
+  $env:FLASHCARDS_RELEASE_DEFAULT_KEY_PATH = $defaultUpdaterKeyPath
+  $env:FLASHCARDS_RELEASE_KEY_SOURCE = $updaterKeySource
+  $env:FLASHCARDS_RELEASE_UPDATER_ENABLED = if ($updaterArtifactsEnabled) { "1" } else { "0" }
+  $releasePlanJson = & node $releasePlanScript
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($releasePlanJson)) {
+    throw "Release plan could not be generated."
+  }
+
+  $releasePlan = $releasePlanJson | ConvertFrom-Json
+  $releaseDir = [string]$releasePlan.releaseDir
+  $portableTarget = [string]$releasePlan.portableTarget
+  $setupTarget = [string]$releasePlan.setupTarget
+  $latestPointerPath = [string]$releasePlan.latestPointerPath
+  $openPortableInfoPath = [string]$releasePlan.openPortableInfoPath
+  $legacyPortablePath = Join-Path $repoRoot ([string]$releasePlan.artifactNames.legacyPortableName)
+  $legacySetupPath = Join-Path $repoRoot ([string]$releasePlan.artifactNames.legacySetupName)
+
+  if ($DryRun) {
+    Write-Host "[2/6] Dry run mode: desktop build, artifact copy ve signing atlandi."
+    Write-Host ""
+    Write-Host "Planned release folder: $releaseDir"
+    Write-Host "Planned portable: $portableTarget"
+    Write-Host "Planned setup: $setupTarget"
+    Write-Host "Planned latest pointer: $latestPointerPath"
+    Write-Host "Updater key source: $($releasePlan.dryRunSummary.updaterKeySource)"
+    Write-Host "Updater artifacts: $($releasePlan.dryRunSummary.updaterArtifacts)"
+    Write-Host "Legacy root copy: $($releasePlan.dryRunSummary.legacyCopy)"
+    Write-Host "Build ID: $buildId"
+    return
+  }
+
   $tauriBuildArgs = @("tauri", "build", "--bundles", "nsis")
-  if (
-    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY) -and
-    [string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PATH)
-  ) {
+  if (-not $updaterArtifactsEnabled) {
     $localUpdaterOverridePath = Join-Path ([System.IO.Path]::GetTempPath()) ("flashcards-tauri-no-updater-" + [Guid]::NewGuid().ToString("N") + ".json")
     @{ bundle = @{ createUpdaterArtifacts = $false } } |
       ConvertTo-Json -Depth 5 |
@@ -134,9 +194,9 @@ try {
 
   Write-Host "[2/6] Building desktop app (NSIS)..."
   $npxCmd = "npx " + ($tauriBuildArgs -join " ")
-  cmd.exe /c $npxCmd
+  cmd.exe /d /s /c $npxCmd
   if ($LASTEXITCODE -ne 0) {
-    throw "cmd.exe /c $npxCmd failed with exit code $LASTEXITCODE"
+    throw "cmd.exe /d /s /c $npxCmd failed with exit code $LASTEXITCODE"
   }
 
   $portableSource = Join-Path $repoRoot "src-tauri\target\release\app.exe"
@@ -152,44 +212,11 @@ try {
     throw "NSIS setup file not found under: $nsisDir"
   }
 
-  $tauriConfigPath = Join-Path $repoRoot "src-tauri\tauri.conf.json"
-  $tauriConfig = Get-Content $tauriConfigPath -Raw | ConvertFrom-Json
-  $productName = [string]$tauriConfig.productName
-  $version = [string]$tauriConfig.version
-  if ([string]::IsNullOrWhiteSpace($productName)) {
-    $productName = "Flashcards App"
-  }
-  if ([string]::IsNullOrWhiteSpace($version)) {
-    $version = "unknown"
-  }
-
-  $commit = (git rev-parse --short HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commit)) {
-    $commit = "nogit"
-  }
-
-  $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-  $releaseDir = Join-Path $repoRoot ("release\" + $timestamp + "_v" + $version + "_" + $commit)
   New-Item -Path $releaseDir -ItemType Directory -Force | Out-Null
-
-  $artifactNamesScript = Join-Path $repoRoot "tools\release-artifact-names.mjs"
-  $artifactNamesJson = & node $artifactNamesScript $productName $version $commit
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($artifactNamesJson)) {
-    throw "Release artifact names could not be generated."
-  }
-
-  $artifactNames = $artifactNamesJson | ConvertFrom-Json
-  $portableName = [string]$artifactNames.portableName
-  $setupName = [string]$artifactNames.setupName
-  $portableTarget = Join-Path $releaseDir $portableName
-  $setupTarget = Join-Path $releaseDir $setupName
 
   Write-Host "[3/6] Copying artifacts to release folder..."
   Copy-Item -Path $portableSource -Destination $portableTarget -Force
   Copy-Item -Path $setupSource.FullName -Destination $setupTarget -Force
-
-  $legacyPortablePath = Join-Path $repoRoot ([string]$artifactNames.legacyPortableName)
-  $legacySetupPath = Join-Path $repoRoot ([string]$artifactNames.legacySetupName)
 
   if (-not $NoLegacyCopy) {
     Write-Host "[4/6] Syncing legacy root file names..."
@@ -202,7 +229,6 @@ try {
     }
   }
 
-  $openPortableInfoPath = Join-Path $releaseDir "OPEN_THIS_PORTABLE.txt"
   @(
     "Bu release icin test edilecek dogru portable EXE:",
     $portableTarget,
@@ -211,14 +237,7 @@ try {
     "build_id=$buildId"
   ) | Set-Content -Path $openPortableInfoPath -Encoding UTF8
 
-  $latestPointerPath = Join-Path $repoRoot "LATEST_RELEASE_POINTER.txt"
-  @(
-    "latest_release_dir=$releaseDir"
-    "portable_exe=$portableTarget"
-    "setup_exe=$setupTarget"
-    "build_id=$buildId"
-    "legacy_copy=$(-not $NoLegacyCopy)"
-  ) | Set-Content -Path $latestPointerPath -Encoding UTF8
+  @($releasePlan.pointerEntries) | Set-Content -Path $latestPointerPath -Encoding UTF8
 
   $signEnable = [string]$env:SIGN_ENABLE
   $signEnableNormalized = $signEnable.Trim()
@@ -259,7 +278,7 @@ try {
     }
   } else {
     if ($signingRequired) {
-      throw "SIGN_ENABLE=1 set edildi ancak imzalama adımı çalıştırılamadı."
+      throw "SIGN_ENABLE=1 set edildi ancak imzalama adimi calistirilamadi."
     }
     Write-Host "[5/6] Skipping signing (set SIGN_ENABLE=1, SIGN_PFX_PATH or SIGN_CERT_SHA1)."
   }
