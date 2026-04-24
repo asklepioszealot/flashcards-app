@@ -1,4 +1,3 @@
-```markdown
 # Flashcards App
 
 Flashcards App is a web and desktop study application designed for quick review with your own flashcard sets.
@@ -37,4 +36,3 @@ Keyboard shortcuts:
 
 - Web version: [asklepioszealot.me](https://asklepioszealot.me)
 - Desktop version is distributed through GitHub Releases
-```
