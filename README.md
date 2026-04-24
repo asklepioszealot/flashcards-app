@@ -1,90 +1,42 @@
+Elbette, düzenlenmiş İngilizce README aşağıda:
+
+```markdown
 # Flashcards App
 
-Flashcards App, kendi kart setlerinle hizli tekrar yapmak icin hazirlanmis bir web ve desktop calisma uygulamasidir.
+Flashcards App is a web and desktop study application designed for quick review with your own flashcard sets.
 
-Uygulama ile:
+With this app, you can:
 
-- Kart setlerini yukleyip hemen calismaya baslayabilirsin
-- Hangi kartlari cozdgunu ve hangilerine tekrar bakman gerektigini gorebilirsin
-- Kaldigin yerden devam edebilirsin
-- Istersen hesabinla giris yapip ilerlemeni bulutta saklayabilirsin
+- Upload flashcard sets and start studying right away
+- Track which cards you have completed and which ones need another review
+- Continue from where you left off
 
-## Neler Sunar
+## Features
 
-- JSON, Markdown ve metin dosyalarindan kart seti yukleme
-- Birden fazla seti birlikte kullanma
-- Tamam, Tekrar Goz At ve Bilmiyorum seklinde kart durumu takibi
-- Filtreleme, karistirma ve hizli kart gecisi
-- Otomatik kayit ile kaldigin yerden devam etme
-- Supabase ile istege bagli bulut senkronu
-- Desktop surumunde guncelleme kontrolu
+- Upload flashcard sets from JSON, Markdown, and text files
+- Use multiple sets together
+- Track card status as Done, Review Again, or I Don’t Know
+- Filter, shuffle, and move quickly between cards
+- Continue from where you left off with automatic saving
+- Check for updates in the desktop version
 
-## Kullanim
+## Usage
 
-1. Uygulamayi ac.
-2. Kart setini yukle.
-3. Calismak istedigin setleri sec.
-4. Karti cevir, cevabini degerlendir ve devam et.
+1. Open the app.
+2. Upload your flashcard set.
+3. Select the sets you want to study.
+4. Flip the card, rate your answer, and continue.
 
-Klavye kisayollari:
+Keyboard shortcuts:
 
-- `Space`: Karti cevir
-- `←` ve `→`: Kartlar arasinda gezin
-- `1`: Tamam
-- `2`: Tekrar Goz At
-- `3`: Bilmiyorum
+- `Space`: Flip the card
+- `←` and `→`: Move between cards
+- `1`: Done
+- `2`: Review Again
+- `3`: I Don’t Know
 
-## Bulut Senkronu
+## Web and Desktop
 
-Bulut senkronu kullanacaksan Supabase tarafinda gerekli SQL dosyalarini bir kez calistirman yeterlidir:
-
-- [docs/SUPABASE_SYNC_SETUP.sql](docs/SUPABASE_SYNC_SETUP.sql)
-- [docs/SUPABASE_USER_STATE_MIGRATION.sql](docs/SUPABASE_USER_STATE_MIGRATION.sql)
-- Medya yukleme kullanacaksan [docs/SUPABASE_MEDIA_STORAGE_SETUP.sql](docs/SUPABASE_MEDIA_STORAGE_SETUP.sql)
-
-Bu adimlardan sonra setlerin ve ilerlemen hesabinla birlikte senkron olur.
-
-## Web ve Desktop
-
-- Web surumu: [asklepioszealot.me](https://asklepioszealot.me)
-- Desktop surumu GitHub Releases uzerinden dagitilir
-
-## Teknik Not
-
-Projeyi yerelde calistirmak istersen:
-
-```powershell
-npm install
-npm run dev
+- Web version: [asklepioszealot.me](https://asklepioszealot.me)
+- Desktop version is distributed through GitHub Releases
 ```
-
-Smoke test icin:
-
-```powershell
-npm run test:smoke
-```
-
-Google Drive'dan ice aktarma kullanacaksan local ayarlari repoya commit etmeden saglaman gerekir. Iki destekli yol var:
-
-1. `runtime-config.local.json` olusturmak
-2. `DRIVE_CLIENT_ID`, `DRIVE_API_KEY` ve tercihen `DRIVE_APP_ID` environment variable'larini tanimlamak
-
-Ornek `runtime-config.local.json`:
-
-```json
-{
-  "driveClientId": "ornek.apps.googleusercontent.com",
-  "driveApiKey": "AIza...",
-  "driveAppId": "1234567890"
-}
-```
-
-`runtime-config.local.json` ve `.env.local` zaten `.gitignore` icinde oldugu icin bu degerler repoya commit edilmemelidir.
-GitHub Pages deploy'u icin `DRIVE_API_KEY` degerini repo-level `Actions Secret` olarak, `DRIVE_CLIENT_ID` ve `DRIVE_APP_ID` degerlerini ise `Actions Variable` olarak eklemek gerekir.
-Ek koruma icin production deploy key'i ile local gelistirme key'ini ayri tutmak en dogru yaklasimdir. Browser'da kullanilan bir Google Drive API key deploy edilen istemci paketinde gorunebilir; asil koruma HTTP referrer ve API restriction ayarlaridir.
-
-Daha detayli teknik dokumanlar `docs/` klasorundedir.
-
-## Not
-
-Bu uygulama egitim amaclidir. Klinik kararlar icin guncel kilavuzlar ve uzman hekim degerlendirmesi esas alinmalidir.
