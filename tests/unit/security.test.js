@@ -112,6 +112,62 @@ describe("Security core module", () => {
     expect(trackedSource).not.toContain("BEGIN PRIVATE KEY");
   });
 
+  describe("Mark highlight support", () => {
+    it("Obsidian default yellow: strips style and adds hl-yellow class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background:rgba(240, 200, 0, 0.2)">önemli</mark>');
+      expect(out).toContain('<mark class="hl-yellow">önemli</mark>');
+    });
+
+    it("Green hex: adds hl-green class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background:#22c55e">ok</mark>');
+      expect(out).toContain('class="hl-green"');
+    });
+
+    it("Red rgb: adds hl-red class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background-color: rgb(239, 68, 68)">uyarı</mark>');
+      expect(out).toContain('class="hl-red"');
+    });
+
+    it("Blue named: adds hl-blue class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background: blue">ref</mark>');
+      expect(out).toContain('class="hl-blue"');
+    });
+
+    it("Purple hex: adds hl-purple class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background:#a855f7">ipucu</mark>');
+      expect(out).toContain('class="hl-purple"');
+    });
+
+    it("Gray fallback: adds hl-default class", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background:rgba(120,120,120,0.3)">nötr</mark>');
+      expect(out).toContain('class="hl-default"');
+    });
+
+    it("Malicious url(): no class added, no url leaked", () => {
+      const out = sanitizeMarkdownHtml('<mark style="background:url(https://evil.com/track.png)">x</mark>');
+      expect(out).toContain("<mark>x</mark>");
+      expect(out).not.toContain("url(");
+      expect(out).not.toContain("evil.com");
+    });
+
+    it("Pre-existing class preserved alongside bucket class", () => {
+      const out = sanitizeMarkdownHtml('<mark class="custom" style="background:#facc15">y</mark>');
+      expect(out).toContain("custom");
+      expect(out).toContain("hl-yellow");
+    });
+
+    it("Bare mark without style round-trips", () => {
+      const out = sanitizeMarkdownHtml("<mark>z</mark>");
+      expect(out).toContain("<mark>z</mark>");
+    });
+
+    it("sub and sup are allowed", () => {
+      const out = sanitizeMarkdownHtml("<sub>2</sub><sup>3</sup>");
+      expect(out).toContain("<sub>2</sub>");
+      expect(out).toContain("<sup>3</sup>");
+    });
+  });
+
   it("should include a restrictive CSP meta tag in index.html", () => {
     const indexHtml = fs.readFileSync(path.join(repoRoot, "index.html"), "utf8");
 

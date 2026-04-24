@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { classifyMarkStyle } from "./highlight-color.js";
 
 const BASE_SANITIZATION_CONFIG = {
   FORBID_TAGS: [
@@ -27,6 +28,20 @@ const WEB_URI_PATTERN = /^https?:\/\//i;
 DOMPurify.addHook("afterSanitizeAttributes", (node) => {
   if (node.tagName === "A" && node.getAttribute("target") === "_blank") {
     node.setAttribute("rel", "noopener noreferrer");
+  }
+});
+
+DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
+  if (node.tagName === "MARK" && data.attrName === "style") {
+    const bucketClass = classifyMarkStyle(data.attrValue);
+    if (bucketClass) {
+      const existing = node.getAttribute("class");
+      const classes = existing ? existing.split(/\s+/).filter(Boolean) : [];
+      if (!classes.includes(bucketClass)) {
+        classes.push(bucketClass);
+      }
+      node.setAttribute("class", classes.join(" "));
+    }
   }
 });
 
@@ -59,6 +74,7 @@ export const MARKDOWN_SANITIZATION_CONFIG = {
     "i",
     "img",
     "li",
+    "mark",
     "audio",
     "ol",
     "p",
@@ -66,6 +82,8 @@ export const MARKDOWN_SANITIZATION_CONFIG = {
     "source",
     "span",
     "strong",
+    "sub",
+    "sup",
     "table",
     "tbody",
     "td",
