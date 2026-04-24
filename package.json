@@ -25,7 +25,8 @@
     "test:smoke:install": "npx playwright install chromium",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test": "npm run test:smoke && npm run test:unit"
+    "test": "npm run test:smoke && npm run test:unit",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "repository": {
     "type": "git",

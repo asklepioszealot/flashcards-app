@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Pre-commit hook: staged dosyalarda API anahtarı / token sızıntısı olup olmadığını tarar.
+# Aktivasyon: bir kez `npm install` çalıştırmak yeterli (package.json "prepare" script'i
+# hooksPath'i buraya yönlendirir).
+
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  cat <<'MSG' >&2
+[pre-commit] gitleaks bulunamadi; secret taramasi atlaniyor.
+  Windows:  winget install --id gitleaks.gitleaks -e
+  macOS:    brew install gitleaks
+  Linux:    https://github.com/gitleaks/gitleaks/releases
+MSG
+  exit 0
+fi
+
+gitleaks protect --staged --redact --no-banner

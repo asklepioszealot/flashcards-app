@@ -207,6 +207,10 @@ export default defineConfig(({ mode }) => {
   const runtimeConfig = makeRuntimeConfig(env);
 
   return {
+    server: {
+      port: 1420,
+      strictPort: true,
+    },
     build: {
       outDir: "dist",
       emptyOutDir: true,

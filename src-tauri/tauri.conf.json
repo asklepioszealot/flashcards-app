@@ -5,7 +5,8 @@
   "identifier": "com.asklepioszealot.flashcards",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
   "app": {
@@ -20,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://*.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' data: https://*.gstatic.com; connect-src 'self' ipc: http://ipc.localhost https://oissnuehvkqbvhtiqoud.supabase.co wss://oissnuehvkqbvhtiqoud.supabase.co https://apis.google.com https://www.googleapis.com https://accounts.google.com https://content.googleapis.com; frame-src https://accounts.google.com https://docs.google.com https://content.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {
