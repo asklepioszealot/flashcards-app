@@ -8,6 +8,7 @@ const INLINE_CODE_PATTERN = /`([^`\n]+)`/g;
 const MEDIA_PATTERN = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 const LINK_PATTERN = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
 const WARNING_PREFIX_PATTERN = /^(?:\u26A0(?:\uFE0F)?\s*|Dikkat:\s*)/i;
+const INLINE_HTML_PASSTHROUGH_PATTERN = /<(\/?)(mark|sub|sup)\b([^>]*)>/gi;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -60,7 +61,20 @@ export function slugify(value) {
 }
 
 function renderInlineMarkdown(text) {
-  let escaped = escapeHtml(text ?? "");
+  const rawInput = String(text ?? "");
+  const htmlTokens = [];
+
+  // Preserve a small set of safe inline HTML tags (<mark>, <sub>, <sup>)
+  // through escapeHtml so the final DOMPurify sanitizer can classify them
+  // (e.g. mark[style] -> hl-* bucket class). Tokens use control characters
+  // that escapeHtml does not touch, and are restored at the very end.
+  const withHtmlTokens = rawInput.replace(INLINE_HTML_PASSTHROUGH_PATTERN, (match) => {
+    const token = `\u0001HTMLTAG${htmlTokens.length}\u0001`;
+    htmlTokens.push(match);
+    return token;
+  });
+
+  let escaped = escapeHtml(withHtmlTokens);
   const codeTokens = [];
 
   escaped = escaped.replace(INLINE_CODE_PATTERN, (_, codeText) => {
@@ -79,6 +93,10 @@ function renderInlineMarkdown(text) {
 
   codeTokens.forEach((tokenHtml, index) => {
     escaped = escaped.replace(`__CODE_TOKEN_${index}__`, tokenHtml);
+  });
+
+  htmlTokens.forEach((tagHtml, index) => {
+    escaped = escaped.replace(`\u0001HTMLTAG${index}\u0001`, tagHtml);
   });
 
   return escaped;
