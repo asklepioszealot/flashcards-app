@@ -1,5 +1,3 @@
-Elbette, düzenlenmiş İngilizce README aşağıda:
-
 ```markdown
 # Flashcards App
 
