@@ -540,12 +540,12 @@ export function parseMarkdownSet(content, fileName = "set.md", previousRecord = 
     }
 
     const h3Match = normalized.match(/^###\s+(.+)$/);
+    const soruNumberedMatch = normalized.match(/^Soru\s*:?\s*\d+[.)]?\s*(?::\s*(.*))?$/i);
     const soruInlineMatch = normalized.match(/^Soru:\s*(.+)$/i);
-    const soruNumberedMatch = normalized.match(/^Soru\s+\d+[.)]?\s*(?::\s*(.*))?$/i);
     if (h3Match || soruInlineMatch || soruNumberedMatch) {
       finalizeCurrentCard();
       const qText = (
-        h3Match ? h3Match[1] : soruInlineMatch ? soruInlineMatch[1] : soruNumberedMatch[1] || ""
+        h3Match ? h3Match[1] : soruNumberedMatch ? soruNumberedMatch[1] || "" : soruInlineMatch[1]
       ).trim();
       currentCard = {
         id: previousCards[cards.length]?.id || generateId("card"),
@@ -719,7 +719,7 @@ export function serializeSetToMarkdown(setRecord, editableCards = null) {
   const lines = [`# ${setRecord.setName}`, ""];
 
   cards.forEach((card, index) => {
-    lines.push(`### ${card.question || `Soru ${index + 1}`}`);
+    lines.push(`Soru ${index + 1}: ${card.question || `Soru ${index + 1}`}`);
     if (card.subject) {
       lines.push(`Konu: ${card.subject}`);
     }

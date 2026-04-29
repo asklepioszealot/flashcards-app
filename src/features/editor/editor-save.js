@@ -7,7 +7,7 @@ import {
   platformAdapter,
 } from "../../app/state.js";
 import { nowIso } from "../../shared/utils.js";
-import { backfillRawSource, normalizeSetRecord, slugify } from "../../core/set-codec.js";
+import { backfillRawSource, htmlToEditableMarkdown, normalizeSetRecord, slugify } from "../../core/set-codec.js";
 import { isDesktopRuntime } from "../../core/runtime-config.js";
 import {
   getCurrentEditorDraft,
@@ -27,9 +27,22 @@ import { formatEditorConflictTimestamp } from "./editor-render.js";
 function didEditorRecordChange(previousRecord, nextRecord) {
   if (!nextRecord) return false;
   if (!previousRecord) return true;
-  const previousRawSource = String(previousRecord.rawSource || backfillRawSource(previousRecord));
+
+  const previousCards = Array.isArray(previousRecord.cards) ? previousRecord.cards : [];
+  const nextCards = Array.isArray(nextRecord.cards) ? nextRecord.cards : [];
+  const sameCards =
+    previousCards.length === nextCards.length &&
+    previousCards.every((previousCard, index) => {
+      const nextCard = nextCards[index];
+      return (
+        String(previousCard?.q || "") === String(nextCard?.q || "") &&
+        htmlToEditableMarkdown(previousCard?.a || "") === htmlToEditableMarkdown(nextCard?.a || "") &&
+        String(previousCard?.subject || "") === String(nextCard?.subject || "")
+      );
+    });
+
   return (
-    previousRawSource !== String(nextRecord.rawSource || "")
+    !sameCards
     || String(previousRecord.setName || "") !== String(nextRecord.setName || "")
     || String(previousRecord.fileName || "") !== String(nextRecord.fileName || "")
     || String(previousRecord.sourceFormat || "") !== String(nextRecord.sourceFormat || "")

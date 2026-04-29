@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildEditorDraft,
   htmlToEditableMarkdown,
+  parseSetText,
   renderAnswerMarkdown,
+  serializeSetToMarkdown,
 } from "../../src/core/set-codec.js";
 
 describe("Set codec blockquote roundtrip", () => {
@@ -30,6 +32,45 @@ describe("Set codec blockquote roundtrip", () => {
     });
 
     expect(draft.cards[0]?.explanationMarkdown).toBe(markdown);
+  });
+});
+
+describe("Set codec markdown card boundaries", () => {
+  it("treats Soru:1 as a numbered card marker and reads the next line as the question", () => {
+    const parsed = parseSetText(
+      [
+        "# Klinik Kartlar",
+        "",
+        "## Kardiyoloji",
+        "Soru:1",
+        "Mitral stenozda en tipik bulgu nedir?",
+        "Diyastolik rulman.",
+        "",
+        "Soru 2.",
+        "Aort stenozunda en tipik bulgu nedir?",
+        "Sistolik ufurum.",
+      ].join("\n"),
+      "klinik.md",
+      null,
+      "markdown",
+    );
+
+    expect(parsed.cards).toHaveLength(2);
+    expect(parsed.cards[0]).toMatchObject({
+      q: "Mitral stenozda en tipik bulgu nedir?",
+      subject: "Kardiyoloji",
+    });
+    expect(parsed.cards[0].a).toContain("Diyastolik rulman.");
+    expect(parsed.cards[1]).toMatchObject({
+      q: "Aort stenozunda en tipik bulgu nedir?",
+      subject: "Kardiyoloji",
+    });
+
+    const serialized = serializeSetToMarkdown(parsed);
+    expect(serialized).toContain("Soru 1: Mitral stenozda en tipik bulgu nedir?");
+    expect(serialized).toContain("Soru 2: Aort stenozunda en tipik bulgu nedir?");
+    expect(serialized).not.toContain("###");
+    expect(serialized).not.toContain("Soru:1");
   });
 });
 
