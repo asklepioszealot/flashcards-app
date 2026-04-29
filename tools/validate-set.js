@@ -102,14 +102,21 @@ function parseMarkdownQuestions(content) {
 
     const normalized = trimmed.replace(/^\*\*(.*?)\*\*$/, "$1").trim();
     const h3Match = normalized.match(/^###(?:\s+(.+))?$/);
+    const bracketNumberMatch = normalized.match(/^\[(\d+)\]\s*(.*)$/);
     const numberedMatch = normalized.match(
       /^Soru\s*:?\s*\d+[.)]?\s*(?::\s*(.*))?$/i,
     );
     const inlineMatch = normalized.match(/^Soru:\s*(.+)$/i);
 
-    if (h3Match || inlineMatch || numberedMatch) {
+    if (h3Match || bracketNumberMatch || inlineMatch || numberedMatch) {
       const questionText = (
-        h3Match ? h3Match[1] || "" : numberedMatch ? numberedMatch[1] || "" : inlineMatch[1]
+        h3Match
+          ? h3Match[1] || ""
+          : bracketNumberMatch
+            ? bracketNumberMatch[2] || ""
+            : numberedMatch
+              ? numberedMatch[1] || ""
+              : inlineMatch[1]
       ).trim();
 
       if (questionText) {

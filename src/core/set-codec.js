@@ -540,12 +540,19 @@ export function parseMarkdownSet(content, fileName = "set.md", previousRecord = 
     }
 
     const h3Match = normalized.match(/^###\s+(.+)$/);
+    const bracketNumberMatch = normalized.match(/^\[(\d+)\]\s*(.*)$/);
     const soruNumberedMatch = normalized.match(/^Soru\s*:?\s*\d+[.)]?\s*(?::\s*(.*))?$/i);
     const soruInlineMatch = normalized.match(/^Soru:\s*(.+)$/i);
-    if (h3Match || soruInlineMatch || soruNumberedMatch) {
+    if (h3Match || bracketNumberMatch || soruInlineMatch || soruNumberedMatch) {
       finalizeCurrentCard();
       const qText = (
-        h3Match ? h3Match[1] : soruNumberedMatch ? soruNumberedMatch[1] || "" : soruInlineMatch[1]
+        h3Match
+          ? h3Match[1]
+          : bracketNumberMatch
+            ? bracketNumberMatch[2] || ""
+            : soruNumberedMatch
+              ? soruNumberedMatch[1] || ""
+              : soruInlineMatch[1]
       ).trim();
       currentCard = {
         id: previousCards[cards.length]?.id || generateId("card"),

@@ -46,7 +46,7 @@ describe("Set codec markdown card boundaries", () => {
         "Mitral stenozda en tipik bulgu nedir?",
         "Diyastolik rulman.",
         "",
-        "Soru 2.",
+        "[2]",
         "Aort stenozunda en tipik bulgu nedir?",
         "Sistolik ufurum.",
       ].join("\n"),
@@ -71,6 +71,7 @@ describe("Set codec markdown card boundaries", () => {
     expect(serialized).toContain("Soru 2: Aort stenozunda en tipik bulgu nedir?");
     expect(serialized).not.toContain("###");
     expect(serialized).not.toContain("Soru:1");
+    expect(serialized).not.toContain("[2]");
   });
 });
 
