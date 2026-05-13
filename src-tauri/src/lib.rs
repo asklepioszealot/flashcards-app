@@ -286,7 +286,10 @@ pub fn run() {
   tauri::Builder::default()
     .setup(|app| {
       #[cfg(desktop)]
-      app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+      {
+        app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+        app.handle().plugin(tauri_plugin_process::init())?;
+      }
       Ok(())
     })
     .plugin(
@@ -295,7 +298,6 @@ pub fn run() {
         .build(),
     )
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_process::init())
     .invoke_handler(tauri::generate_handler![
       list_local_sets,
       upsert_local_set,
