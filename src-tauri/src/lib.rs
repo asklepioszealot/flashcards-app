@@ -284,11 +284,11 @@ fn flush_sync(app: tauri::AppHandle, user_id: String) -> Result<Vec<SyncOperatio
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .setup(|app| {
+    .setup(|_app| {
       #[cfg(desktop)]
       {
-        app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
-        app.handle().plugin(tauri_plugin_process::init())?;
+        _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+        _app.handle().plugin(tauri_plugin_process::init())?;
       }
       Ok(())
     })
