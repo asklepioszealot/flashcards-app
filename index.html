@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' data: https: blob:; connect-src 'self' https:; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none';">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Flashcards</title>
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,6 +81,10 @@
         color: var(--color-text-primary);
         line-height: 1.6;
         padding: 20px;
+        padding-top: max(20px, env(safe-area-inset-top));
+        padding-right: max(20px, env(safe-area-inset-right));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+        padding-left: max(20px, env(safe-area-inset-left));
         min-height: 100dvh;
         transition:
           background-color 0.3s ease,
