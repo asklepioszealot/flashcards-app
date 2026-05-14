@@ -2751,6 +2751,39 @@
           justify-content: space-between;
         }
       }
+
+      @media (max-width: 480px) {
+        body {
+          padding-left: max(12px, env(safe-area-inset-left));
+          padding-right: max(12px, env(safe-area-inset-right));
+        }
+
+        .header-left h1 {
+          font-size: 22px;
+        }
+
+        .auth-card,
+        .editor-workspace,
+        .editor-split {
+          grid-template-columns: 1fr;
+        }
+
+        .auth-panel,
+        .auth-form-panel {
+          padding: 20px;
+        }
+
+        .auth-panel h1 {
+          font-size: 28px;
+        }
+
+        .editor-subject-shell {
+          flex-basis: 100%;
+          width: 100%;
+          min-width: 0;
+          max-width: none;
+        }
+      }
       /* SET MANAGER CSS */
       .set-manager {
         position: fixed;
