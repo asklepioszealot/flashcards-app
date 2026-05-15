@@ -1,3 +1,5 @@
+mod google_auth;
+
 use std::{
   fs,
   path::{Path, PathBuf},
@@ -298,6 +300,7 @@ pub fn run() {
         .build(),
     )
     .plugin(tauri_plugin_dialog::init())
+    .plugin(google_auth::init())
     .invoke_handler(tauri::generate_handler![
       list_local_sets,
       upsert_local_set,
@@ -305,7 +308,8 @@ pub fn run() {
       queue_sync,
       flush_sync,
       pick_native_set_files,
-      write_set_source_file
+      write_set_source_file,
+      google_auth::sign_in_with_google
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
