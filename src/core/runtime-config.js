@@ -43,6 +43,16 @@ export function hasDriveConfig() {
   return Boolean(config.driveClientId && config.driveApiKey);
 }
 
-export function isDesktopRuntime() {
+export function isTauriRuntime() {
   return Boolean(globalScope.__TAURI__?.core?.invoke);
+}
+
+export function isAndroidRuntime() {
+  if (!isTauriRuntime()) return false;
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  return /android/i.test(ua);
+}
+
+export function isDesktopRuntime() {
+  return isTauriRuntime() && !isAndroidRuntime();
 }
