@@ -244,6 +244,12 @@ export function bindStaticEvents() {
       if (event.target.closest("a, button")) return;
       flipCard();
     });
+    import("../features/study/card-swipe.js").then(({ bindCardSwipe }) => {
+      bindCardSwipe(document.getElementById("flashcard"), {
+        onSwipeLeft: () => nextCard(),
+        onSwipeRight: () => previousCard(),
+      });
+    });
     bindEvent(document.getElementById("fullscreen-toggle-btn"), "click", (event) => {
       event.stopPropagation();
       toggleFullscreen();
