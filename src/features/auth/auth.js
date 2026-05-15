@@ -98,6 +98,23 @@ export async function handleDemoAuth() {
   }
 }
 
+export async function handleGoogleAuth() {
+  if (typeof platformAdapter.signInWithGoogle !== "function") {
+    showAuthStatus("Google girişi bu yapılandırmada desteklenmiyor.", "error");
+    return;
+  }
+  const rememberMe = readRememberMeFromForm();
+  setRememberMePreference(rememberMe);
+  try {
+    showAuthStatus("Google hesabıyla giriş yapılıyor...");
+    await platformAdapter.signInWithGoogle({ rememberMe });
+    showAuthStatus("", "");
+  } catch (error) {
+    console.error(error);
+    showAuthStatus(error.message || "Google girişi başarısız oldu.", "error");
+  }
+}
+
 export async function signOut() {
   try {
     await platformAdapter.signOut();

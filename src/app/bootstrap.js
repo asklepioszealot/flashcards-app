@@ -6,11 +6,12 @@ import { AppStorage } from "../core/storage.js";
 import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
-import { hasDriveConfig, hasSupabaseConfig } from "../core/runtime-config.js";
+import { hasDriveConfig, hasSupabaseConfig, isAndroidRuntime } from "../core/runtime-config.js";
 import {
   attemptAuth,
   handleAuthStateChange,
   handleDemoAuth,
+  handleGoogleAuth,
   setRememberMePreference,
   showAuthStatus,
   signOut,
@@ -113,6 +114,7 @@ export function bindStaticEvents() {
   });
   bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
   bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
+  bindEvent(document.getElementById("auth-google-btn"), "click", () => void handleGoogleAuth());
   bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
     setRememberMePreference(event.currentTarget?.checked !== false);
   });
@@ -343,6 +345,7 @@ export function bindStaticEvents() {
   });
 
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
+  if (!isAndroidRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
   syncDriveImportButton();
   syncDesktopUpdateButton();
 }
