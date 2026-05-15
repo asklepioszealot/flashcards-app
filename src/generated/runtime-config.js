@@ -6,6 +6,8 @@ const DEFAULT_RUNTIME_CONFIG = Object.freeze({
   driveClientId: "",
   driveApiKey: "",
   driveAppId: "",
+  googleWebClientId: "",
+  googleAndroidClientId: "",
 });
 
 export const APP_CONFIG = Object.freeze(

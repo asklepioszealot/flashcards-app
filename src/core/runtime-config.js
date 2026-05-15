@@ -14,6 +14,8 @@ const DEFAULT_CONFIG = Object.freeze({
   driveClientId: "",
   driveApiKey: "",
   driveAppId: "",
+  googleWebClientId: "",
+  googleAndroidClientId: "",
 });
 
 export function getRuntimeConfig() {
