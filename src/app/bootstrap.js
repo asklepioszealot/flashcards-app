@@ -257,6 +257,9 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("export-format"), "change", () => toggleExportWarning());
     bindEvent(document.getElementById("export-submit-btn"), "click", () => void executeExport());
     bindAll("[data-export-close]", "click", () => closeExportModal());
+    bindEvent(document.getElementById("export-modal"), "click", (event) => {
+      if (event.target === event.currentTarget) closeExportModal();
+    });
     bindAll("[data-filter-value]", "click", (event) => {
       setFilter(event.currentTarget?.dataset.filterValue || "all");
     });
@@ -272,6 +275,9 @@ export function bindStaticEvents() {
   });
 
   bindEvent(document.getElementById("drive-close-btn"), "click", closeDriveModal);
+  bindEvent(document.getElementById("drive-modal"), "click", (event) => {
+    if (event.target === event.currentTarget) closeDriveModal();
+  });
   bindEvent(document.getElementById("undo-toast-btn"), "click", async () => {
     const { undoLastRemoval } = await import("../features/set-manager/undo-toast.js");
     undoLastRemoval();
