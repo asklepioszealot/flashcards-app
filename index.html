@@ -684,6 +684,8 @@
         border: 1px solid var(--color-border);
         text-align: left;
         vertical-align: top;
+        word-break: break-word;
+        overflow-wrap: anywhere;
       }
 
       .card-back .card-content th,
@@ -1729,7 +1731,7 @@
         max-width: none;
         margin: 12px 0 0;
         overflow: visible;
-        min-height: 70vh;
+        min-height: 70dvh;
       }
 
       .editor-workspace.is-list-open {
@@ -2423,6 +2425,8 @@
       .editor-tool-btn--icon {
         width: 44px;
         min-width: 44px;
+        height: 44px;
+        min-height: 44px;
         padding-inline: 0;
         justify-content: center;
       }
@@ -2757,6 +2761,10 @@
         body {
           padding-left: max(12px, env(safe-area-inset-left));
           padding-right: max(12px, env(safe-area-inset-right));
+        }
+
+        .kbd-hint {
+          display: none;
         }
 
         .header-left h1 {
@@ -3340,7 +3348,7 @@
         border-radius: 16px;
         width: 90%;
         max-width: 500px;
-        max-height: 80vh;
+        max-height: 80dvh;
         display: flex;
         flex-direction: column;
         border: 1px solid var(--color-border);
@@ -3864,6 +3872,8 @@
             name="jump-input"
             min="1"
             max="20"
+            inputmode="numeric"
+            pattern="[0-9]*"
             placeholder="Soru No"
             aria-label="Soru numarasına git"
           />
