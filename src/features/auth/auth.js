@@ -110,8 +110,14 @@ export async function handleGoogleAuth() {
     await platformAdapter.signInWithGoogle({ rememberMe });
     showAuthStatus("", "");
   } catch (error) {
-    console.error(error);
-    showAuthStatus(error.message || "Google girişi başarısız oldu.", "error");
+    console.error("[handleGoogleAuth] failed:", error);
+    const message =
+      typeof error === "string"
+        ? error
+        : error?.message
+          || (typeof error?.toString === "function" ? error.toString() : null)
+          || "Google girişi başarısız oldu.";
+    showAuthStatus(message, "error");
   }
 }
 
