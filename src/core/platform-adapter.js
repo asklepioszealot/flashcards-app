@@ -434,6 +434,10 @@ function createMockAdapter(config, storage) {
       return { ...currentUser };
     },
 
+    async signInWithGoogle() {
+      throw new Error("Google girişi mock kimlik doğrulama modunda kullanılamaz.");
+    },
+
     async signOut() {
       currentUser = null;
       authSessionStorage.removeItem(MOCK_SESSION_KEY);
@@ -813,6 +817,33 @@ function createSupabaseAdapter(config, storage) {
         user: currentUser,
         needsConfirmation: !data.session,
       };
+    },
+
+    async signInWithGoogle(options = {}) {
+      const runtimeConfig = getRuntimeConfig();
+      const webClientId = runtimeConfig.googleWebClientId;
+      if (!webClientId) {
+        throw new Error("Google Web Client ID yapılandırılmamış (runtime-config).");
+      }
+      const invoke = typeof window !== "undefined"
+        ? window.__TAURI__?.core?.invoke
+        : null;
+      if (typeof invoke !== "function") {
+        throw new Error("Native Google girişi yalnızca Tauri Android sürümünde kullanılabilir.");
+      }
+      const response = await invoke("sign_in_with_google", { webClientId });
+      const idToken = response?.idToken;
+      if (!idToken) {
+        throw new Error("Google ID token alınamadı.");
+      }
+      const { data, error } = await client.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      });
+      if (error) throw error;
+      authSessionStorage.setRememberMePreference(options.rememberMe);
+      currentUser = data.user || null;
+      return currentUser;
     },
 
     async signInDemo(_options = {}) {
