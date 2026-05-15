@@ -479,7 +479,7 @@ export function bindEditorTextareaState(draft, textarea) {
   textarea.addEventListener("click", syncSelection);
   textarea.addEventListener("input", () => syncEditorFieldFromTextarea(draft, textarea));
   textarea.addEventListener("keyup", syncSelection);
-  textarea.addEventListener("mouseup", () => {
+  textarea.addEventListener("pointerup", () => {
     syncSelection();
     saveEditorFieldHeight(draft, textarea);
   });
@@ -495,7 +495,6 @@ export function bindEditorTextareaState(draft, textarea) {
 
 export function bindEditorPreviewState(draft, preview) {
   const syncPreviewHeight = () => saveEditorFieldHeight(draft, preview);
-  preview.addEventListener("mouseup", syncPreviewHeight);
   preview.addEventListener("pointerup", syncPreviewHeight);
 
   if (typeof ResizeObserver === "function") {
@@ -602,7 +601,7 @@ export function bindEditorEvents(draft) {
     });
   });
   document.querySelectorAll("[data-md-action]").forEach((button) => {
-    button.addEventListener("mousedown", (event) => {
+    button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
@@ -632,7 +631,7 @@ export function bindEditorEvents(draft) {
     });
   });
   document.querySelectorAll("[data-editor-attachment-toggle]").forEach((button) => {
-    button.addEventListener("mousedown", (event) => {
+    button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
@@ -644,7 +643,7 @@ export function bindEditorEvents(draft) {
     });
   });
   document.querySelectorAll("[data-editor-card-nav]").forEach((button) => {
-    button.addEventListener("mousedown", (event) => {
+    button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
     });
     button.addEventListener("click", () => {
