@@ -40,9 +40,10 @@ pub async fn sign_in_with_google<R: Runtime>(
 ) -> Result<SignInResponse, String> {
   #[cfg(target_os = "android")]
   {
-    let handle = app
-      .try_state::<GoogleAuth<R>>()
-      .ok_or_else(|| "Google auth plugin not initialised".to_string())?;
+    let handle = app.try_state::<GoogleAuth<R>>().ok_or_else(|| {
+      "GoogleAuthPlugin native bridge yüklenmedi. Build loglarını kontrol et."
+        .to_string()
+    })?;
     let response: SignInResponse = handle
       .0
       .run_mobile_plugin("signIn", SignInArgs { web_client_id })
@@ -68,8 +69,24 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     .setup(|app, api| {
       #[cfg(target_os = "android")]
       {
-        let handle = api.register_android_plugin(PLUGIN_IDENTIFIER, PLUGIN_CLASS)?;
-        app.manage(GoogleAuth(handle));
+        // Don't `?` the registration: if the Kotlin plugin class can't be
+        // resolved (annotation processor missing, ClassNotFoundException, etc.)
+        // we don't want the whole app to fail to start. Log it and continue;
+        // calling sign_in_with_google later will return a clean error because
+        // the GoogleAuth state never got managed.
+        match api.register_android_plugin(PLUGIN_IDENTIFIER, PLUGIN_CLASS) {
+          Ok(handle) => {
+            app.manage(GoogleAuth(handle));
+          }
+          Err(error) => {
+            log::error!(
+              "GoogleAuthPlugin native registration failed: {} (identifier={}, class={})",
+              error,
+              PLUGIN_IDENTIFIER,
+              PLUGIN_CLASS,
+            );
+          }
+        }
       }
       #[cfg(not(target_os = "android"))]
       {
