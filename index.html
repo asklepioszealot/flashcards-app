@@ -3231,6 +3231,14 @@
         .fullscreen-toggle-btn {
           opacity: 1;
         }
+
+        /* On touch, :hover fires on tap and sticks until the user taps
+           elsewhere. Neutralize the lift-on-hover transforms so tapped
+           controls don't stay visually displaced. Color/background
+           hovers are left alone — they revert naturally. */
+        *:hover {
+          transform: none !important;
+        }
       }
 
       .card-container.fullscreen-active {
