@@ -25,7 +25,16 @@ import { updateManagerUserChip } from "../features/set-manager/set-manager.js";
 
 export function markAppReady() {
   document.body.classList.remove("app-booting");
+  dismissAppSplash();
   scheduleStartupDesktopUpdateCheck();
+}
+
+function dismissAppSplash() {
+  const splash = document.getElementById("app-splash");
+  if (!splash) return;
+  const finalize = () => splash.classList.add("is-removed");
+  splash.addEventListener("transitionend", finalize, { once: true });
+  setTimeout(finalize, 800);
 }
 
 export function syncThemeControlsUI() {

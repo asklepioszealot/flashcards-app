@@ -1493,6 +1493,68 @@
         pointer-events: none;
       }
 
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--color-bg-primary, #ffffff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition: opacity 280ms ease-out;
+      }
+
+      body:not(.app-booting) #app-splash {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #app-splash.is-removed {
+        display: none;
+      }
+
+      .app-splash-inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        animation: app-splash-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .app-splash-logo {
+        width: 128px;
+        height: 128px;
+        border-radius: 28px;
+        box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
+        animation: app-splash-pulse 1800ms ease-in-out infinite;
+      }
+
+      .app-splash-name {
+        font-family: var(--font-heading, system-ui, sans-serif);
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--color-text-primary, #0f172a);
+        text-transform: uppercase;
+      }
+
+      @keyframes app-splash-rise {
+        from { opacity: 0; transform: translateY(8px) scale(0.96); }
+        to   { opacity: 1; transform: none; }
+      }
+
+      @keyframes app-splash-pulse {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.04); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-splash-inner { animation: none; }
+        .app-splash-logo { animation: none; }
+        #app-splash { transition: opacity 120ms linear; }
+      }
+
       .auth-screen {
         display: flex;
         align-items: center;
@@ -3539,6 +3601,12 @@
     </style>
   </head>
   <body class="app-booting">
+    <div id="app-splash" aria-hidden="true">
+      <div class="app-splash-inner">
+        <img src="./app-icon.png" alt="" class="app-splash-logo" />
+        <div class="app-splash-name">Flashcards</div>
+      </div>
+    </div>
     <svg class="app-icon-sprite" aria-hidden="true" focusable="false">
       <symbol id="icon-file-text" viewBox="0 0 24 24">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
