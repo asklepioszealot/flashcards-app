@@ -595,13 +595,19 @@ export function showSetManager() {
 
 export function openExportModal() {
   const modal = document.getElementById('export-modal');
-  if (modal) modal.style.display = 'block';
+  if (modal) {
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
   toggleExportWarning();
 }
 
 export function closeExportModal() {
   const modal = document.getElementById('export-modal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
 }
 
 export function toggleExportWarning() {
