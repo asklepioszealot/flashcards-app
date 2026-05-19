@@ -120,8 +120,14 @@ export function bindStaticEvents() {
   });
   bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
 
-  import("../features/desktop-update/desktop-update.js").then(({ checkDesktopForUpdates }) => {
-    bindEvent(document.getElementById("check-updates-btn"), "click", () => void checkDesktopForUpdates("manual"));
+  bindEvent(document.getElementById("check-updates-btn"), "click", () => {
+    if (isAndroidRuntime()) {
+      void import("../features/android-update/android-update.js")
+        .then(({ checkAndroidForUpdates }) => checkAndroidForUpdates("manual"));
+      return;
+    }
+    void import("../features/desktop-update/desktop-update.js")
+      .then(({ checkDesktopForUpdates }) => checkDesktopForUpdates("manual"));
   });
 
   import("../features/editor/editor-state.js").then(({ closeEditor, toggleEditorViewMode, openEditorForSelectedSets }) => {
@@ -358,7 +364,16 @@ export function bindStaticEvents() {
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
   if (!isAndroidRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
   syncDriveImportButton();
-  syncDesktopUpdateButton();
+  if (isAndroidRuntime()) {
+    const updateButton = document.getElementById("check-updates-btn");
+    if (updateButton) {
+      updateButton.hidden = false;
+      updateButton.disabled = false;
+      updateButton.textContent = "Güncellemeleri Kontrol Et";
+    }
+  } else {
+    syncDesktopUpdateButton();
+  }
 }
 
 export async function bootstrap() {
