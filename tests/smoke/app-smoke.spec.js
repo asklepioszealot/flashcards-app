@@ -26,7 +26,6 @@ const EXPECTED_THEME_OPTIONS = [
   "Desert Rose",
   "Tech Innovation",
   "Botanical Garden",
-  "Midnight Galaxy",
 ];
 const FIELD_SEPARATOR = "\u001f";
 
