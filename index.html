@@ -3364,25 +3364,50 @@
 
       @media (max-width: 1100px) {
         .card-container.fullscreen-active .fullscreen-nav-bar {
-          grid-template-columns: 1fr;
-          justify-items: stretch;
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          grid-template-columns: none;
+          gap: 8px;
+          align-items: stretch;
+        }
+
+        .fullscreen-nav-bar .nav-btn {
+          flex: 0 0 auto;
+          width: 48px;
+          min-width: 48px;
+          padding: 0;
+          gap: 0;
         }
 
         .fullscreen-nav-bar .nav-btn:first-child,
         .fullscreen-nav-bar .nav-btn:last-child {
           grid-column: auto;
-          justify-self: stretch;
-          width: 100%;
+          justify-self: auto;
+        }
+
+        .fullscreen-nav-bar .nav-btn-label {
+          display: none;
         }
 
         .fullscreen-nav-bar .fullscreen-assessment-panel {
           grid-column: auto;
-          flex-wrap: wrap;
+          flex: 1 1 auto;
+          flex-wrap: nowrap;
+          min-width: 0;
+          gap: 6px;
         }
 
         .fullscreen-nav-bar .assess-btn {
-          flex: 1 1 180px;
+          flex: 1 1 0;
           min-width: 0;
+          padding: 8px;
+          font-size: 13px;
+          gap: 0;
+        }
+
+        .fullscreen-nav-bar .assess-btn > span {
+          display: none;
         }
       }
 
@@ -4118,26 +4143,26 @@
           </div>
         </div>
         <div class="fullscreen-nav-bar" id="fullscreen-nav-bar">
-          <button class="nav-btn" data-nav-direction="previous" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+          <button class="nav-btn" data-nav-direction="previous" aria-label="Önceki" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Önceki
+            <span class="nav-btn-label">Önceki</span>
           </button>
           <div class="fullscreen-assessment-panel">
-            <button class="assess-btn know" data-assessment-value="know" title="Klavye: 1">
+            <button class="assess-btn know" data-assessment-value="know" aria-label="Tamam" title="Klavye: 1">
               <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-check-circle"></use></svg>
               <span>Tamam</span>
             </button>
-            <button class="assess-btn review" data-assessment-value="review" title="Klavye: 2">
+            <button class="assess-btn review" data-assessment-value="review" aria-label="Tekrar Göz At" title="Klavye: 2">
               <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-clock"></use></svg>
               <span>Tekrar Göz At</span>
             </button>
-            <button class="assess-btn dunno" data-assessment-value="dunno" title="Klavye: 3">
+            <button class="assess-btn dunno" data-assessment-value="dunno" aria-label="Bilmiyorum" title="Klavye: 3">
               <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-x-circle"></use></svg>
               <span>Bilmiyorum</span>
             </button>
           </div>
-          <button class="nav-btn" data-nav-direction="next" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-            Sonraki
+          <button class="nav-btn" data-nav-direction="next" aria-label="Sonraki" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <span class="nav-btn-label">Sonraki</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
