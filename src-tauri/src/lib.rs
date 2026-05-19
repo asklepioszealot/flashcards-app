@@ -1,3 +1,4 @@
+mod android_updater;
 mod google_auth;
 
 use std::{
@@ -301,6 +302,7 @@ pub fn run() {
     )
     .plugin(tauri_plugin_dialog::init())
     .plugin(google_auth::init())
+    .plugin(android_updater::init())
     .invoke_handler(tauri::generate_handler![
       list_local_sets,
       upsert_local_set,
@@ -309,7 +311,8 @@ pub fn run() {
       flush_sync,
       pick_native_set_files,
       write_set_source_file,
-      google_auth::sign_in_with_google
+      google_auth::sign_in_with_google,
+      android_updater::download_and_install_apk
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
