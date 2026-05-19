@@ -19,7 +19,7 @@ export function bindCardSwipe(element, { onSwipeLeft, onSwipeRight } = {}) {
   let startY = 0;
   let startedAt = 0;
   let activePointerId = null;
-  let lastSwipeAt = 0;
+  let lastSwipeAt = Number.NEGATIVE_INFINITY;
 
   const reset = () => {
     activePointerId = null;
@@ -59,9 +59,12 @@ export function bindCardSwipe(element, { onSwipeLeft, onSwipeRight } = {}) {
 
   // Suppress the synthetic click that follows a swipe so flipCard doesn't fire.
   // Use the capture phase to intercept before the existing click handler.
+  // lastSwipeAt starts at -Infinity so the very first click (no prior swipe)
+  // never trips the suppressor, even if event.timeStamp is small.
   element.addEventListener(
     "click",
     (event) => {
+      if (!Number.isFinite(lastSwipeAt)) return;
       const now = event.timeStamp || Date.now();
       if (now - lastSwipeAt < 350) {
         event.stopImmediatePropagation();
