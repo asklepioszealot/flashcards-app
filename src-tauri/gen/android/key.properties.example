@@ -1,0 +1,16 @@
+# Release keystore signing config.
+#
+# Copy this file to `key.properties` (same directory) and fill in real values.
+# `key.properties` is gitignored — do NOT commit it. Keep it out of any
+# cloud sync that has team access; treat it the same way you would treat
+# the .jks file itself.
+#
+# storeFile  — absolute path to the release keystore (.jks)
+# storePassword / keyPassword — what you entered during `keytool -genkey`
+# keyAlias   — the `-alias` value passed to `keytool -genkey`
+#              (we used "flashcards-release" in the setup guide)
+
+storeFile=C:/Users/Ahmet/.android/flashcards-release.jks
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyAlias=flashcards-release
+keyPassword=YOUR_KEYSTORE_PASSWORD_HERE

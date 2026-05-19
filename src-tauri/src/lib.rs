@@ -1,3 +1,6 @@
+mod android_updater;
+mod google_auth;
+
 use std::{
   fs,
   path::{Path, PathBuf},
@@ -284,9 +287,12 @@ fn flush_sync(app: tauri::AppHandle, user_id: String) -> Result<Vec<SyncOperatio
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .setup(|app| {
+    .setup(|_app| {
       #[cfg(desktop)]
-      app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+      {
+        _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+        _app.handle().plugin(tauri_plugin_process::init())?;
+      }
       Ok(())
     })
     .plugin(
@@ -295,7 +301,8 @@ pub fn run() {
         .build(),
     )
     .plugin(tauri_plugin_dialog::init())
-    .plugin(tauri_plugin_process::init())
+    .plugin(google_auth::init())
+    .plugin(android_updater::init())
     .invoke_handler(tauri::generate_handler![
       list_local_sets,
       upsert_local_set,
@@ -303,7 +310,9 @@ pub fn run() {
       queue_sync,
       flush_sync,
       pick_native_set_files,
-      write_set_source_file
+      write_set_source_file,
+      google_auth::sign_in_with_google,
+      android_updater::download_and_install_apk
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

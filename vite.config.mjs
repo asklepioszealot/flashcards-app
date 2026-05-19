@@ -138,6 +138,8 @@ function makeRuntimeConfig(env = process.env) {
       driveClientId: "",
       driveApiKey: "",
       driveAppId: "",
+      googleWebClientId: "",
+      googleAndroidClientId: "",
     };
   }
 
@@ -164,6 +166,10 @@ function makeRuntimeConfig(env = process.env) {
   const driveClientId = env.DRIVE_CLIENT_ID || localRuntimeConfig.driveClientId || "";
   const driveApiKey = env.DRIVE_API_KEY || localRuntimeConfig.driveApiKey || "";
   const driveAppId = env.DRIVE_APP_ID || localRuntimeConfig.driveAppId || "";
+  const googleWebClientId =
+    env.GOOGLE_WEB_CLIENT_ID || localRuntimeConfig.googleWebClientId || "";
+  const googleAndroidClientId =
+    env.GOOGLE_ANDROID_CLIENT_ID || localRuntimeConfig.googleAndroidClientId || "";
 
   return {
     supabaseUrl,
@@ -173,6 +179,8 @@ function makeRuntimeConfig(env = process.env) {
     driveClientId,
     driveApiKey,
     driveAppId,
+    googleWebClientId,
+    googleAndroidClientId,
   };
 }
 
@@ -205,11 +213,17 @@ export default defineConfig(({ mode }) => {
   };
   const buildInfo = makeBuildInfo();
   const runtimeConfig = makeRuntimeConfig(env);
+  const tauriDevHost = process.env.TAURI_DEV_HOST;
 
   return {
     server: {
       port: 1420,
       strictPort: true,
+      host: tauriDevHost || false,
+      hmr: tauriDevHost
+        ? { protocol: "ws", host: tauriDevHost, port: 1421 }
+        : undefined,
+      watch: { ignored: ["**/src-tauri/**"] },
     },
     build: {
       outDir: "dist",

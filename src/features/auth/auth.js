@@ -98,6 +98,29 @@ export async function handleDemoAuth() {
   }
 }
 
+export async function handleGoogleAuth() {
+  if (typeof platformAdapter.signInWithGoogle !== "function") {
+    showAuthStatus("Google girişi bu yapılandırmada desteklenmiyor.", "error");
+    return;
+  }
+  const rememberMe = readRememberMeFromForm();
+  setRememberMePreference(rememberMe);
+  try {
+    showAuthStatus("Google hesabıyla giriş yapılıyor...");
+    await platformAdapter.signInWithGoogle({ rememberMe });
+    showAuthStatus("", "");
+  } catch (error) {
+    console.error("[handleGoogleAuth] failed:", error);
+    const message =
+      typeof error === "string"
+        ? error
+        : error?.message
+          || (typeof error?.toString === "function" ? error.toString() : null)
+          || "Google girişi başarısız oldu.";
+    showAuthStatus(message, "error");
+  }
+}
+
 export async function signOut() {
   try {
     await platformAdapter.signOut();

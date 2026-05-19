@@ -25,7 +25,7 @@ import {
   slugify,
   generateId,
 } from "../../core/set-codec.js";
-import { isDesktopRuntime, hasSupabaseConfig } from "../../core/runtime-config.js";
+import { isAndroidRuntime, isDesktopRuntime, hasSupabaseConfig } from "../../core/runtime-config.js";
 import { getAssessmentLevel } from "../study/assessment.js";
 import { parseApkgToSetRecord } from "../importers/apkg-import.js";
 import { showUndoToast } from "./undo-toast.js";
@@ -739,12 +739,22 @@ export function updateManagerUserChip() {
   const chip = document.getElementById("manager-user-chip");
   const signOutButton = document.getElementById("sign-out-btn");
   if (chip) {
+    const isDesktop = isDesktopRuntime();
     const runtimeLabel = hasSupabaseConfig()
-      ? window.__TAURI__?.core?.invoke ? "Bulut + Masaüstü Cache" : "Bulut"
-      : window.__TAURI__?.core?.invoke ? "Yerel Demo + Masaüstü Cache" : "Yerel Demo";
+      ? isDesktop ? "Bulut + Masaüstü Cache" : "Bulut"
+      : isDesktop ? "Yerel Demo + Masaüstü Cache" : "Yerel Demo";
     chip.textContent = currentUser ? `Hesap: ${currentUser.email || currentUser.id} · ${runtimeLabel}` : "Hesap: oturum kapalı";
   }
   if (signOutButton) signOutButton.disabled = !currentUser;
+  if (isAndroidRuntime()) {
+    const updateButton = document.getElementById("check-updates-btn");
+    if (updateButton) {
+      updateButton.hidden = false;
+      updateButton.disabled = false;
+      updateButton.textContent = "Güncellemeleri Kontrol Et";
+    }
+    return;
+  }
   import("../desktop-update/desktop-update.js").then(({ syncDesktopUpdateButton }) => syncDesktopUpdateButton());
 }
 

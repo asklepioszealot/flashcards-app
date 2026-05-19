@@ -4,7 +4,7 @@
 import {
   DRIVE_SCOPES,
 } from "../../shared/constants.js";
-import { getRuntimeConfig, hasDriveConfig } from "../../core/runtime-config.js";
+import { getRuntimeConfig, hasDriveConfig, isTauriRuntime } from "../../core/runtime-config.js";
 import {
   tokenClient, setTokenClient,
   driveAccessToken, setDriveAccessToken,
@@ -62,8 +62,8 @@ export function launchDrivePicker() {
     alert(getMissingDriveConfigMessage());
     return;
   }
-  if (window.__TAURI__?.core?.invoke) {
-    alert("Tauri masaüstü sürümünde Google Picker penceresi desteklenmiyor.");
+  if (isTauriRuntime()) {
+    alert("Tauri sürümünde Google Picker penceresi desteklenmiyor.");
     return;
   }
   const { driveApiKey, driveAppId } = getDriveConfig();

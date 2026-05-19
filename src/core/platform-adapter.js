@@ -21,6 +21,33 @@ import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
 const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
+const SET_CACHE_KEY_PREFIX = `${APP_NAMESPACE}::sets::cache::`;
+
+function setCacheKey(userId) {
+  return `${SET_CACHE_KEY_PREFIX}${userId}`;
+}
+
+function readSetCache(userId) {
+  if (!userId || typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(setCacheKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSetCache(userId, sets) {
+  if (!userId || typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(setCacheKey(userId), JSON.stringify(sets || []));
+  } catch (error) {
+    // Quota exceeded or storage disabled — cache is a hint, not a contract.
+    console.warn("[platform-adapter] set cache write failed:", error?.message || error);
+  }
+}
 const STUDY_STATE_FALLBACK_SET_ID_PREFIX = `${APP_NAMESPACE}::system::study-state::`;
 const STUDY_STATE_FALLBACK_SLUG = "__system-study-state__";
 const STUDY_STATE_FALLBACK_SET_NAME = "__system_study_state__";
@@ -434,6 +461,10 @@ function createMockAdapter(config, storage) {
       return { ...currentUser };
     },
 
+    async signInWithGoogle() {
+      throw new Error("Google girişi mock kimlik doğrulama modunda kullanılamaz.");
+    },
+
     async signOut() {
       currentUser = null;
       authSessionStorage.removeItem(MOCK_SESSION_KEY);
@@ -443,6 +474,10 @@ function createMockAdapter(config, storage) {
     async loadSets() {
       if (!currentUser) return [];
       return readUserSets(currentUser.id);
+    },
+
+    loadSetsFromCache() {
+      return [];
     },
 
     async pickNativeSetFiles() {
@@ -815,6 +850,33 @@ function createSupabaseAdapter(config, storage) {
       };
     },
 
+    async signInWithGoogle(options = {}) {
+      const runtimeConfig = getRuntimeConfig();
+      const webClientId = runtimeConfig.googleWebClientId;
+      if (!webClientId) {
+        throw new Error("Google Web Client ID yapılandırılmamış (runtime-config).");
+      }
+      const invoke = typeof window !== "undefined"
+        ? window.__TAURI__?.core?.invoke
+        : null;
+      if (typeof invoke !== "function") {
+        throw new Error("Native Google girişi yalnızca Tauri Android sürümünde kullanılabilir.");
+      }
+      const response = await invoke("sign_in_with_google", { webClientId });
+      const idToken = response?.idToken;
+      if (!idToken) {
+        throw new Error("Google ID token alınamadı.");
+      }
+      const { data, error } = await client.auth.signInWithIdToken({
+        provider: "google",
+        token: idToken,
+      });
+      if (error) throw error;
+      authSessionStorage.setRememberMePreference(options.rememberMe);
+      currentUser = data.user || null;
+      return currentUser;
+    },
+
     async signInDemo(_options = {}) {
       throw new Error("Demo girişi bu yapılandırmada kapalı.");
     },
@@ -836,11 +898,18 @@ function createSupabaseAdapter(config, storage) {
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
-      return normalizeSetCollection(
+      const normalized = normalizeSetCollection(
         (data || [])
           .filter((row) => !isStudyStateFallbackRow(row))
           .map(mapRowToRecord),
       );
+      writeSetCache(user.id, normalized);
+      return normalized;
+    },
+
+    loadSetsFromCache() {
+      if (!currentUser?.id) return [];
+      return readSetCache(currentUser.id);
     },
 
     async getLatestSet(setId) {

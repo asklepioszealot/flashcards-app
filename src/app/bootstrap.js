@@ -6,11 +6,12 @@ import { AppStorage } from "../core/storage.js";
 import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
-import { hasDriveConfig, hasSupabaseConfig } from "../core/runtime-config.js";
+import { hasDriveConfig, hasSupabaseConfig, isAndroidRuntime } from "../core/runtime-config.js";
 import {
   attemptAuth,
   handleAuthStateChange,
   handleDemoAuth,
+  handleGoogleAuth,
   setRememberMePreference,
   showAuthStatus,
   signOut,
@@ -113,13 +114,20 @@ export function bindStaticEvents() {
   });
   bindEvent(document.getElementById("auth-signup-btn"), "click", () => void attemptAuth("signup"));
   bindEvent(document.getElementById("auth-demo-btn"), "click", () => void handleDemoAuth());
+  bindEvent(document.getElementById("auth-google-btn"), "click", () => void handleGoogleAuth());
   bindEvent(document.getElementById("auth-remember-me"), "change", (event) => {
     setRememberMePreference(event.currentTarget?.checked !== false);
   });
   bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
 
-  import("../features/desktop-update/desktop-update.js").then(({ checkDesktopForUpdates }) => {
-    bindEvent(document.getElementById("check-updates-btn"), "click", () => void checkDesktopForUpdates("manual"));
+  bindEvent(document.getElementById("check-updates-btn"), "click", () => {
+    if (isAndroidRuntime()) {
+      void import("../features/android-update/android-update.js")
+        .then(({ checkAndroidForUpdates }) => checkAndroidForUpdates("manual"));
+      return;
+    }
+    void import("../features/desktop-update/desktop-update.js")
+      .then(({ checkDesktopForUpdates }) => checkDesktopForUpdates("manual"));
   });
 
   import("../features/editor/editor-state.js").then(({ closeEditor, toggleEditorViewMode, openEditorForSelectedSets }) => {
@@ -244,6 +252,12 @@ export function bindStaticEvents() {
       if (event.target.closest("a, button")) return;
       flipCard();
     });
+    import("../features/study/card-swipe.js").then(({ bindCardSwipe }) => {
+      bindCardSwipe(document.getElementById("flashcard"), {
+        onSwipeLeft: () => nextCard(),
+        onSwipeRight: () => previousCard(),
+      });
+    });
     bindEvent(document.getElementById("fullscreen-toggle-btn"), "click", (event) => {
       event.stopPropagation();
       toggleFullscreen();
@@ -251,6 +265,9 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("export-format"), "change", () => toggleExportWarning());
     bindEvent(document.getElementById("export-submit-btn"), "click", () => void executeExport());
     bindAll("[data-export-close]", "click", () => closeExportModal());
+    bindEvent(document.getElementById("export-modal"), "click", (event) => {
+      if (event.target === event.currentTarget) closeExportModal();
+    });
     bindAll("[data-filter-value]", "click", (event) => {
       setFilter(event.currentTarget?.dataset.filterValue || "all");
     });
@@ -266,6 +283,9 @@ export function bindStaticEvents() {
   });
 
   bindEvent(document.getElementById("drive-close-btn"), "click", closeDriveModal);
+  bindEvent(document.getElementById("drive-modal"), "click", (event) => {
+    if (event.target === event.currentTarget) closeDriveModal();
+  });
   bindEvent(document.getElementById("undo-toast-btn"), "click", async () => {
     const { undoLastRemoval } = await import("../features/set-manager/undo-toast.js");
     undoLastRemoval();
@@ -274,6 +294,17 @@ export function bindStaticEvents() {
   const loadEditorSaveModule = () => import("../features/editor/editor-save.js");
   const loadStudyModule = () => import("../features/study/study.js");
   const loadAssessmentModule = () => import("../features/study/assessment.js");
+
+  // Flush any pending Supabase study-state snapshot when the page is being
+  // hidden (Android: app sent to background, tab switch, OS task killer).
+  // Without this, the 600ms debounce in scheduleRemoteStudyStateSync can lose
+  // the last few seconds of work if the OS suspends the process.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return;
+    import("../features/study-state/study-state.js")
+      .then(({ flushRemoteStudyStateSync }) => flushRemoteStudyStateSync())
+      .catch((error) => console.error("[visibilitychange] flush failed:", error));
+  });
 
   // Global keyboard handler
   document.addEventListener("keydown", (event) => {
@@ -331,8 +362,18 @@ export function bindStaticEvents() {
   });
 
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
+  if (!isAndroidRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
   syncDriveImportButton();
-  syncDesktopUpdateButton();
+  if (isAndroidRuntime()) {
+    const updateButton = document.getElementById("check-updates-btn");
+    if (updateButton) {
+      updateButton.hidden = false;
+      updateButton.disabled = false;
+      updateButton.textContent = "Güncellemeleri Kontrol Et";
+    }
+  } else {
+    syncDesktopUpdateButton();
+  }
 }
 
 export async function bootstrap() {
