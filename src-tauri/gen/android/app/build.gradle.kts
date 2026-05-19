@@ -13,6 +13,29 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Release signing config — values live in src-tauri/gen/android/key.properties
+// (gitignored). When the file is absent or has empty passwords, release builds
+// fall back to the unsigned/debug-signed output so a fresh clone still builds.
+val keyProperties = Properties().apply {
+    val keyPropFile = file("../key.properties")
+    if (keyPropFile.exists()) {
+        keyPropFile.inputStream().use { load(it) }
+    }
+}
+val keystoreAvailable = run {
+    val storeFilePath = keyProperties.getProperty("storeFile").orEmpty()
+    val storePassword = keyProperties.getProperty("storePassword").orEmpty()
+    val keyAlias = keyProperties.getProperty("keyAlias").orEmpty()
+    val keyPassword = keyProperties.getProperty("keyPassword").orEmpty()
+    storeFilePath.isNotBlank()
+        && storePassword.isNotBlank()
+        && storePassword != "FILL_IN_YOUR_PASSWORD"
+        && keyAlias.isNotBlank()
+        && keyPassword.isNotBlank()
+        && keyPassword != "FILL_IN_YOUR_PASSWORD"
+        && file(storeFilePath).exists()
+}
+
 android {
     compileSdk = 36
     namespace = "com.asklepioszealot.flashcards"
@@ -23,6 +46,16 @@ android {
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    if (keystoreAvailable) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -43,6 +76,9 @@ android {
                     .plus(getDefaultProguardFile("proguard-android-optimize.txt"))
                     .toList().toTypedArray()
             )
+            if (keystoreAvailable) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     kotlinOptions {
