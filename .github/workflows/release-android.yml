@@ -32,24 +32,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-
-      - name: Setup NDK r27c
-        id: setup-ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r27c
-          add-to-path: true
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.2.12479018'
 
       - name: Persist NDK env for downstream steps
         run: |
-          echo "ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
-          echo "NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
-          echo "ANDROID_NDK_ROOT=${{ steps.setup-ndk.outputs.ndk-path }}" >> "$GITHUB_ENV"
-          echo "Resolved NDK path: ${{ steps.setup-ndk.outputs.ndk-path }}"
+          set -euo pipefail
+          NDK_PATH="${ANDROID_HOME}/ndk/27.2.12479018"
+          if [[ ! -d "$NDK_PATH" ]]; then
+            echo "Expected NDK directory missing: $NDK_PATH" >&2
+            ls -la "${ANDROID_HOME}/ndk" || true
+            exit 1
+          fi
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "Resolved NDK path: $NDK_PATH"
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v5
