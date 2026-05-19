@@ -21,6 +21,33 @@ import { getRuntimeConfig, hasSupabaseConfig, isDesktopRuntime } from "./runtime
 const APP_NAMESPACE = "fc_v2";
 const MOCK_SESSION_KEY = `${APP_NAMESPACE}::mock::session`;
 const AUTH_REMEMBER_ME_KEY = `${APP_NAMESPACE}::auth::remember_me`;
+const SET_CACHE_KEY_PREFIX = `${APP_NAMESPACE}::sets::cache::`;
+
+function setCacheKey(userId) {
+  return `${SET_CACHE_KEY_PREFIX}${userId}`;
+}
+
+function readSetCache(userId) {
+  if (!userId || typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(setCacheKey(userId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSetCache(userId, sets) {
+  if (!userId || typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(setCacheKey(userId), JSON.stringify(sets || []));
+  } catch (error) {
+    // Quota exceeded or storage disabled — cache is a hint, not a contract.
+    console.warn("[platform-adapter] set cache write failed:", error?.message || error);
+  }
+}
 const STUDY_STATE_FALLBACK_SET_ID_PREFIX = `${APP_NAMESPACE}::system::study-state::`;
 const STUDY_STATE_FALLBACK_SLUG = "__system-study-state__";
 const STUDY_STATE_FALLBACK_SET_NAME = "__system_study_state__";
@@ -449,6 +476,10 @@ function createMockAdapter(config, storage) {
       return readUserSets(currentUser.id);
     },
 
+    loadSetsFromCache() {
+      return [];
+    },
+
     async pickNativeSetFiles() {
       return [];
     },
@@ -867,11 +898,18 @@ function createSupabaseAdapter(config, storage) {
         .order("updated_at", { ascending: false });
 
       if (error) throw error;
-      return normalizeSetCollection(
+      const normalized = normalizeSetCollection(
         (data || [])
           .filter((row) => !isStudyStateFallbackRow(row))
           .map(mapRowToRecord),
       );
+      writeSetCache(user.id, normalized);
+      return normalized;
+    },
+
+    loadSetsFromCache() {
+      if (!currentUser?.id) return [];
+      return readSetCache(currentUser.id);
     },
 
     async getLatestSet(setId) {

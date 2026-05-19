@@ -342,8 +342,21 @@ export async function loadUserStudyState() {
 
 export async function loadUserWorkspace() {
   const { updateManagerUserChip, renderSetList } = await import("../set-manager/set-manager.js");
-  let records = await platformAdapter.loadSets();
   const persistedSourcePaths = getUserJson("set_source_paths", {});
+
+  // Stale-while-revalidate: paint the set list from localStorage immediately
+  // (mainly an Android win — Supabase round-trips over LAN/NAT add seconds
+  // to the boot), then await the live fetch below to refresh.
+  const cachedRecords = typeof platformAdapter.loadSetsFromCache === "function"
+    ? platformAdapter.loadSetsFromCache()
+    : [];
+  if (cachedRecords.length > 0) {
+    hydrateLoadedSets(cachedRecords, persistedSourcePaths);
+    updateManagerUserChip();
+    renderSetList();
+  }
+
+  let records = await platformAdapter.loadSets();
   hydrateLoadedSets(records, persistedSourcePaths);
   await restoreBrowserFileHandles(Object.values(loadedSets));
   if (await migrateLegacyLocalData()) {
