@@ -289,6 +289,17 @@ export function bindStaticEvents() {
   const loadStudyModule = () => import("../features/study/study.js");
   const loadAssessmentModule = () => import("../features/study/assessment.js");
 
+  // Flush any pending Supabase study-state snapshot when the page is being
+  // hidden (Android: app sent to background, tab switch, OS task killer).
+  // Without this, the 600ms debounce in scheduleRemoteStudyStateSync can lose
+  // the last few seconds of work if the OS suspends the process.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return;
+    import("../features/study-state/study-state.js")
+      .then(({ flushRemoteStudyStateSync }) => flushRemoteStudyStateSync())
+      .catch((error) => console.error("[visibilitychange] flush failed:", error));
+  });
+
   // Global keyboard handler
   document.addEventListener("keydown", (event) => {
     const tagName = event.target?.tagName;
