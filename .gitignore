@@ -31,6 +31,7 @@ backups/
 # Local scratch files
 temp.js
 vite-*.log
+sample-deck.md
 ~/.tauri/
 ~/
 .codex/
