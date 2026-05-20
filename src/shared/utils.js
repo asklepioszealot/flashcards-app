@@ -49,22 +49,50 @@ export function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function roundNumber(value, precision = 2) {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
 export function normalizeReviewScheduleEntry(entry) {
   if (!isPlainObject(entry)) return null;
 
+  const dueAt = typeof entry.dueAt === "string" && entry.dueAt.trim() ? entry.dueAt : "";
+  const lastReviewedAt =
+    typeof entry.lastReviewedAt === "string" && entry.lastReviewedAt.trim() ? entry.lastReviewedAt : "";
+  const intervalDays = Number.isFinite(Number(entry.intervalDays))
+    ? roundNumber(Math.max(Number(entry.intervalDays), 0), 2)
+    : 0;
+  const easeFactor = Number.isFinite(Number(entry.easeFactor))
+    ? roundNumber(clamp(Number(entry.easeFactor), 1.3, 3.5), 2)
+    : 2.5;
+  const repetition = Number.isInteger(entry.repetition) ? Math.max(entry.repetition, 0) : 0;
+  const lapses = Number.isInteger(entry.lapses) ? Math.max(entry.lapses, 0) : 0;
+  const difficulty = Number.isFinite(Number(entry.difficulty))
+    ? roundNumber(clamp(Number(entry.difficulty), 1, 10), 2)
+    : 5;
+  const stability = Number.isFinite(Number(entry.stability))
+    ? roundNumber(Math.max(Number(entry.stability), 0), 2)
+    : intervalDays;
+  const lastAssessment =
+    entry.lastAssessment === "know" || entry.lastAssessment === "review" || entry.lastAssessment === "dunno"
+      ? entry.lastAssessment
+      : null;
+
   return {
-    dueAt: typeof entry.dueAt === "string" ? entry.dueAt : "",
-    lastReviewedAt: typeof entry.lastReviewedAt === "string" ? entry.lastReviewedAt : "",
-    intervalDays: Number.isFinite(Number(entry.intervalDays)) ? Math.max(Number(entry.intervalDays), 0) : 0,
-    easeFactor: Number.isFinite(Number(entry.easeFactor)) ? Number(entry.easeFactor) : 2.5,
-    repetition: Number.isInteger(entry.repetition) ? Math.max(entry.repetition, 0) : 0,
-    lapses: Number.isInteger(entry.lapses) ? Math.max(entry.lapses, 0) : 0,
-    difficulty: Number.isFinite(Number(entry.difficulty)) ? Number(entry.difficulty) : 5,
-    stability: Number.isFinite(Number(entry.stability)) ? Math.max(Number(entry.stability), 0) : 0,
-    lastAssessment:
-      entry.lastAssessment === "know" || entry.lastAssessment === "review" || entry.lastAssessment === "dunno"
-        ? entry.lastAssessment
-        : null,
+    dueAt,
+    lastReviewedAt,
+    intervalDays,
+    easeFactor,
+    repetition,
+    lapses,
+    difficulty,
+    stability,
+    lastAssessment,
   };
 }
 

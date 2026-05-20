@@ -1,5 +1,11 @@
 import { DEFAULT_REVIEW_PREFERENCES } from "../../shared/constants.js";
-import { normalizeReviewPreferences } from "../../shared/utils.js";
+import {
+  normalizeReviewPreferences,
+  normalizeReviewScheduleEntry,
+  normalizeReviewScheduleMap,
+} from "../../shared/utils.js";
+
+export { normalizeReviewScheduleEntry, normalizeReviewScheduleMap };
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -25,59 +31,6 @@ function resolveTimestamp(input) {
 
 function resolveRating(level) {
   return REVIEW_RATINGS[level] || REVIEW_RATINGS.review;
-}
-
-export function normalizeReviewScheduleEntry(entry) {
-  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
-
-  const dueAt = typeof entry.dueAt === "string" && entry.dueAt.trim() ? entry.dueAt : "";
-  const lastReviewedAt =
-    typeof entry.lastReviewedAt === "string" && entry.lastReviewedAt.trim() ? entry.lastReviewedAt : "";
-  const intervalDays = Number.isFinite(Number(entry.intervalDays))
-    ? roundNumber(Math.max(Number(entry.intervalDays), 0), 2)
-    : 0;
-  const easeFactor = Number.isFinite(Number(entry.easeFactor))
-    ? roundNumber(clamp(Number(entry.easeFactor), 1.3, 3.5), 2)
-    : 2.5;
-  const repetition = Number.isInteger(entry.repetition) ? Math.max(entry.repetition, 0) : 0;
-  const lapses = Number.isInteger(entry.lapses) ? Math.max(entry.lapses, 0) : 0;
-  const difficulty = Number.isFinite(Number(entry.difficulty))
-    ? roundNumber(clamp(Number(entry.difficulty), 1, 10), 2)
-    : 5;
-  const stability = Number.isFinite(Number(entry.stability))
-    ? roundNumber(Math.max(Number(entry.stability), 0), 2)
-    : intervalDays;
-  const lastAssessment =
-    entry.lastAssessment === "know" || entry.lastAssessment === "review" || entry.lastAssessment === "dunno"
-      ? entry.lastAssessment
-      : null;
-
-  return {
-    dueAt,
-    lastReviewedAt,
-    intervalDays,
-    easeFactor,
-    repetition,
-    lapses,
-    difficulty,
-    stability,
-    lastAssessment,
-  };
-}
-
-export function normalizeReviewScheduleMap(value, fallback = {}) {
-  const source =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? value
-      : fallback && typeof fallback === "object" && !Array.isArray(fallback)
-        ? fallback
-        : {};
-
-  return Object.fromEntries(
-    Object.entries(source)
-      .map(([cardKey, entry]) => [cardKey, normalizeReviewScheduleEntry(entry)])
-      .filter(([cardKey, entry]) => typeof cardKey === "string" && cardKey.trim() && entry),
-  );
 }
 
 // SM-2 tabanini, okunabilir difficulty/stability alanlariyla hafifletiyoruz.
