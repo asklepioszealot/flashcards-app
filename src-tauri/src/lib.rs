@@ -333,6 +333,13 @@ pub fn run() {
         _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
         _app.handle().plugin(tauri_plugin_process::init())?;
         _app.handle().plugin(tauri_plugin_deep_link::init())?;
+
+        #[cfg(any(windows, target_os = "linux"))]
+        {
+          use tauri_plugin_deep_link::DeepLinkExt;
+          _app.deep_link().register("flashcards-app")?;
+        }
+
         _app.handle().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
           let _ = app.emit("single-instance-args", args);
         }))?;
