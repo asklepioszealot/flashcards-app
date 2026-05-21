@@ -1104,6 +1104,17 @@ function createSupabaseAdapter(config, storage) {
 
       if (error) throw error;
     },
+
+    async signInWithOAuth(params) {
+      return client.auth.signInWithOAuth(params);
+    },
+
+    async setSession(sessionData) {
+      const { data, error } = await client.auth.setSession(sessionData);
+      if (error) throw error;
+      currentUser = data.user || null;
+      return currentUser;
+    },
   };
 }
 
@@ -1333,6 +1344,45 @@ function createDesktopAdapter(remoteAdapter) {
 
     async writeSetSourceFile(sourcePath, rawSource) {
       return bridge.writeSetSourceFile(sourcePath, rawSource);
+    },
+
+    async signInWithGoogle(options = {}) {
+      try {
+        const redirectTo = "flashcards-app://oauth-callback";
+        const { data, error } = await remoteAdapter.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo,
+            skipBrowserRedirect: true,
+          },
+        });
+        
+        if (error) throw error;
+        
+        const authUrl = data?.url;
+        if (!authUrl) {
+          throw new Error("Google OAuth URL alınamadı.");
+        }
+        
+        const invoke = globalThis.__TAURI__?.core?.invoke;
+        if (typeof invoke === "function") {
+          await invoke("open_url", { url: authUrl });
+        } else {
+          window.open(authUrl, "_blank");
+        }
+        return null;
+      } catch (err) {
+        console.error("Desktop Google Sign-in failed:", err);
+        throw err;
+      }
+    },
+
+    async setSession(sessionData) {
+      return remoteAdapter.setSession(sessionData);
+    },
+
+    async signInWithOAuth(params) {
+      return remoteAdapter.signInWithOAuth(params);
     },
   };
 }

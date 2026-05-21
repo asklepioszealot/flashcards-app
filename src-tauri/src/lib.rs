@@ -11,6 +11,8 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+#[cfg(desktop)]
+use tauri::Emitter;
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -284,6 +286,44 @@ fn flush_sync(app: tauri::AppHandle, user_id: String) -> Result<Vec<SyncOperatio
   Ok(operations)
 }
 
+#[tauri::command]
+fn get_startup_args() -> Vec<String> {
+  std::env::args().collect()
+}
+
+#[tauri::command]
+async fn read_native_file_by_path(path: String) -> Result<NativePickedFile, String> {
+  let path_buf = std::path::PathBuf::from(path);
+  read_native_file(&path_buf)
+}
+
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+  #[cfg(target_os = "windows")]
+  {
+    std::process::Command::new("cmd")
+      .args(["/C", "start", "", &url])
+      .spawn()
+      .map_err(|e| e.to_string())?;
+  }
+  #[cfg(target_os = "macos")]
+  {
+    std::process::Command::new("open")
+      .arg(&url)
+      .spawn()
+      .map_err(|e| e.to_string())?;
+  }
+  #[cfg(target_os = "linux")]
+  {
+    std::process::Command::new("xdg-open")
+      .arg(&url)
+      .spawn()
+      .map_err(|e| e.to_string())?;
+  }
+  let _ = url;
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
@@ -292,6 +332,17 @@ pub fn run() {
       {
         _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
         _app.handle().plugin(tauri_plugin_process::init())?;
+        _app.handle().plugin(tauri_plugin_deep_link::init())?;
+        _app.handle().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+          let _ = app.emit("single-instance-args", args);
+        }))?;
+
+        if let Some(window) = _app.get_webview_window("main") {
+          #[cfg(target_os = "windows")]
+          {
+            let _ = window_vibrancy::apply_mica(&window, None);
+          }
+        }
       }
       Ok(())
     })
@@ -312,7 +363,10 @@ pub fn run() {
       pick_native_set_files,
       write_set_source_file,
       google_auth::sign_in_with_google,
-      android_updater::download_and_install_apk
+      android_updater::download_and_install_apk,
+      get_startup_args,
+      read_native_file_by_path,
+      open_url
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

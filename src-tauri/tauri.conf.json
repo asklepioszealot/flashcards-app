@@ -14,10 +14,12 @@
     "windows": [
       {
         "title": "Flashcards App",
-        "width": 800,
-        "height": 600,
+        "width": 1000,
+        "height": 700,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {
@@ -26,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
@@ -34,9 +36,34 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["json"],
+        "name": "Flashcards Set",
+        "description": "Flashcards App Çalışma Seti JSON Dosyası",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["md"],
+        "name": "Flashcards Markdown Set",
+        "description": "Flashcards App Markdown Çalışma Seti",
+        "role": "Viewer"
+      },
+      {
+        "ext": ["apkg"],
+        "name": "Anki Flashcards Package",
+        "description": "Anki Kart Paketi Dosyası",
+        "role": "Viewer"
+      }
     ]
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["flashcards-app"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJGQzVBODFGOUVEOTE0REUKUldUZUZObWVINmpGTC95ZTFoVksvcytjcGVSTkJ6NUtUdUFHK05LdTN0MEZ6YTc5bU8xaCtzRjUK",
       "endpoints": [

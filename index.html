@@ -3619,9 +3619,251 @@
         padding: 20px;
         color: var(--color-text-secondary);
       }
+
+      /* ======================================================== */
+      /* PREMIUM WINDOWS 11 DESKTOP APP CUSTOM TITLEBAR, STATUSBAR & OVERLAY */
+      /* ======================================================== */
+
+      /* Custom Titlebar for Desktop */
+      .desktop-titlebar {
+        height: 32px;
+        background: var(--color-bg-secondary);
+        border-bottom: 1px solid var(--color-border);
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        user-select: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+      }
+
+      body.tauri-desktop .desktop-titlebar {
+        display: flex !important;
+      }
+
+      body.tauri-desktop {
+        padding-top: 32px !important;
+        padding-bottom: 28px !important;
+      }
+
+      body.tauri-desktop #app-splash {
+        top: 32px !important;
+        height: calc(100vh - 32px) !important;
+      }
+
+      .titlebar-drag-region {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        padding-left: 12px;
+      }
+
+      .titlebar-icon {
+        width: 16px;
+        height: 16px;
+        margin-right: 8px;
+        pointer-events: none;
+      }
+
+      .titlebar-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--color-text-secondary);
+        pointer-events: none;
+      }
+
+      .titlebar-controls {
+        display: flex;
+        height: 100%;
+      }
+
+      .titlebar-btn {
+        width: 46px;
+        height: 100%;
+        background: transparent;
+        border: none;
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+
+      .titlebar-btn:hover {
+        background: var(--color-border);
+        color: var(--color-text-primary);
+      }
+
+      .titlebar-btn-close:hover {
+        background: #e81123 !important;
+        color: white !important;
+      }
+
+      /* Custom Statusbar for Desktop */
+      .desktop-statusbar {
+        height: 28px;
+        background: var(--color-bg-secondary);
+        border-top: 1px solid var(--color-border);
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        font-size: 11px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 9999;
+        user-select: none;
+      }
+
+      body.tauri-desktop .desktop-statusbar {
+        display: flex !important;
+      }
+
+      .statusbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--color-text-secondary);
+      }
+
+      .statusbar-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        transition: background 0.3s ease, box-shadow 0.3s ease;
+      }
+
+      .status-synced {
+        background: #10b981; /* Green */
+        box-shadow: 0 0 8px #10b981;
+      }
+
+      .status-offline {
+        background: #f59e0b; /* Amber */
+        box-shadow: 0 0 8px #f59e0b;
+      }
+
+      .status-error {
+        background: #ef4444; /* Red */
+        box-shadow: 0 0 8px #ef4444;
+      }
+
+      .btn-statusbar {
+        background: var(--color-accent-soft);
+        color: var(--color-accent);
+        border: none;
+        padding: 2px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s ease;
+      }
+
+      .btn-statusbar:hover {
+        background: var(--color-accent);
+        color: white;
+      }
+
+      /* Custom Drag & Drop Overlay for Desktop */
+      .desktop-dragdrop-zone {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(8px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: white;
+        pointer-events: none; /* Allow drag over events globally */
+      }
+
+      .desktop-dragdrop-zone.active {
+        display: flex !important;
+      }
+
+      .dragdrop-inner {
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .dragdrop-inner h3 {
+        font-size: 20px;
+        margin-bottom: 8px;
+        font-weight: 600;
+      }
+
+      .dragdrop-inner p {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 14px;
+      }
+
+      /* Mica Translucency Helper */
+      html.tauri-desktop-html,
+      html.tauri-desktop-html body {
+        background: transparent !important;
+      }
     </style>
   </head>
   <body class="app-booting">
+    <!-- DESKTOP TITLEBAR -->
+    <div id="desktop-titlebar" class="desktop-titlebar">
+      <div class="titlebar-drag-region" data-tauri-drag-region>
+        <img src="./app-icon.png" class="titlebar-icon" alt="" />
+        <span class="titlebar-title">Flashcards App</span>
+      </div>
+      <div class="titlebar-controls">
+        <button id="titlebar-minimize" class="titlebar-btn" title="Simge Durumuna Küçült">
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect fill="currentColor" x="0" y="5" width="10" height="1" /></svg>
+        </button>
+        <button id="titlebar-maximize" class="titlebar-btn" title="Ekranı Kapla / Geri Getir">
+          <svg width="10" height="10" viewBox="0 0 10 10"><rect fill="none" stroke="currentColor" stroke-width="1" x="1" y="1" width="8" height="8" /></svg>
+        </button>
+        <button id="titlebar-close" class="titlebar-btn titlebar-btn-close" title="Kapat">
+          <svg width="10" height="10" viewBox="0 0 10 10"><polygon fill="currentColor" points="10,0.7 9.3,0 5,4.3 0.7,0 0,0.7 4.3,5 0,9.3 0.7,10 5,5.7 9.3,10 10,9.3 5.7,5" /></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- DESKTOP STATUSBAR -->
+    <div id="desktop-statusbar" class="desktop-statusbar">
+      <div class="statusbar-left">
+        <span class="statusbar-indicator status-synced" id="sync-indicator-led"></span>
+        <span id="sync-status-text">Bulut Senkronizasyonu Aktif</span>
+      </div>
+      <div class="statusbar-right">
+        <button id="sync-now-btn" class="btn-statusbar" title="Bulut ile şimdi senkronize et">Şimdi Senkronize Et</button>
+      </div>
+    </div>
+
+    <!-- DESKTOP DRAG & DROP ZONE -->
+    <div id="desktop-dragdrop-zone" class="desktop-dragdrop-zone">
+      <div class="dragdrop-inner">
+        <svg class="icon icon--lg" aria-hidden="true" focusable="false" style="width: 48px; height: 48px; margin-bottom: 16px; color: var(--color-accent);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <h3>Kart Setini Buraya Bırakın</h3>
+        <p>Desteklenen formatlar: .json, .md, .apkg</p>
+      </div>
+    </div>
+
     <div id="app-splash" aria-hidden="true">
       <div class="app-splash-inner">
         <img src="/app-icon.png" alt="" class="app-splash-logo" width="128" height="128" />

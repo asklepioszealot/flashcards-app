@@ -6,7 +6,7 @@ import { AppStorage } from "../core/storage.js";
 import { BUILD_INFO } from "../generated/build-info.js";
 import { THEME_KEY, THEME_CONTROL_IDS } from "../shared/constants.js";
 import { createPlatformAdapter } from "../core/platform-adapter.js";
-import { hasDriveConfig, hasSupabaseConfig, isAndroidRuntime } from "../core/runtime-config.js";
+import { hasDriveConfig, hasSupabaseConfig, isAndroidRuntime, isTauriRuntime } from "../core/runtime-config.js";
 import {
   attemptAuth,
   handleAuthStateChange,
@@ -22,6 +22,7 @@ import { showScreen } from "./screen.js";
 import { scheduleStartupDesktopUpdateCheck, syncDesktopUpdateButton } from "../features/desktop-update/desktop-update.js";
 import { initGoogleDrive } from "../features/google-drive/google-drive.js";
 import { updateManagerUserChip } from "../features/set-manager/set-manager.js";
+import { initDesktopIntegrations } from "../ui/desktop.js";
 
 export function markAppReady() {
   document.body.classList.remove("app-booting");
@@ -371,7 +372,7 @@ export function bindStaticEvents() {
   });
 
   if (hasSupabaseConfig()) document.getElementById("auth-demo-btn")?.setAttribute("hidden", "hidden");
-  if (!isAndroidRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
+  if (!isAndroidRuntime() && !isTauriRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
   syncDriveImportButton();
   if (isAndroidRuntime()) {
     const updateButton = document.getElementById("check-updates-btn");
@@ -391,6 +392,9 @@ export async function bootstrap() {
   setStorage(appStorage);
   const adapter = createPlatformAdapter(appStorage);
   setPlatformAdapter(adapter);
+
+  // Initialize desktop integrations (Titlebar, Statusbar, drag-and-drop, arguments handler)
+  initDesktopIntegrations();
 
   renderBuildMeta();
   ThemeManager.renderThemeOptions(THEME_CONTROL_IDS);

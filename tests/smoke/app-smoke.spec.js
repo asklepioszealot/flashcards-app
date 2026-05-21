@@ -192,6 +192,7 @@ async function seedLocalSets(page, { sets, selectedSetIds, assessments, session 
 
 async function continueWithDemo(page) {
   await page.goto(appUrl());
+  await page.locator("body:not(.app-booting)").waitFor({ state: "attached" });
   const authScreen = page.locator("#auth-screen");
   if (await authScreen.isVisible()) {
     await expect(page.locator("#auth-demo-btn")).toBeVisible();
