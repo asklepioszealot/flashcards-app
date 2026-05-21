@@ -19,18 +19,23 @@ export function isWindowsDesktopClient() {
 }
 
 export function syncDesktopUpdateButton() {
-  const button = document.getElementById("check-updates-btn");
-  if (!button) return;
+  const buttonIds = ["check-updates-btn", "auth-check-updates-btn"];
+  const isWin = isWindowsDesktopClient();
 
-  if (!isWindowsDesktopClient()) {
-    button.hidden = true;
-    button.disabled = true;
-    return;
+  for (const id of buttonIds) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+
+    if (!isWin) {
+      button.hidden = true;
+      button.disabled = true;
+      continue;
+    }
+
+    button.hidden = false;
+    button.disabled = desktopUpdateState.isChecking || desktopUpdateState.isInstalling;
+    button.textContent = desktopUpdateState.buttonLabel;
   }
-
-  button.hidden = false;
-  button.disabled = desktopUpdateState.isChecking || desktopUpdateState.isInstalling;
-  button.textContent = desktopUpdateState.buttonLabel;
 }
 
 export function setDesktopUpdateButtonLabel(label = DESKTOP_UPDATE_DEFAULT_LABEL) {

@@ -130,7 +130,7 @@ export function bindStaticEvents() {
   });
   bindEvent(document.getElementById("sign-out-btn"), "click", () => void signOut());
 
-  bindEvent(document.getElementById("check-updates-btn"), "click", () => {
+  const handleUpdateCheck = () => {
     if (isAndroidRuntime()) {
       void import("../features/android-update/android-update.js")
         .then(({ checkAndroidForUpdates }) => checkAndroidForUpdates("manual"));
@@ -138,7 +138,9 @@ export function bindStaticEvents() {
     }
     void import("../features/desktop-update/desktop-update.js")
       .then(({ checkDesktopForUpdates }) => checkDesktopForUpdates("manual"));
-  });
+  };
+  bindEvent(document.getElementById("check-updates-btn"), "click", handleUpdateCheck);
+  bindEvent(document.getElementById("auth-check-updates-btn"), "click", handleUpdateCheck);
 
   import("../features/editor/editor-state.js").then(({ closeEditor, toggleEditorViewMode, openEditorForSelectedSets }) => {
     bindEvent(document.getElementById("editor-back-btn"), "click", () => closeEditor());
@@ -375,12 +377,14 @@ export function bindStaticEvents() {
   if (!isAndroidRuntime() && !isTauriRuntime()) document.getElementById("auth-google-btn")?.setAttribute("hidden", "hidden");
   syncDriveImportButton();
   if (isAndroidRuntime()) {
-    const updateButton = document.getElementById("check-updates-btn");
-    if (updateButton) {
-      updateButton.hidden = false;
-      updateButton.disabled = false;
-      updateButton.textContent = "Güncellemeleri Kontrol Et";
-    }
+    const buttons = ["check-updates-btn", "auth-check-updates-btn"].map(id => document.getElementById(id));
+    buttons.forEach((btn) => {
+      if (btn) {
+        btn.hidden = false;
+        btn.disabled = false;
+        btn.textContent = "Güncellemeleri Kontrol Et";
+      }
+    });
   } else {
     syncDesktopUpdateButton();
   }

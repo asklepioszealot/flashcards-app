@@ -747,12 +747,15 @@ export function updateManagerUserChip() {
   }
   if (signOutButton) signOutButton.disabled = !currentUser;
   if (isAndroidRuntime()) {
-    const updateButton = document.getElementById("check-updates-btn");
-    if (updateButton) {
-      updateButton.hidden = false;
-      updateButton.disabled = false;
-      updateButton.textContent = "Güncellemeleri Kontrol Et";
-    }
+    const ids = ["check-updates-btn", "auth-check-updates-btn"];
+    ids.forEach((id) => {
+      const updateButton = document.getElementById(id);
+      if (updateButton) {
+        updateButton.hidden = false;
+        updateButton.disabled = false;
+        updateButton.textContent = "Güncellemeleri Kontrol Et";
+      }
+    });
     return;
   }
   import("../desktop-update/desktop-update.js").then(({ syncDesktopUpdateButton }) => syncDesktopUpdateButton());
