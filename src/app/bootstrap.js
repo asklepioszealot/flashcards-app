@@ -387,6 +387,16 @@ export function bindStaticEvents() {
 }
 
 export async function bootstrap() {
+  // Check if we are running in web browser and have an OAuth callback hash
+  if (typeof window !== "undefined" && !window.__TAURI__) {
+    const hash = window.location.hash;
+    if (hash && (hash.includes("access_token=") || hash.includes("refresh_token="))) {
+      console.log("OAuth hash detected in browser, redirecting to desktop app...");
+      window.location.href = "flashcards-app://oauth-callback" + hash;
+      return;
+    }
+  }
+
   // Initialize storage and platform adapter
   const appStorage = AppStorage;
   setStorage(appStorage);

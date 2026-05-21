@@ -1348,7 +1348,7 @@ function createDesktopAdapter(remoteAdapter) {
 
     async signInWithGoogle(options = {}) {
       try {
-        const redirectTo = "flashcards-app://oauth-callback";
+        const redirectTo = "https://asklepioszealot.me/";
         const { data, error } = await remoteAdapter.signInWithOAuth({
           provider: "google",
           options: {
