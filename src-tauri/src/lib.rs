@@ -343,13 +343,6 @@ pub fn run() {
         _app.handle().plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
           let _ = app.emit("single-instance-args", args);
         }))?;
-
-        if let Some(window) = _app.get_webview_window("main") {
-          #[cfg(target_os = "windows")]
-          {
-            let _ = window_vibrancy::apply_mica(&window, None);
-          }
-        }
       }
       Ok(())
     })

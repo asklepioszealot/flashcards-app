@@ -28,6 +28,20 @@ export function initDesktopIntegrations() {
 
   const { getCurrentWindow } = tauri.window;
   const appWindow = getCurrentWindow();
+  let maximizeInFlight = false;
+
+  async function toggleWindowMaximize() {
+    if (maximizeInFlight) return;
+    maximizeInFlight = true;
+    try {
+      await appWindow.toggleMaximize();
+      await syncMaximizedClass(appWindow);
+    } catch (err) {
+      console.error("Window maximize toggle failed:", err);
+    } finally {
+      maximizeInFlight = false;
+    }
+  }
 
   // 2. Wire Custom Titlebar Window Controls
   const minBtn = document.getElementById("titlebar-minimize");
@@ -41,10 +55,10 @@ export function initDesktopIntegrations() {
   }
 
   if (maxBtn) {
-    maxBtn.addEventListener("click", () => {
-      appWindow.toggleMaximize().catch((err) => {
-        console.error("Window maximize toggle failed:", err);
-      });
+    maxBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void toggleWindowMaximize();
     });
   }
 
@@ -54,11 +68,10 @@ export function initDesktopIntegrations() {
     });
   }
 
-  // 2.5 Window dragging + dblclick maximize is handled natively by Tauri via
-  // the `data-tauri-drag-region` attribute on .titlebar-drag-region. The
-  // native handler distinguishes drag-vs-click and works on descendants, so
-  // we no longer wire a JS mousedown handler here — doing so swallowed the
-  // first click and prevented dblclick from firing.
+  // 2.5 Window dragging and double-click maximize. We wait for a small pointer
+  // movement before starting the OS drag so a plain double-click is not eaten
+  // by the native drag loop.
+  setupTitlebarDragAndMaximize(appWindow, toggleWindowMaximize);
 
   // 2.6 Wire F11 fullscreen toggle (hides custom titlebar via CSS class)
   setupFullscreenToggle(appWindow);
@@ -81,6 +94,54 @@ export function initDesktopIntegrations() {
 
   // 5. Wire Single Instance Args & CLI Launch File Imports
   setupSingleInstanceArgs(tauri);
+}
+
+function setupTitlebarDragAndMaximize(appWindow, toggleWindowMaximize) {
+  const dragRegion = document.querySelector(".titlebar-drag-region");
+  if (!dragRegion) return;
+
+  let dragCandidate = null;
+  const canStartDragging = typeof appWindow.startDragging === "function";
+  const dragThresholdPx = 5;
+  const isInteractiveTarget = (target) =>
+    Boolean(target?.closest?.("button, a, input, select, textarea, [role='button'], [contenteditable='true']"));
+
+  dragRegion.addEventListener("pointerdown", (event) => {
+    if (!canStartDragging || event.button !== 0 || isInteractiveTarget(event.target)) return;
+    dragCandidate = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+  });
+
+  dragRegion.addEventListener("pointermove", (event) => {
+    if (!dragCandidate || dragCandidate.pointerId !== event.pointerId) return;
+    const deltaX = Math.abs(event.clientX - dragCandidate.x);
+    const deltaY = Math.abs(event.clientY - dragCandidate.y);
+    if (deltaX < dragThresholdPx && deltaY < dragThresholdPx) return;
+
+    dragCandidate = null;
+    appWindow.startDragging().catch((err) => {
+      console.error("Window dragging failed:", err);
+    });
+  });
+
+  const clearDragCandidate = (event) => {
+    if (!dragCandidate || event.pointerId == null || dragCandidate.pointerId === event.pointerId) {
+      dragCandidate = null;
+    }
+  };
+
+  dragRegion.addEventListener("pointerup", clearDragCandidate);
+  dragRegion.addEventListener("pointercancel", clearDragCandidate);
+  dragRegion.addEventListener("lostpointercapture", clearDragCandidate);
+  dragRegion.addEventListener("dblclick", (event) => {
+    if (isInteractiveTarget(event.target)) return;
+    event.preventDefault();
+    dragCandidate = null;
+    void toggleWindowMaximize();
+  });
 }
 
 async function syncMaximizedClass(appWindow) {

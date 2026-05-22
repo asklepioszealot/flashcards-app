@@ -83,10 +83,15 @@ function renderBuildMeta() {
 }
 
 function renderAppVersionChip() {
-  const chip = document.getElementById("app-version-chip");
-  if (!chip) return;
   const version = BUILD_INFO?.version;
-  chip.textContent = version && version !== "unknown" ? `v${version}` : "dev";
+  const label = version && version !== "unknown" ? `v${version}` : "dev";
+  const chips = [
+    document.getElementById("app-version-chip"),
+    document.getElementById("statusbar-version-chip"),
+  ];
+  chips.forEach((chip) => {
+    if (chip) chip.textContent = label;
+  });
 }
 
 function bindEvent(target, eventName, handler) {

@@ -3683,7 +3683,7 @@
       .titlebar-title {
         font-size: 11px;
         font-weight: 600;
-        letter-spacing: 0.05em;
+        letter-spacing: 0;
         text-transform: uppercase;
         color: var(--color-text-secondary);
         pointer-events: none;
@@ -3828,30 +3828,51 @@
         font-size: 14px;
       }
 
-      /* Mica Translucency Helper — body keeps a near-opaque fallback so the
-         desktop is never visible through transparent areas when the window
-         is maximized; the small alpha gap still lets Mica tint show through. */
+      /* Opaque desktop surface so frameless maximized windows never show the
+         Windows desktop through the page gutters. */
       html.tauri-desktop-html {
-        background: transparent !important;
+        background: var(--color-bg-primary) !important;
       }
       html.tauri-desktop-html body {
-        background: color-mix(in srgb, var(--color-bg-primary) 94%, transparent) !important;
+        background: var(--color-bg-primary) !important;
       }
 
-      /* Bottom-left app version chip. Visible by default; only hidden on
-         the study and editor screens where the corner is in active use. */
+      /* App version chips. The fixed chip covers web/Android; desktop also
+         mirrors the same value inside the statusbar for reliable visibility. */
       .app-version-chip {
         position: fixed;
         left: 14px;
         bottom: 10px;
-        z-index: 10;
+        z-index: 10000;
+        display: inline-flex;
+        align-items: center;
+        min-height: 20px;
+        padding: 2px 8px;
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+        background: var(--build-meta-bg, var(--color-bg-secondary));
         font-size: 11px;
         font-weight: 600;
         color: var(--color-text-primary);
-        opacity: 0.6;
-        letter-spacing: 0.04em;
+        opacity: 0.92;
+        letter-spacing: 0;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
         pointer-events: none;
         user-select: none;
+      }
+
+      .statusbar-version-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 18px;
+        padding: 1px 7px;
+        border: 1px solid var(--color-border);
+        border-radius: 999px;
+        background: var(--build-meta-bg, var(--color-bg-secondary));
+        color: var(--color-text-primary);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0;
       }
 
       body.app-screen-study .app-version-chip,
@@ -3859,27 +3880,26 @@
         display: none;
       }
 
-      /* On Tauri desktop, lift the chip above the 28px statusbar. */
       body.tauri-desktop .app-version-chip {
-        bottom: 36px;
+        display: none;
       }
     </style>
   </head>
   <body class="app-booting">
     <!-- DESKTOP TITLEBAR -->
     <div id="desktop-titlebar" class="desktop-titlebar">
-      <div class="titlebar-drag-region" data-tauri-drag-region>
+      <div class="titlebar-drag-region">
         <img src="./app-icon.png" class="titlebar-icon" alt="" />
         <span class="titlebar-title">Flashcards App</span>
       </div>
       <div class="titlebar-controls">
-        <button id="titlebar-minimize" class="titlebar-btn" title="Simge Durumuna Küçült">
+        <button id="titlebar-minimize" class="titlebar-btn" type="button" title="Simge Durumuna Küçült">
           <svg width="10" height="10" viewBox="0 0 10 10"><rect fill="currentColor" x="0" y="5" width="10" height="1" /></svg>
         </button>
-        <button id="titlebar-maximize" class="titlebar-btn" title="Ekranı Kapla / Geri Getir">
+        <button id="titlebar-maximize" class="titlebar-btn" type="button" title="Ekranı Kapla / Geri Getir">
           <svg width="10" height="10" viewBox="0 0 10 10"><rect fill="none" stroke="currentColor" stroke-width="1" x="1" y="1" width="8" height="8" /></svg>
         </button>
-        <button id="titlebar-close" class="titlebar-btn titlebar-btn-close" title="Kapat">
+        <button id="titlebar-close" class="titlebar-btn titlebar-btn-close" type="button" title="Kapat">
           <svg width="10" height="10" viewBox="0 0 10 10"><polygon fill="currentColor" points="10,0.7 9.3,0 5,4.3 0.7,0 0,0.7 4.3,5 0,9.3 0.7,10 5,5.7 9.3,10 10,9.3 5.7,5" /></svg>
         </button>
       </div>
@@ -3890,6 +3910,7 @@
       <div class="statusbar-left">
         <span class="statusbar-indicator status-synced" id="sync-indicator-led"></span>
         <span id="sync-status-text">Bulut Senkronizasyonu Aktif</span>
+        <span class="statusbar-version-chip" id="statusbar-version-chip" aria-hidden="true"></span>
       </div>
       <div class="statusbar-right">
         <button id="sync-now-btn" class="btn-statusbar" title="Bulut ile şimdi senkronize et">Şimdi Senkronize Et</button>

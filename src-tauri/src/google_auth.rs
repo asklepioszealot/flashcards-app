@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use tauri::plugin::{Builder as PluginBuilder, TauriPlugin};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 
 #[cfg(target_os = "android")]
 use tauri::plugin::PluginHandle;
+#[cfg(target_os = "android")]
+use tauri::Manager;
 
 #[cfg(target_os = "android")]
 const PLUGIN_IDENTIFIER: &str = "com.asklepioszealot.flashcards";
@@ -18,6 +20,7 @@ pub struct GoogleAuth<R: Runtime>(pub PluginHandle<R>);
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(target_os = "android")]
 struct SignInArgs {
   web_client_id: String,
 }

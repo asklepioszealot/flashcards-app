@@ -185,7 +185,8 @@ jobs:
             gh release create "$TAG" \
               --target "$GITHUB_SHA" \
               --title "Android v${VERSION}" \
-              --generate-notes
+              --generate-notes \
+              --latest=false
           fi
           gh release upload "$TAG" \
             "$APK#app-universal-release.apk" \
