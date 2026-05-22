@@ -86,11 +86,7 @@ function renderAppVersionChip() {
   const chip = document.getElementById("app-version-chip");
   if (!chip) return;
   const version = BUILD_INFO?.version;
-  if (!version || version === "unknown") {
-    chip.textContent = "";
-    return;
-  }
-  chip.textContent = `v${version}`;
+  chip.textContent = version && version !== "unknown" ? `v${version}` : "dev";
 }
 
 function bindEvent(target, eventName, handler) {

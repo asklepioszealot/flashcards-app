@@ -41,17 +41,10 @@ export function initDesktopIntegrations() {
   }
 
   if (maxBtn) {
-    maxBtn.addEventListener("click", async () => {
-      try {
-        const isMax = await appWindow.isMaximized();
-        if (isMax) {
-          await appWindow.unmaximize();
-        } else {
-          await appWindow.maximize();
-        }
-      } catch (err) {
+    maxBtn.addEventListener("click", () => {
+      appWindow.toggleMaximize().catch((err) => {
         console.error("Window maximize toggle failed:", err);
-      }
+      });
     });
   }
 
@@ -75,18 +68,11 @@ export function initDesktopIntegrations() {
       appWindow.startDragging().catch(console.error);
     });
 
-    dragRegion.addEventListener("dblclick", async (e) => {
+    dragRegion.addEventListener("dblclick", (e) => {
       if (isInteractiveTarget(e.target)) return;
-      try {
-        const isMax = await appWindow.isMaximized();
-        if (isMax) {
-          await appWindow.unmaximize();
-        } else {
-          await appWindow.maximize();
-        }
-      } catch (err) {
+      appWindow.toggleMaximize().catch((err) => {
         console.error("Maximize via double click failed:", err);
-      }
+      });
     });
   }
 
@@ -95,7 +81,13 @@ export function initDesktopIntegrations() {
 
   // 2.7 Mirror maximize state to body class for CSS hooks (frames, edges, etc.).
   syncMaximizedClass(appWindow);
-  appWindow.onResized(() => syncMaximizedClass(appWindow)).catch(console.error);
+  try {
+    if (typeof appWindow.onResized === "function") {
+      appWindow.onResized(() => syncMaximizedClass(appWindow)).catch(console.error);
+    }
+  } catch (err) {
+    console.error("onResized wire-up failed:", err);
+  }
 
   // 3. Wire Offline / Online Sync Indicator
   setupSyncIndicators();
