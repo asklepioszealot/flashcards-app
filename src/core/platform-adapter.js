@@ -1115,6 +1115,13 @@ function createSupabaseAdapter(config, storage) {
       currentUser = data.user || null;
       return currentUser;
     },
+
+    async exchangeCodeForSession(code) {
+      const { data, error } = await client.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      currentUser = data.user || null;
+      return currentUser;
+    },
   };
 }
 
@@ -1348,11 +1355,10 @@ function createDesktopAdapter(remoteAdapter) {
 
     async signInWithGoogle(options = {}) {
       try {
-        const redirectTo = "https://asklepioszealot.me/";
         const { data, error } = await remoteAdapter.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo,
+            redirectTo: "https://asklepioszealot.me/",
             skipBrowserRedirect: true,
           },
         });
@@ -1379,6 +1385,13 @@ function createDesktopAdapter(remoteAdapter) {
 
     async setSession(sessionData) {
       return remoteAdapter.setSession(sessionData);
+    },
+
+    async exchangeCodeForSession(code) {
+      if (typeof remoteAdapter.exchangeCodeForSession === "function") {
+        return remoteAdapter.exchangeCodeForSession(code);
+      }
+      throw new Error("exchangeCodeForSession is not supported by the current adapter.");
     },
 
     async signInWithOAuth(params) {

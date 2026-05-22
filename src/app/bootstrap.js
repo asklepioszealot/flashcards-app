@@ -391,11 +391,15 @@ export function bindStaticEvents() {
 }
 
 export async function bootstrap() {
-  // Check if we are running in web browser and have an OAuth callback hash
+  // Check if we are running in web browser and have an OAuth callback (hash for implicit, query for PKCE)
   if (typeof window !== "undefined" && !window.__TAURI__) {
-    const hash = window.location.hash;
-    if (hash && (hash.includes("access_token=") || hash.includes("refresh_token="))) {
-      console.log("OAuth hash detected in browser, redirecting to desktop app...");
+    const hash = window.location.hash || "";
+    const search = window.location.search || "";
+    const hasImplicitTokens = hash.includes("access_token=") || hash.includes("refresh_token=");
+    const hasPkceCode = /[?&]code=/.test(search);
+    if (hasImplicitTokens || hasPkceCode) {
+      const deepLinkSuffix = hasImplicitTokens ? hash : search;
+      console.log("OAuth callback detected in browser, redirecting to desktop app...", { hasImplicitTokens, hasPkceCode });
       
       // Render a premium redirection feedback UI!
       document.body.innerHTML = `
@@ -482,7 +486,7 @@ export async function bootstrap() {
       `;
       
       const redirect = () => {
-        window.location.href = "flashcards-app://oauth-callback" + hash;
+        window.location.href = "flashcards-app://oauth-callback" + deepLinkSuffix;
       };
       
       document.getElementById("open-app-btn").addEventListener("click", redirect);
