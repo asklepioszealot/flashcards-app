@@ -93,6 +93,10 @@ export function initDesktopIntegrations() {
   // 2.6 Wire F11 fullscreen toggle (hides custom titlebar via CSS class)
   setupFullscreenToggle(appWindow);
 
+  // 2.7 Mirror maximize state to body class for CSS hooks (frames, edges, etc.).
+  syncMaximizedClass(appWindow);
+  appWindow.onResized(() => syncMaximizedClass(appWindow)).catch(console.error);
+
   // 3. Wire Offline / Online Sync Indicator
   setupSyncIndicators();
 
@@ -101,6 +105,15 @@ export function initDesktopIntegrations() {
 
   // 5. Wire Single Instance Args & CLI Launch File Imports
   setupSingleInstanceArgs(tauri);
+}
+
+async function syncMaximizedClass(appWindow) {
+  try {
+    const isMax = await appWindow.isMaximized();
+    document.body.classList.toggle("tauri-desktop-maximized", isMax);
+  } catch (err) {
+    console.error("Maximize state sync failed:", err);
+  }
 }
 
 // F11 toggles native fullscreen; CSS class hides the custom titlebar to match.
@@ -154,7 +167,10 @@ function setupSyncIndicators() {
 
   syncBtn.addEventListener("click", async () => {
     const adapter = platformAdapter;
-    if (!adapter) return;
+    if (!adapter) {
+      updateSyncIndicator("error", "Senkronizasyon adaptörü hazır değil.");
+      return;
+    }
 
     syncBtn.disabled = true;
     const originalText = syncBtn.textContent;
@@ -162,10 +178,9 @@ function setupSyncIndicators() {
     updateSyncIndicator("synced", "Bulut senkronizasyonu başlatıldı...");
 
     try {
-      if (typeof adapter.loadSets === "function") {
-        await adapter.loadSets();
-        updateSyncIndicator("synced", "Bulut senkronizasyonu başarıyla tamamlandı.");
-      }
+      const { loadUserWorkspace } = await import("../features/study-state/study-state.js");
+      await loadUserWorkspace();
+      updateSyncIndicator("synced", "Bulut senkronizasyonu başarıyla tamamlandı.");
     } catch (err) {
       console.error("Sync failed:", err);
       updateSyncIndicator("error", `Senkronizasyon hatası: ${err.message || "Bilinmeyen hata"}`);

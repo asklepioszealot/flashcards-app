@@ -3828,17 +3828,48 @@
         font-size: 14px;
       }
 
-      /* Mica Translucency Helper */
-      html.tauri-desktop-html,
-      html.tauri-desktop-html body {
+      /* Mica Translucency Helper — body keeps a near-opaque fallback so the
+         desktop is never visible through transparent areas when the window
+         is maximized; the small alpha gap still lets Mica tint show through. */
+      html.tauri-desktop-html {
         background: transparent !important;
+      }
+      html.tauri-desktop-html body {
+        background: color-mix(in srgb, var(--color-bg-primary) 94%, transparent) !important;
+      }
+
+      /* Bottom-left app version chip, visible only on the auth and set
+         manager screens (handled via body classes set by showScreen). */
+      .app-version-chip {
+        position: fixed;
+        left: 14px;
+        bottom: 10px;
+        z-index: 10;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        opacity: 0.45;
+        letter-spacing: 0.04em;
+        pointer-events: none;
+        user-select: none;
+        display: none;
+      }
+
+      body.app-screen-auth .app-version-chip,
+      body.app-screen-manager .app-version-chip {
+        display: inline-block;
+      }
+
+      /* On Tauri desktop, lift the chip above the 28px statusbar. */
+      body.tauri-desktop .app-version-chip {
+        bottom: 36px;
       }
     </style>
   </head>
   <body class="app-booting">
     <!-- DESKTOP TITLEBAR -->
     <div id="desktop-titlebar" class="desktop-titlebar">
-      <div class="titlebar-drag-region" data-tauri-drag-region>
+      <div class="titlebar-drag-region">
         <img src="./app-icon.png" class="titlebar-icon" alt="" />
         <span class="titlebar-title">Flashcards App</span>
       </div>
@@ -4580,6 +4611,7 @@
     </div>
 
     <div class="build-meta-banner" id="build-meta"></div>
+    <span class="app-version-chip" id="app-version-chip" aria-hidden="true"></span>
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>

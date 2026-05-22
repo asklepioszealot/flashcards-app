@@ -82,6 +82,17 @@ function renderBuildMeta() {
   metaElement.style.display = "block";
 }
 
+function renderAppVersionChip() {
+  const chip = document.getElementById("app-version-chip");
+  if (!chip) return;
+  const version = BUILD_INFO?.version;
+  if (!version || version === "unknown") {
+    chip.textContent = "";
+    return;
+  }
+  chip.textContent = `v${version}`;
+}
+
 function bindEvent(target, eventName, handler) {
   target?.addEventListener(eventName, handler);
 }
@@ -507,6 +518,7 @@ export async function bootstrap() {
   initDesktopIntegrations();
 
   renderBuildMeta();
+  renderAppVersionChip();
   ThemeManager.renderThemeOptions(THEME_CONTROL_IDS);
   ThemeManager.initThemeFromStorage({
     storageKey: THEME_KEY,

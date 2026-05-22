@@ -15,4 +15,8 @@ export function showScreen(name) {
   if (name === "manager") document.getElementById("set-manager")?.classList.remove("hidden");
   if (name === "editor") document.getElementById("editor-screen")?.classList.remove("hidden");
   if (name === "study" && appContainer) appContainer.style.display = "block";
+
+  const screenClasses = ["app-screen-auth", "app-screen-manager", "app-screen-editor", "app-screen-study"];
+  document.body.classList.remove(...screenClasses);
+  document.body.classList.add(`app-screen-${name}`);
 }
