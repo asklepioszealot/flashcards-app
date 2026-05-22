@@ -61,6 +61,38 @@ export function initDesktopIntegrations() {
     });
   }
 
+  // 2.5 Wire Window Dragging and Double-Click Maximize
+  // Drag must also fire when the user grabs child elements (icon/title), so we
+  // exclude interactive descendants instead of requiring `e.target === dragRegion`.
+  const dragRegion = document.querySelector(".titlebar-drag-region");
+  if (dragRegion) {
+    const isInteractiveTarget = (el) =>
+      !!el?.closest?.("button, a, input, select, textarea, [role='button']");
+
+    dragRegion.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      if (isInteractiveTarget(e.target)) return;
+      appWindow.startDragging().catch(console.error);
+    });
+
+    dragRegion.addEventListener("dblclick", async (e) => {
+      if (isInteractiveTarget(e.target)) return;
+      try {
+        const isMax = await appWindow.isMaximized();
+        if (isMax) {
+          await appWindow.unmaximize();
+        } else {
+          await appWindow.maximize();
+        }
+      } catch (err) {
+        console.error("Maximize via double click failed:", err);
+      }
+    });
+  }
+
+  // 2.6 Wire F11 fullscreen toggle (hides custom titlebar via CSS class)
+  setupFullscreenToggle(appWindow);
+
   // 3. Wire Offline / Online Sync Indicator
   setupSyncIndicators();
 
@@ -69,6 +101,31 @@ export function initDesktopIntegrations() {
 
   // 5. Wire Single Instance Args & CLI Launch File Imports
   setupSingleInstanceArgs(tauri);
+}
+
+// F11 toggles native fullscreen; CSS class hides the custom titlebar to match.
+function setupFullscreenToggle(appWindow) {
+  let toggling = false;
+  async function toggleFullscreen() {
+    if (toggling) return;
+    toggling = true;
+    try {
+      const isFs = await appWindow.isFullscreen();
+      await appWindow.setFullscreen(!isFs);
+      document.body.classList.toggle("tauri-desktop-fullscreen", !isFs);
+    } catch (err) {
+      console.error("Fullscreen toggle failed:", err);
+    } finally {
+      toggling = false;
+    }
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "F11") {
+      e.preventDefault();
+      void toggleFullscreen();
+    }
+  });
 }
 
 // Manage LED indicator classes
@@ -181,24 +238,36 @@ async function handleDesktopDeepLink(url) {
       const params = new URLSearchParams(paramStr);
       const accessToken = params.get("access_token");
       const refreshToken = params.get("refresh_token");
+      const code = params.get("code");
 
-      if (accessToken) {
-        console.log("Found access token in deep link, authenticating...");
-        const adapter = platformAdapter;
-        if (adapter && typeof adapter.setSession === "function") {
-          updateSyncIndicator("synced", "Google ile giriş yapılıyor...");
-          await adapter.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || "",
-          });
-          updateSyncIndicator("synced", "Giriş başarılı! Veriler yükleniyor...");
-          if (typeof adapter.loadSets === "function") {
-            await adapter.loadSets();
-          }
-          // Force reload to refresh application state with new auth session
-          window.location.reload();
-          return true;
+      const adapter = platformAdapter;
+      
+      if (code && adapter && typeof adapter.exchangeCodeForSession === "function") {
+        console.log("Found PKCE code in deep link, exchanging...");
+        updateSyncIndicator("synced", "Google ile giriş yapılıyor (PKCE)...");
+        await adapter.exchangeCodeForSession(code);
+        
+        updateSyncIndicator("synced", "Giriş başarılı! Veriler yükleniyor...");
+        if (typeof adapter.loadSets === "function") {
+          await adapter.loadSets();
         }
+        window.location.reload();
+        return true;
+      }
+      else if (accessToken && adapter && typeof adapter.setSession === "function") {
+        console.log("Found access token in deep link, authenticating...");
+        updateSyncIndicator("synced", "Google ile giriş yapılıyor...");
+        await adapter.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || "",
+        });
+        updateSyncIndicator("synced", "Giriş başarılı! Veriler yükleniyor...");
+        if (typeof adapter.loadSets === "function") {
+          await adapter.loadSets();
+        }
+        // Force reload to refresh application state with new auth session
+        window.location.reload();
+        return true;
       }
     } catch (err) {
       console.error("Deep link auth session restore failed:", err);
