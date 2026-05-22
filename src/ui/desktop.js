@@ -54,27 +54,11 @@ export function initDesktopIntegrations() {
     });
   }
 
-  // 2.5 Wire Window Dragging and Double-Click Maximize
-  // Drag must also fire when the user grabs child elements (icon/title), so we
-  // exclude interactive descendants instead of requiring `e.target === dragRegion`.
-  const dragRegion = document.querySelector(".titlebar-drag-region");
-  if (dragRegion) {
-    const isInteractiveTarget = (el) =>
-      !!el?.closest?.("button, a, input, select, textarea, [role='button']");
-
-    dragRegion.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
-      if (isInteractiveTarget(e.target)) return;
-      appWindow.startDragging().catch(console.error);
-    });
-
-    dragRegion.addEventListener("dblclick", (e) => {
-      if (isInteractiveTarget(e.target)) return;
-      appWindow.toggleMaximize().catch((err) => {
-        console.error("Maximize via double click failed:", err);
-      });
-    });
-  }
+  // 2.5 Window dragging + dblclick maximize is handled natively by Tauri via
+  // the `data-tauri-drag-region` attribute on .titlebar-drag-region. The
+  // native handler distinguishes drag-vs-click and works on descendants, so
+  // we no longer wire a JS mousedown handler here — doing so swallowed the
+  // first click and prevented dblclick from firing.
 
   // 2.6 Wire F11 fullscreen toggle (hides custom titlebar via CSS class)
   setupFullscreenToggle(appWindow);

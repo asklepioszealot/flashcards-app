@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' data: https: blob:; connect-src 'self' https:; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' data: https: blob:; connect-src 'self' https: ipc: http://ipc.localhost; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Flashcards</title>
     <link rel="icon" type="image/png" href="./app-icon.png" />
@@ -3838,8 +3838,8 @@
         background: color-mix(in srgb, var(--color-bg-primary) 94%, transparent) !important;
       }
 
-      /* Bottom-left app version chip, visible only on the auth and set
-         manager screens (handled via body classes set by showScreen). */
+      /* Bottom-left app version chip. Visible by default; only hidden on
+         the study and editor screens where the corner is in active use. */
       .app-version-chip {
         position: fixed;
         left: 14px;
@@ -3852,12 +3852,11 @@
         letter-spacing: 0.04em;
         pointer-events: none;
         user-select: none;
-        display: none;
       }
 
-      body.app-screen-auth .app-version-chip,
-      body.app-screen-manager .app-version-chip {
-        display: inline-block;
+      body.app-screen-study .app-version-chip,
+      body.app-screen-editor .app-version-chip {
+        display: none;
       }
 
       /* On Tauri desktop, lift the chip above the 28px statusbar. */
@@ -3869,7 +3868,7 @@
   <body class="app-booting">
     <!-- DESKTOP TITLEBAR -->
     <div id="desktop-titlebar" class="desktop-titlebar">
-      <div class="titlebar-drag-region">
+      <div class="titlebar-drag-region" data-tauri-drag-region>
         <img src="./app-icon.png" class="titlebar-icon" alt="" />
         <span class="titlebar-title">Flashcards App</span>
       </div>
