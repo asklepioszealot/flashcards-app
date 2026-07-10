@@ -4,6 +4,17 @@ Bu dosya [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatina gore
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-07-10
+
+### Fixed
+- Masaustunde Google ile giris akisi duzeltildi; giris artik uygulamaya geri donuyor.
+- Masaustunde Anki paketi (.apkg) ice aktarma calisir hale getirildi.
+- Dosya acma ve baglanti ile acilista uygulama penceresi artik one geliyor.
+- Masaustunde bazi hata ve onay pencerelerinin hic gorunmemesi duzeltildi.
+
+### Changed
+- Desktop release surumu `0.1.14` olarak bump edildi.
+
 ## [0.1.3] - 2026-03-31
 
 ### Changed
