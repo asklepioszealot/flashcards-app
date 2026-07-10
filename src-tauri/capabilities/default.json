@@ -12,13 +12,17 @@
     "updater:default",
     "core:window:allow-close",
     "core:window:allow-minimize",
+    "core:window:allow-unminimize",
     "core:window:allow-maximize",
     "core:window:allow-unmaximize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-start-dragging",
     "core:window:allow-set-fullscreen",
+    "core:window:allow-set-focus",
     "core:window:allow-is-fullscreen",
     "core:window:allow-is-maximized",
-    "core:window:allow-internal-toggle-maximize"
+    "core:window:allow-internal-toggle-maximize",
+    "dialog:allow-message",
+    "dialog:allow-confirm"
   ]
 }

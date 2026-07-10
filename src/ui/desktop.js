@@ -344,6 +344,8 @@ function setupSingleInstanceArgs(tauri) {
       if (deepLinkUrl) {
         const { getCurrentWindow } = tauri.window;
         const currentWin = getCurrentWindow();
+        // setFocus alone does not restore a minimized window
+        await currentWin.unminimize().catch(console.error);
         await currentWin.setFocus().catch(console.error);
 
         const handled = await handleDesktopDeepLink(deepLinkUrl);
@@ -355,6 +357,7 @@ function setupSingleInstanceArgs(tauri) {
         // Bring window to focus
         const { getCurrentWindow } = tauri.window;
         const currentWin = getCurrentWindow();
+        await currentWin.unminimize().catch(console.error);
         await currentWin.setFocus().catch(console.error);
 
         await importLocalFilesByPaths(validPaths);
