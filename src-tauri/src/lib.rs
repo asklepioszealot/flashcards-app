@@ -301,8 +301,11 @@ async fn read_native_file_by_path(path: String) -> Result<NativePickedFile, Stri
 fn open_url(url: String) -> Result<(), String> {
   #[cfg(target_os = "windows")]
   {
-    std::process::Command::new("cmd")
-      .args(["/C", "start", "", &url])
+    // "cmd /C start" leaves the URL unquoted, so cmd treats "&" as a command
+    // separator and truncates query params (breaks OAuth redirect_to).
+    // rundll32 invokes ShellExecute without shell parsing.
+    std::process::Command::new("rundll32")
+      .args(["url.dll,FileProtocolHandler", &url])
       .spawn()
       .map_err(|e| e.to_string())?;
   }
