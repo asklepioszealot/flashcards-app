@@ -14,14 +14,15 @@ export function initDesktopIntegrations() {
     return;
   }
 
+  if (!isDesktopRuntime()) {
+    // Android renders like the web build: the desktop classes below would show the
+    // custom titlebar/statusbar (window buttons, an unbound sync button) on phones.
+    return;
+  }
+
   // 1. Apply desktop-specific classes for transparent Mica background and paddings
   document.documentElement.classList.add("tauri-desktop-html");
   document.body.classList.add("tauri-desktop");
-
-  if (!isDesktopRuntime()) {
-    // Android specific setups are handled elsewhere, stop here for desktop
-    return;
-  }
 
   const tauri = getTauri();
   if (!tauri) return;
