@@ -2,7 +2,7 @@
 
 Tarih: 2026-11-16
 
-Durum: Yaklaşım kullanıcı tarafından seçildi; bu belge uygulama öncesi onay bekliyor.
+Durum: Kullanıcı tarafından 2026-11-16 tarihinde onaylandı. Kullanıcının sonraki açık talebi, doğrulama sonrası web, masaüstü ve Android yayınlarını da kapsıyor; ilk kapsam dışı yayın maddesinin yerini bu talep alır.
 
 ## Amaç ve kapsam
 
