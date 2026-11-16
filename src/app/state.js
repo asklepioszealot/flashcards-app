@@ -1,6 +1,7 @@
 // src/app/state.js
 // Central mutable state module. All other modules import state from here.
 // Only imports from shared/utils.js — no circular dependencies.
+import { normalizeReviewPreferences } from "../shared/utils.js";
 
 // ── Auth & User ──
 export let currentUser = null;
@@ -25,6 +26,7 @@ export let isFlipped = false;
 export let allFlashcards = [];
 export let filteredFlashcards = [];
 export let cardOrder = [];
+export let studySession = null;
 export let assessments = {};
 export let reviewSchedule = {};
 export let activeFilter = "all";
@@ -32,7 +34,7 @@ export let isFullscreen = false;
 export let autoAdvanceEnabled = true;
 export let showReviewScheduleInfo = false;
 export let isAnalyticsVisible = false;
-export let reviewPreferences = { memoryTargetPercent: 85, intervalMultiplier: 1 };
+export let reviewPreferences = normalizeReviewPreferences();
 export let cardContentPreferences = {
   frontFontSize: 24,
   backFontSize: 18,
@@ -54,6 +56,7 @@ export function setIsFlipped(v) { isFlipped = v; }
 export function setAllFlashcards(v) { allFlashcards = v; }
 export function setFilteredFlashcards(v) { filteredFlashcards = v; }
 export function setCardOrder(v) { cardOrder = v; }
+export function setStudySession(value) { studySession = value; }
 export function setAssessments(v) { assessments = v; }
 export function setReviewSchedule(v) { reviewSchedule = v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
 export function setActiveFilter(v) { activeFilter = v; }
@@ -62,12 +65,7 @@ export function setAutoAdvanceEnabled(v) { autoAdvanceEnabled = Boolean(v); }
 export function setShowReviewScheduleInfo(v) { showReviewScheduleInfo = v === true; }
 export function setIsAnalyticsVisible(v) { isAnalyticsVisible = Boolean(v); }
 export function setReviewPreferences(v) {
-  reviewPreferences = v && typeof v === "object" && !Array.isArray(v)
-    ? {
-        memoryTargetPercent: Number(v.memoryTargetPercent) || 85,
-        intervalMultiplier: Number(v.intervalMultiplier) || 1,
-      }
-    : { memoryTargetPercent: 85, intervalMultiplier: 1 };
+  reviewPreferences = normalizeReviewPreferences(v);
 }
 export function setCardContentPreferences(v) {
   const frontFallback = cardContentPreferences?.frontFontSize ?? 24;

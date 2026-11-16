@@ -36,6 +36,8 @@ export const MAX_EDITOR_HISTORY_LENGTH = 120;
 export const DEFAULT_REVIEW_PREFERENCES = Object.freeze({
   memoryTargetPercent: 85,
   intervalMultiplier: 1,
+  dunnoGapCards: 3,
+  reviewGapCards: 5,
 });
 
 export const DEFAULT_CARD_CONTENT_PREFERENCES = Object.freeze({

@@ -11,6 +11,8 @@ import {
   selectedSets,
   loadedSets,
   reviewSchedule,
+  reviewPreferences, setReviewPreferences,
+  studySession, setStudySession,
   activeFilter, setActiveFilter,
   autoAdvanceEnabled, setAutoAdvanceEnabled,
   showReviewScheduleInfo, setShowReviewScheduleInfo,
@@ -39,6 +41,10 @@ import { saveStudyState, getPersistedStudyStateSnapshot } from "../study-state/s
 import { escapeMarkup, normalizeCardContentPreferences } from "../../shared/utils.js";
 import { formatRelativeReviewLabel, getReviewUrgency, summarizeReviewSchedule } from "./scheduler.js";
 import { renderIcon, setButtonIcon } from "../../ui/icons.js";
+import {
+  createStudySession, configureSession, reconcileSession, getSessionPresentation,
+  advanceSession, rewindSession, jumpSession, canAdvanceSession,
+} from "./session-queue.js";
 
 // Register nextCard as the advance callback to break the circular import
 // (assessment.js needs nextCard but cannot import from study.js)
@@ -143,9 +149,23 @@ function resolveTopicFilterSelectionValue(rawValue, preferredCard = null) {
 function syncCardContentSettingsToggleUi(toggleButton, visible) {
   if (!toggleButton) return;
   toggleButton.setAttribute("aria-expanded", visible ? "true" : "false");
-  toggleButton.setAttribute("aria-label", visible ? "Kart font ayarlarını kapat" : "Kart font ayarlarını aç");
+  toggleButton.setAttribute("aria-label", visible ? "Kart ayarlarını kapat" : "Kart ayarlarını aç");
   toggleButton.classList.toggle("is-active", visible);
-  toggleButton.title = visible ? "Kart font ayarlarını kapat" : "Kart font ayarlarını aç";
+  toggleButton.title = visible ? "Kart ayarlarını kapat" : "Kart ayarlarını aç";
+}
+
+export function syncSessionReviewPreferencesUi() {
+  const dunno = document.getElementById("session-dunno-gap-cards");
+  const review = document.getElementById("session-review-gap-cards");
+  if (dunno) dunno.value = String(reviewPreferences.dunnoGapCards);
+  if (review) review.value = String(reviewPreferences.reviewGapCards);
+}
+
+export function updateSessionReviewPreference(field, value) {
+  if (field !== "dunnoGapCards" && field !== "reviewGapCards") return;
+  setReviewPreferences({ ...reviewPreferences, [field]: value });
+  syncSessionReviewPreferencesUi();
+  saveStudyState();
 }
 
 export function syncAutoAdvanceToggleUI() {
@@ -340,8 +360,7 @@ export function displayCard(options = {}) {
   document.getElementById("card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
   document.getElementById("fullscreen-card-counter").textContent = `${currentCardIndex + 1} / ${filteredFlashcards.length}`;
   document.getElementById("subject-display-front").textContent = card.subject;
-  document.getElementById("prev-btn").disabled = currentCardIndex === 0;
-  document.getElementById("next-btn").disabled = currentCardIndex === filteredFlashcards.length - 1;
+  syncSessionNavigationUi();
   syncCardFlipState({ instant: options.instantFlipReset === true });
   showAssessmentPanel(false);
   updateAssessmentButtons(getAssessmentLevel(card) || null);
@@ -349,17 +368,34 @@ export function displayCard(options = {}) {
   saveStudyState();
 }
 
+export function syncSessionNavigationUi() {
+  document.querySelectorAll("[data-nav-direction='previous']").forEach((button) => {
+    button.disabled = studySession ? studySession.cursor <= 0 : currentCardIndex === 0;
+  });
+  document.querySelectorAll("[data-nav-direction='next']").forEach((button) => {
+    button.disabled = studySession ? !canAdvanceSession(studySession) : currentCardIndex === filteredFlashcards.length - 1;
+  });
+}
+
+function displaySessionPresentation() {
+  const view = getSessionPresentation(studySession);
+  if (!view) return;
+  const index = cardOrder.findIndex((cardIndex) => getCardKey(filteredFlashcards[cardIndex]) === view.key);
+  if (index < 0) return;
+  setCurrentCardIndex(index);
+  displayCard({ instantFlipReset: true });
+}
+
 export const previousCard = () => {
-  if (currentCardIndex > 0) {
-    setCurrentCardIndex(currentCardIndex - 1);
-    displayCard({ instantFlipReset: true });
+  if (studySession && studySession.cursor > 0) {
+    rewindSession(studySession);
+    displaySessionPresentation();
   }
 };
 
 export const nextCard = () => {
-  if (currentCardIndex < filteredFlashcards.length - 1) {
-    setCurrentCardIndex(currentCardIndex + 1);
-    displayCard({ instantFlipReset: true });
+  if (studySession && advanceSession(studySession)) {
+    displaySessionPresentation();
   }
 };
 
@@ -413,7 +449,6 @@ export function applyAssessmentFilter(options = {}) {
   else if (activeFilter === "unanswered") newFiltered = baseCards.filter((card) => !getAssessmentLevel(card));
   else newFiltered = baseCards;
   setFilteredFlashcards(newFiltered);
-  setCardOrder([...Array(filteredFlashcards.length).keys()]);
   let targetIndex = 0;
   if (filteredFlashcards.length > 0) {
     let resolvedIndex = -1;
@@ -421,6 +456,14 @@ export function applyAssessmentFilter(options = {}) {
     if (resolvedIndex < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < filteredFlashcards.length) resolvedIndex = fallbackIndex;
     targetIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
   }
+  if (!studySession) setStudySession(createStudySession());
+  const availableKeys = Object.values(loadedSets).flatMap((set) => (set.cards || []).map((card, index) => buildCardKey(set.id, card, index)));
+  reconcileSession(studySession, availableKeys);
+  configureSession(studySession, filteredFlashcards.map(getCardKey), { preferredKey: getCardKey(filteredFlashcards[targetIndex]), restart: options.restart === true });
+  const indexByKey = new Map(filteredFlashcards.map((card, index) => [getCardKey(card), index]));
+  setCardOrder(studySession.order.map((key) => indexByKey.get(key)));
+  const currentKey = getSessionPresentation(studySession)?.key;
+  targetIndex = Math.max(0, studySession.order.indexOf(currentKey));
   setCurrentCardIndex(targetIndex);
   document.getElementById("jump-input").setAttribute("max", String(filteredFlashcards.length));
   if (filteredFlashcards.length > 0) displayCard();
@@ -469,6 +512,7 @@ export function startStudy() {
 
   const snapshot = getPersistedStudyStateSnapshot();
   const session = snapshot?.session && typeof snapshot.session === "object" ? snapshot.session : null;
+  setStudySession(createStudySession(session?.relearning));
   const preferredCard = typeof session?.currentCardKey === "string"
     ? allFlashcards.find((card) => getCardKey(card) === session.currentCardKey) || null
     : null;
@@ -493,8 +537,8 @@ export function jumpToCard() {
   const input = document.getElementById("jump-input");
   const cardNumber = Number.parseInt(input.value, 10);
   if (cardNumber >= 1 && cardNumber <= filteredFlashcards.length) {
-    setCurrentCardIndex(cardNumber - 1);
-    displayCard({ instantFlipReset: true });
+    jumpSession(studySession, getCardKey(filteredFlashcards[cardOrder[cardNumber - 1]]));
+    displaySessionPresentation();
     input.value = "";
     return;
   }
@@ -509,8 +553,8 @@ export function shuffleCards() {
     [newCardOrder[index], newCardOrder[swapIndex]] = [newCardOrder[swapIndex], newCardOrder[index]];
   }
   setCardOrder(newCardOrder);
-  setCurrentCardIndex(0);
-  displayCard({ instantFlipReset: true });
+  configureSession(studySession, newCardOrder.map((index) => getCardKey(filteredFlashcards[index])), { restart: true });
+  displaySessionPresentation();
 }
 
 export function printCards() {

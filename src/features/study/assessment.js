@@ -11,8 +11,11 @@ import {
   autoAdvanceEnabled,
   activeFilter, setActiveFilter,
   reviewPreferences,
+  studySession,
+  currentUser,
+  currentScreen,
 } from "../../app/state.js";
-import { scheduleNextReview } from "./scheduler.js";
+import { assessSession, getSessionPresentation, clearSessionCards } from "./session-queue.js";
 
 // ── advance callback (set by study.js to avoid circular import) ──
 let _nextCardFn = null;
@@ -136,37 +139,29 @@ export function assessCard(level) {
   if (!filteredFlashcards.length) return;
   const card = filteredFlashcards[cardOrder[currentCardIndex]];
   const cardKey = getCardKey(card);
-  const currentLevel = getAssessmentLevel(card);
   const currentReviewState = cardKey ? reviewSchedule[cardKey] || null : null;
-  if (cardKey && currentLevel === level) {
-    delete assessments[cardKey];
-    delete assessments[legacyCardId(card)];
-    if (reviewSchedule[cardKey]) {
-      const nextReviewSchedule = { ...reviewSchedule };
-      delete nextReviewSchedule[cardKey];
-      setReviewSchedule(nextReviewSchedule);
-    }
-    updateAssessmentButtons(null);
-    updateScoreDisplay();
-    import("../study/study.js").then(({ syncReviewScheduleUi }) => syncReviewScheduleUi());
-    // saveStudyState called via dynamic import to avoid circular
-    import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
-    return;
-  }
-  if (cardKey) {
-    assessments[cardKey] = level;
-    setReviewSchedule({
-      ...reviewSchedule,
-      [cardKey]: scheduleNextReview(level, currentReviewState, new Date(), reviewPreferences),
-    });
-  }
-  updateAssessmentButtons(level);
+  if (!cardKey || !studySession || getSessionPresentation(studySession)?.key !== cardKey) return;
+  const result = assessSession(studySession, level, getAssessmentLevel(card), currentReviewState, reviewPreferences);
+  if (!result) return;
+  delete assessments[legacyCardId(card)];
+  if (result.assessment) assessments[cardKey] = result.assessment;
+  else delete assessments[cardKey];
+  const nextReviewSchedule = { ...reviewSchedule };
+  if (result.schedule) nextReviewSchedule[cardKey] = result.schedule;
+  else delete nextReviewSchedule[cardKey];
+  setReviewSchedule(nextReviewSchedule);
+  updateAssessmentButtons(result.assessment);
   updateScoreDisplay();
-  import("../study/study.js").then(({ syncReviewScheduleUi }) => syncReviewScheduleUi());
+  import("../study/study.js").then(({ syncReviewScheduleUi, syncSessionNavigationUi }) => {
+    syncReviewScheduleUi();
+    syncSessionNavigationUi();
+  });
   import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
-  if (autoAdvanceEnabled) {
+  if (autoAdvanceEnabled && !result.cleared) {
+    const viewId = getSessionPresentation(studySession).id;
+    const userId = currentUser?.id;
     requestAnimationFrame(() => {
-      if (currentCardIndex < filteredFlashcards.length - 1 && typeof _nextCardFn === "function") {
+      if (currentScreen === "study" && currentUser?.id === userId && getSessionPresentation(studySession)?.id === viewId && getSessionPresentation(studySession)?.answer === level && typeof _nextCardFn === "function") {
         _nextCardFn();
       }
     });
@@ -184,9 +179,10 @@ export function resetProgress() {
   });
   setAssessments(assessments);
   setReviewSchedule(nextReviewSchedule);
+  if (studySession) clearSessionCards(studySession, allFlashcards.map(getCardKey));
   setActiveFilter("all");
   import("../study/study.js").then(({ applyAssessmentFilter }) => {
-    applyAssessmentFilter();
+    applyAssessmentFilter({ restart: true });
     import("../study-state/study-state.js").then(({ saveStudyState }) => saveStudyState());
   });
 }

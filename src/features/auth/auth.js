@@ -15,6 +15,9 @@ import {
   remoteStudyStateSyncTimer, setRemoteStudyStateSyncTimer,
   storage,
   currentScreen,
+  setStudySession,
+  setAllFlashcards, setFilteredFlashcards, setCardOrder, setCurrentCardIndex,
+  setReviewPreferences, setReviewSchedule,
 } from "../../app/state.js";
 import { AUTH_REMEMBER_ME_KEY } from "../../shared/constants.js";
 import { showScreen } from "../../app/screen.js";
@@ -136,6 +139,18 @@ export async function handleAuthStateChange(user, event = "unknown") {
   const token = incrementAuthStateToken();
   const previousUserId = currentUser?.id || null;
   const previousScreen = currentScreen;
+  if (previousUserId !== user?.id) {
+    setStudySession(null);
+    setAllFlashcards([]);
+    setFilteredFlashcards([]);
+    setCardOrder([]);
+    setCurrentCardIndex(0);
+    setReviewPreferences(null);
+    setReviewSchedule({});
+    if (remoteStudyStateSyncTimer) clearTimeout(remoteStudyStateSyncTimer);
+    setRemoteStudyStateSyncTimer(null);
+    setPendingRemoteStudyStateSnapshot(null);
+  }
   setCurrentUser(user || null);
   showAuthStatus("", "");
   showEditorStatus("", "");

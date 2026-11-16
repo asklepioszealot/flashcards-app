@@ -247,6 +247,110 @@ async function setManagerAutoAdvance(page, enabled) {
   await expect(input).not.toBeChecked();
 }
 
+test.describe("Relearning smoke", () => {
+  async function seedStudy(page, count = 7) {
+    await seedLocalSets(page, { sets: { relearn: {
+      setName: "Tekrar", cards: Array.from({ length: count }, (_, index) => ({ q: `Kart ${index + 1}`, a: `Yanıt ${index + 1}`, subject: "Genel" })),
+    } }, selectedSetIds: ["relearn"] });
+  }
+
+  for (const [level, intervening] of [["dunno", 3], ["review", 5]]) {
+    test(`${level} returns after ${intervening} intervening cards and survives history and refresh`, async ({ page }) => {
+      await seedStudy(page);
+      await setManagerAutoAdvance(page, false);
+      await page.locator("#start-btn").click();
+      await assessCurrentCard(page, level);
+      await page.locator("#next-btn").click();
+      await expect(page.locator("#question-text")).toHaveText("Kart 2");
+      await page.locator("#prev-btn").click();
+      await page.locator("#next-btn").click();
+      await expect(page.locator("#question-text")).toHaveText("Kart 2");
+      await page.reload();
+      await page.locator("#start-btn").click();
+      await expect(page.locator("#question-text")).toHaveText("Kart 2");
+      for (let index = 2; index <= intervening; index += 1) {
+        await page.locator("#next-btn").click();
+        await expect(page.locator("#question-text")).toHaveText(`Kart ${index + 1}`);
+      }
+      await page.locator("#next-btn").click();
+      await expect(page.locator("#question-text")).toHaveText("Kart 1");
+      await expect(page.locator("#card-counter")).toHaveText("1 / 7");
+      await assessCurrentCard(page, level);
+      await expect(page.locator(`#assessment-panel .assess-btn.${level}`)).toHaveClass(/selected/);
+      await expect(page.locator("#score-percent")).toHaveText("1/7 (%14)");
+    });
+  }
+
+  for (const automatic of [true, false]) {
+    test(`one remaining card repeats until know with auto advance ${automatic}`, async ({ page }) => {
+      await seedStudy(page, 1);
+      await setManagerAutoAdvance(page, automatic);
+      await page.locator("#start-btn").click();
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        await assessCurrentCard(page, "dunno");
+        if (!automatic) {
+          await expect(page.locator("#flashcard")).toHaveClass(/flipped/);
+          await expect(page.locator("#next-btn")).toBeEnabled();
+          await page.locator("#next-btn").click();
+        }
+        await expect(page.locator("#flashcard")).not.toHaveClass(/flipped/);
+        await expect(page.locator("#question-text")).toHaveText("Kart 1");
+      }
+      await assessCurrentCard(page, "know");
+      await expect(page.locator("#next-btn")).toBeDisabled();
+      await expect(page.locator("#score-know")).toHaveText("1");
+      const schedule = await readUserScopedJson(page, "review_schedule");
+      const entry = Object.values(schedule)[0];
+      expect(entry.lapses).toBe(1);
+      expect(entry.repetition).toBe(0);
+      expect(entry.lastAssessment).toBe("know");
+    });
+  }
+
+  test("account gap settings survive refresh and font reset and control the next repeat", async ({ page }) => {
+    await seedStudy(page, 4);
+    await setManagerAutoAdvance(page, false);
+    await page.locator("#card-content-settings-toggle-btn").click();
+    const dunno = page.locator("#session-dunno-gap-cards");
+    const review = page.locator("#session-review-gap-cards");
+    await expect(dunno).toHaveValue("3");
+    await expect(review).toHaveValue("5");
+    await dunno.fill("1");
+    await review.fill("2");
+    await review.blur();
+    await page.locator("#card-content-reset-btn").click();
+    await expect(dunno).toHaveValue("1");
+    await expect(review).toHaveValue("2");
+    await page.reload();
+    await page.locator("#card-content-settings-toggle-btn").click();
+    await expect(dunno).toHaveValue("1");
+    await expect(review).toHaveValue("2");
+    await page.locator("#start-btn").click();
+    await assessCurrentCard(page, "dunno");
+    await page.locator("#next-btn").click();
+    await expect(page.locator("#question-text")).toHaveText("Kart 2");
+    await page.locator("#next-btn").click();
+    await expect(page.locator("#question-text")).toHaveText("Kart 1");
+  });
+
+  test("clearing this presentation restores earlier learning without duplicate repeats", async ({ page }) => {
+    await seedStudy(page, 1);
+    await setManagerAutoAdvance(page, false);
+    await page.locator("#start-btn").click();
+    await assessCurrentCard(page, "review");
+    await assessCurrentCard(page, "review");
+    await expect(page.locator("#score-review")).toHaveText("0");
+    await expect(page.locator("#next-btn")).toBeDisabled();
+    await assessCurrentCard(page, "dunno");
+    await page.locator("#next-btn").click();
+    await assessCurrentCard(page, "know");
+    await expect(page.locator("#next-btn")).toBeDisabled();
+    await assessCurrentCard(page, "know");
+    await expect(page.locator("#score-dunno")).toHaveText("1");
+    await expect(page.locator("#next-btn")).toBeEnabled();
+  });
+});
+
 test.describe("Flashcards smoke", () => {
   test("set manager flow works from upload to start", async ({ page }) => {
     const fixturePath = path.resolve(
@@ -395,6 +499,8 @@ test.describe("Flashcards smoke", () => {
     await expect.poll(async () => readUserScopedJson(page, "review_preferences")).toEqual({
       memoryTargetPercent: 90,
       intervalMultiplier: 1.15,
+      dunnoGapCards: 3,
+      reviewGapCards: 5,
     });
 
     await page.reload();
@@ -1798,7 +1904,7 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
     await expect(page.locator("#assessment-panel button.assess-btn.know")).toHaveClass(/selected/);
   });
 
-  test("clicking same assessment twice clears the card status", async ({ page }) => {
+  test("clicking same assessment twice on one presentation clears the card status", async ({ page }) => {
     await seedLocalSets(page, {
       sets: {
         demo: {
@@ -1813,10 +1919,9 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
       selectedSetIds: ["demo"],
     });
 
+    await setManagerAutoAdvance(page, false);
     await page.locator("#start-btn").click();
     await assessCurrentCard(page, "know");
-
-    await jumpToCard(page, 1);
     await assessCurrentCard(page, "know");
 
     await expect(page.locator("#card-counter")).toHaveText("1 / 2");
@@ -1824,9 +1929,7 @@ test("edit mode opens separate editor, auto-sizes raw editor, and saves question
       /selected/,
     );
 
-    const assessmentSnapshot = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem("fc_assessments") || "{}"),
-    );
+    const assessmentSnapshot = await readUserScopedJson(page, "assessments");
     expect(Object.keys(assessmentSnapshot)).toHaveLength(0);
   });
 

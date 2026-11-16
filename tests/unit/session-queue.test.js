@@ -113,6 +113,16 @@ describe("in-session relearning", () => {
     clearSessionCards(state, ["A"]);
     expect(canAdvanceSession(state)).toBe(false);
   });
+
+  it("does not restore an out-of-scope card hidden inside a corrupted normal order", () => {
+    const saved = session(["A"]);
+    saved.order.push("B");
+    const restored = createStudySession(JSON.parse(JSON.stringify(saved)));
+    reconcileSession(restored, ["A", "B"]);
+    configureSession(restored, ["A"]);
+    expect(canAdvanceSession(restored)).toBe(false);
+    expect(key(restored)).toBe("A");
+  });
 });
 
 describe("daily learning credit", () => {

@@ -205,6 +205,8 @@ export function bindStaticEvents() {
     resetCardContentPreferences,
     setReviewScheduleVisibility,
     setTopicSourceVisibility,
+    syncSessionReviewPreferencesUi,
+    updateSessionReviewPreference,
   }) => {
     bindEvent(document.getElementById("jump-input"), "keydown", (event) => {
       if (event.key !== "Enter") return;
@@ -227,6 +229,10 @@ export function bindStaticEvents() {
     bindEvent(document.getElementById("card-content-settings-close-btn"), "click", () => {
       closeCardContentSettingsPanel();
     });
+    for (const [id, field] of [["session-dunno-gap-cards", "dunnoGapCards"], ["session-review-gap-cards", "reviewGapCards"]]) {
+      bindEvent(document.getElementById(id), "change", (event) => updateSessionReviewPreference(field, event.currentTarget?.value));
+      bindEvent(document.getElementById(id), "blur", () => syncSessionReviewPreferencesUi());
+    }
     bindEvent(document.getElementById("card-content-front-font-size"), "input", (event) => {
       updateCardContentFontSize("front", event.currentTarget?.value, { resync: false });
     });

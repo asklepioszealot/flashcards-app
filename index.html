@@ -4235,8 +4235,8 @@
           type="button"
           aria-expanded="false"
           aria-controls="card-content-settings-panel"
-          aria-label="Kart font ayarlarını aç"
-          title="Kart font ayarlarını aç"
+          aria-label="Kart ayarlarını aç"
+          title="Kart ayarlarını aç"
         >
           <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-settings"></use></svg>
         </button>
@@ -4273,7 +4273,7 @@
           </div>
           <div class="analytics-header-actions">
             <p class="analytics-summary-copy card-content-settings-hint">Normal görünüm ve tam ekran için ön/arka yüz fontlarını ayrı ayrı belirleyebilirsin.</p>
-            <button class="analytics-close-btn" id="card-content-settings-close-btn" type="button" aria-label="Kart font ayarlarını kapat" title="Kart font ayarlarını kapat">
+            <button class="analytics-close-btn" id="card-content-settings-close-btn" type="button" aria-label="Kart ayarlarını kapat" title="Kart ayarlarını kapat">
               <svg class="icon icon--sm" aria-hidden="true" focusable="false"><use href="#icon-x"></use></svg>
             </button>
           </div>
@@ -4331,6 +4331,27 @@
                 <div class="card-content-settings-actions">
                   <button class="btn btn-small btn-secondary" id="card-content-reset-btn" type="button">Varsayılan fontlara dön</button>
                 </div>
+              </div>
+            </div>
+          </article>
+          <article class="analytics-card">
+            <div class="analytics-card-head">
+              <div>
+                <div class="analytics-card-title">Oturum İçi Tekrar</div>
+                <div class="analytics-card-meta">Kart, Tamam diyene kadar yeniden sorulur. Az kart kaldığında aralık kısalır.</div>
+              </div>
+            </div>
+            <div class="analytics-card-body">
+              <div class="card-content-settings-form">
+                <div class="field-group">
+                  <label for="session-dunno-gap-cards">Bilmiyorum: kaç kart sonra?</label>
+                  <input id="session-dunno-gap-cards" name="session-dunno-gap-cards" type="number" min="1" max="50" step="1" inputmode="numeric" value="3" />
+                </div>
+                <div class="field-group">
+                  <label for="session-review-gap-cards">Tekrar: kaç kart sonra?</label>
+                  <input id="session-review-gap-cards" name="session-review-gap-cards" type="number" min="1" max="50" step="1" inputmode="numeric" value="5" />
+                </div>
+                <p class="analytics-card-meta">1–50 kart arasında ayarlanır ve hesabında saklanır. Değişiklikler sonraki yanıtlarda uygulanır.</p>
               </div>
             </div>
           </article>

@@ -3,6 +3,17 @@ import { normalizeSyncedUserState } from "../../src/core/platform-adapter.js";
 import { normalizeStudyStateSnapshot } from "../../src/shared/utils.js";
 
 describe("Study state review preferences", () => {
+  it.each([normalizeStudyStateSnapshot, normalizeSyncedUserState])("normalizes independent session gaps and preserves the session payload", (normalize) => {
+    const normalized = normalize({ reviewPreferences: { dunnoGapCards: 0, reviewGapCards: 90 }, session: { relearning: { version: 1 } } });
+    expect(normalized.reviewPreferences.dunnoGapCards).toBe(1);
+    expect(normalized.reviewPreferences.reviewGapCards).toBe(50);
+    expect(normalized.session.relearning).toEqual({ version: 1 });
+    const defaults = normalize({ reviewPreferences: { dunnoGapCards: "", reviewGapCards: "oops" } });
+    expect(defaults.reviewPreferences.dunnoGapCards).toBe(3);
+    expect(defaults.reviewPreferences.reviewGapCards).toBe(5);
+    expect(normalize({ reviewPreferences: { dunnoGapCards: 7.8, reviewGapCards: 2 } }).reviewPreferences).toMatchObject({ dunnoGapCards: 7, reviewGapCards: 2 });
+  });
+
   it("should default review preferences when older snapshots do not have them", () => {
     const snapshot = normalizeStudyStateSnapshot({
       selectedSetIds: ["demo"],
@@ -13,6 +24,8 @@ describe("Study state review preferences", () => {
     expect(snapshot.reviewPreferences).toEqual({
       memoryTargetPercent: 85,
       intervalMultiplier: 1,
+      dunnoGapCards: 3,
+      reviewGapCards: 5,
     });
     expect(snapshot.cardContentPreferences).toEqual({
       frontFontSize: 24,
@@ -36,6 +49,8 @@ describe("Study state review preferences", () => {
     expect(snapshot.reviewPreferences).toEqual({
       memoryTargetPercent: 95,
       intervalMultiplier: 0.8,
+      dunnoGapCards: 3,
+      reviewGapCards: 5,
     });
     expect(snapshot.cardContentPreferences).toEqual({
       frontFontSize: 24,

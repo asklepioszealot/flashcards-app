@@ -63,7 +63,10 @@ function present(state, key) {
 export function configureSession(state, cardKeys, options = {}) {
   const nextKeys = keys(cardKeys);
   const sameScope = nextKeys.length === state.scopeKeys.length && nextKeys.every((key) => state.scopeKeys.includes(key));
-  if (sameScope && !options.restart && getSessionPresentation(state) && nextKeys.includes(getSessionPresentation(state).key)) return state;
+  const scope = new Set(nextKeys);
+  const validOrder = state.order.length === nextKeys.length && state.order.every((key) => scope.has(key));
+  const validHistory = state.history.every((entry) => scope.has(entry.key));
+  if (sameScope && validOrder && validHistory && !options.restart && getSessionPresentation(state) && scope.has(getSessionPresentation(state).key)) return state;
   state.scopeKeys = nextKeys;
   state.order = [...nextKeys];
   state.history = [];

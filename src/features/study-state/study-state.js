@@ -18,6 +18,7 @@ import {
   cardContentPreferences, setCardContentPreferences,
   filteredFlashcards,
   cardOrder,
+  studySession, setStudySession,
   currentCardIndex,
   activeFilter,
   pendingRemoteStudyStateSnapshot, setPendingRemoteStudyStateSnapshot,
@@ -27,6 +28,7 @@ import {
 } from "../../app/state.js";
 import { backfillRawSource, normalizeSetRecord, slugify } from "../../core/set-codec.js";
 import { getCardKey, buildCardKey, legacyCardId } from "../study/assessment.js";
+import { createStudySession } from "../study/session-queue.js";
 import {
   hydrateLoadedSets,
   normalizeSetCollection,
@@ -98,6 +100,7 @@ export function buildCurrentStudyStateSnapshot(options = {}) {
       topic: document.getElementById("topic-select")?.value || persistedSession?.topic || "hepsi",
       activeFilter: activeFilter || persistedSession?.activeFilter || "all",
       autoAdvanceEnabled,
+      relearning: studySession || persistedSession?.relearning || null,
     },
     autoAdvanceEnabled,
     showReviewScheduleInfo,
@@ -154,18 +157,21 @@ export function applyStudyStateSnapshot(snapshot) {
   setIsAnalyticsVisible(normalizedSnapshot.isAnalyticsVisible === true);
   setReviewPreferences(normalizedSnapshot.reviewPreferences);
   setCardContentPreferences(normalizedSnapshot.cardContentPreferences);
+  setStudySession(createStudySession(normalizedSnapshot.session?.relearning));
   import("../study/study.js").then(({
     applyCardContentPreferencesUi,
     syncAutoAdvanceToggleUI,
     syncCardContentPreferencesUi,
     syncReviewScheduleUi,
     syncReviewScheduleVisibilityUi,
+    syncSessionReviewPreferencesUi,
   }) => {
     applyCardContentPreferencesUi();
     syncCardContentPreferencesUi();
     syncAutoAdvanceToggleUI();
     syncReviewScheduleVisibilityUi();
     syncReviewScheduleUi();
+    syncSessionReviewPreferencesUi();
   });
   import("../analytics/analytics.js").then(({ syncAnalyticsDashboard, syncAnalyticsVisibility }) => {
     syncAnalyticsVisibility();

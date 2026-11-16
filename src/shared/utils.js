@@ -106,10 +106,14 @@ export function normalizeReviewScheduleMap(value, fallback = {}) {
 }
 
 export function normalizeReviewPreferences(value, fallback = DEFAULT_REVIEW_PREFERENCES) {
-  const base = isPlainObject(fallback) ? fallback : DEFAULT_REVIEW_PREFERENCES;
+  const base = { ...DEFAULT_REVIEW_PREFERENCES, ...(isPlainObject(fallback) ? fallback : {}) };
   const source = isPlainObject(value) ? value : base;
   const memoryTargetPercent = Number.parseInt(source?.memoryTargetPercent, 10);
   const intervalMultiplier = Number.parseFloat(source?.intervalMultiplier);
+  const normalizeGap = (field) => {
+    const parsed = Number.parseInt(source?.[field], 10);
+    return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 50) : base[field];
+  };
 
   return {
     memoryTargetPercent: Number.isFinite(memoryTargetPercent)
@@ -118,7 +122,9 @@ export function normalizeReviewPreferences(value, fallback = DEFAULT_REVIEW_PREF
     intervalMultiplier: Number.isFinite(intervalMultiplier)
       ? Math.min(Math.max(Math.round(intervalMultiplier * 100) / 100, 0.8), 1.3)
       : base.intervalMultiplier,
-    };
+    dunnoGapCards: normalizeGap("dunnoGapCards"),
+    reviewGapCards: normalizeGap("reviewGapCards"),
+  };
 }
 
 export function normalizeCardContentPreferences(value, fallback = DEFAULT_CARD_CONTENT_PREFERENCES) {
