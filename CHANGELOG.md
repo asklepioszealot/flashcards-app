@@ -4,6 +4,18 @@ Bu dosya [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatina gore
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-11-16
+
+### Added
+- “Bilmiyorum” ve “Tekrar” yanıtlarından sonra kartları aynı oturumda yeniden soran tekrar kuyruğu eklendi. Kartlar “Tamam” denilene kadar geri gelir; az kart kaldığında aralık kısalır.
+- Kart ayarlarına hesaba bağlı iki tekrar aralığı eklendi: varsayılan 3 ve 5 kart, ayarlanabilir aralık 1–50.
+- Oturum sırası, bekleyen tekrarlar ve gezinme geçmişi kaydedilerek çalışmaya devam etme desteği eklendi.
+
+### Fixed
+- Aynı oturumda yeniden gelen karta aynı yanıtın verilmesi önceki değerlendirmeyi silmez; aynı gösterimde yanıt düzeltme/kaldırma korunur.
+- Gün içindeki tekrarlar uzun vadeli tekrar aralığını üst üste büyütmez; günlük zorlanma ve son yanıt birlikte korunur.
+- Hesap değişiminde çalışma oturumu ve tekrar tercihleri bellekte temizlenir.
+
 ## [0.1.14] - 2026-07-10
 
 ### Fixed

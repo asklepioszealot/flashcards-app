@@ -1,6 +1,6 @@
 # In-session Card Relearning Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Repeat difficult cards until “Tamam”, with account-configurable 3/5-card gaps and fair short-deck fallback, then publish verified web, desktop and Android builds.
 
@@ -36,11 +36,11 @@
 
 **Interfaces:** Produces `createStudySession(saved?)`, `configureSession(session, keys, options?)`, `reconcileSession(session, availableKeys)`, `getSessionPresentation(session)`, `advanceSession(session)`, `rewindSession(session)`, `jumpSession(session, key)`, `canAdvanceSession(session)`, `assessSession(session, level, assessment, schedule, preferences, now?) -> { assessment, schedule, cleared }`, `clearSessionCards(session, keys)`. Mutates only the explicitly supplied serializable session object; no DOM or global state. `configureSession` accepts `preferredKey`, `restart`, and preserves saved order when resuming the same scope.
 
-- [ ] Write behavior tests for literal 3/5 intervening cards, repeated failure/know removal, one/two-card fallback, fair tail, history/jump gaps, scope suspension, deleted IDs and JSON restoration. Add daily scheduling/correction/undo and local next-day assertions.
-- [ ] Run `npm run test:unit -- tests/unit/session-queue.test.js`; expect missing implementation failures.
-- [ ] Implement the pure engine and normalization. Use existing `scheduleNextReview` once against the saved baseline, strongest rating for interval and latest answer for display. Validate saved records and undo data.
-- [ ] Run the same command; expect all assertions passing.
-- [ ] Commit engine and tests after verification.
+- [x] Write behavior tests for literal 3/5 intervening cards, repeated failure/know removal, one/two-card fallback, fair tail, history/jump gaps, scope suspension, deleted IDs and JSON restoration. Add daily scheduling/correction/undo and local next-day assertions.
+- [x] Run `npm run test:unit -- tests/unit/session-queue.test.js`; expect missing implementation failures.
+- [x] Implement the pure engine and normalization. Use existing `scheduleNextReview` once against the saved baseline, strongest rating for interval and latest answer for display. Validate saved records and undo data.
+- [x] Run the same command; expect all assertions passing.
+- [x] Commit engine and tests after verification.
 
 ### Task 2: Account preferences and study integration
 
@@ -48,13 +48,13 @@
 
 **Interfaces:** Consumes Task 1 engine. Produces state `studySession`/`setStudySession`, existing reviewPreferences plus the two gap keys, session snapshot `.relearning`, and `syncSessionReviewPreferencesUi()`/`updateSessionReviewPreference(field, value)` for settings bindings. Existing public navigation and assessment exports retain their signatures.
 
-- [ ] Add normalization tests for legacy defaults, invalid independent ranges and synced values. Add smoke cases for 3/5 gaps, consecutive repeat answers, last-card auto/manual loop, same-presentation undo, configured gaps after refresh, font reset and resume/history.
-- [ ] Run the new unit tests and targeted smoke cases; expect absence of gap fields/settings and repeated flow to fail.
-- [ ] Add defaults and normalization, delegate preference setters to the common normalizer, preserve both keys through the existing remote reviewPreferences object.
-- [ ] Wire engine state to display/navigation, filters/shuffle/jump, assessment and progress reset. Save/restore `.relearning`, reconcile against all available card keys and reset memory on account changes. Guard queued auto-advance against presentation changes.
-- [ ] Add two number fields to the existing card settings panel, bind change/blur, keep font reset scoped and update accessible panel labels.
-- [ ] Run unit suite and `npm run test:smoke`; expect green. Update existing tests only where the approved same-presentation semantics or extended preference object change their contract.
-- [ ] Commit integrated behavior and tests after verification.
+- [x] Add normalization tests for legacy defaults, invalid independent ranges and synced values. Add smoke cases for 3/5 gaps, consecutive repeat answers, last-card auto/manual loop, same-presentation undo, configured gaps after refresh, font reset and resume/history.
+- [x] Run the new unit tests and targeted smoke cases; expect absence of gap fields/settings and repeated flow to fail.
+- [x] Add defaults and normalization, delegate preference setters to the common normalizer, preserve both keys through the existing remote reviewPreferences object.
+- [x] Wire engine state to display/navigation, filters/shuffle/jump, assessment and progress reset. Save/restore `.relearning`, reconcile against all available card keys and reset memory on account changes. Guard queued auto-advance against presentation changes.
+- [x] Add two number fields to the existing card settings panel, bind change/blur, keep font reset scoped and update accessible panel labels.
+- [x] Run unit suite and `npm run test:smoke`; expect green. Update existing tests only where the approved same-presentation semantics or extended preference object change their contract.
+- [x] Commit integrated behavior and tests after verification.
 
 ### Task 3: Independent review and publication
 
