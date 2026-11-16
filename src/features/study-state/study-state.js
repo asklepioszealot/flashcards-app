@@ -7,6 +7,7 @@ import {
 import { nowIso, cloneData, isPlainObject, normalizeStudyStateSnapshot, safeJsonParse } from "../../shared/utils.js";
 import {
   currentUser,
+  authStateToken,
   loadedSets,
   selectedSets, setSelectedSets,
   assessments, setAssessments,
@@ -43,6 +44,13 @@ const getUserJson = (key, fallbackValue) => safeJsonParse(storage.getItem(userSc
 const setUserJson = (key, value) => storage.setItem(userScopedStorageKey(key), JSON.stringify(value));
 const getUserText = (key) => storage.getItem(userScopedStorageKey(key));
 const setUserText = (key, value) => storage.setItem(userScopedStorageKey(key), value);
+
+// A request can finish after sign-out, sign-in, or a return to the same account.
+function captureStudyAccount() {
+  const userId = currentUser?.id;
+  const token = authStateToken;
+  return () => currentUser?.id === userId && authStateToken === token;
+}
 
 export const getLocalStorageText = (key) =>
   typeof storage.getLocalItem === "function" ? storage.getLocalItem(key) : storage.getItem(key);
@@ -187,9 +195,11 @@ export async function flushRemoteStudyStateSync() {
     || !pendingRemoteStudyStateSnapshot
   ) return;
   const snapshotToSync = normalizeStudyStateSnapshot(pendingRemoteStudyStateSnapshot);
+  const isCurrentAccount = captureStudyAccount();
   setPendingRemoteStudyStateSnapshot(null);
   try {
     const remoteSnapshot = await platformAdapter.saveUserState(snapshotToSync);
+    if (!isCurrentAccount()) return;
     if (remoteSnapshot) {
       persistStudyStateSnapshot(remoteSnapshot);
     }
@@ -316,6 +326,7 @@ export function migrateLegacyAssessmentsIfNeeded() {
 }
 
 export async function loadUserStudyState() {
+  const isCurrentAccount = captureStudyAccount();
   const localSnapshot = getPersistedStudyStateSnapshot();
   let mergedSnapshot = localSnapshot;
 
@@ -326,6 +337,7 @@ export async function loadUserStudyState() {
   ) {
     try {
       const remoteSnapshot = await platformAdapter.loadUserState();
+      if (!isCurrentAccount()) return;
       if (remoteSnapshot) {
         mergedSnapshot = pickNewerStudyStateSnapshot(localSnapshot, remoteSnapshot);
         persistStudyStateSnapshot(mergedSnapshot);
@@ -342,12 +354,15 @@ export async function loadUserStudyState() {
     }
   }
 
+  if (!isCurrentAccount()) return;
   applyStudyStateSnapshot(mergedSnapshot);
   migrateLegacyAssessmentsIfNeeded();
 }
 
 export async function loadUserWorkspace() {
+  const isCurrentAccount = captureStudyAccount();
   const { updateManagerUserChip, renderSetList } = await import("../set-manager/set-manager.js");
+  if (!isCurrentAccount()) return;
   const persistedSourcePaths = getUserJson("set_source_paths", {});
 
   // Stale-while-revalidate: paint the set list from localStorage immediately
@@ -363,14 +378,21 @@ export async function loadUserWorkspace() {
   }
 
   let records = await platformAdapter.loadSets();
+  if (!isCurrentAccount()) return;
   hydrateLoadedSets(records, persistedSourcePaths);
   await restoreBrowserFileHandles(Object.values(loadedSets));
-  if (await migrateLegacyLocalData()) {
+  if (!isCurrentAccount()) return;
+  const migrated = await migrateLegacyLocalData();
+  if (!isCurrentAccount()) return;
+  if (migrated) {
     records = await platformAdapter.loadSets();
+    if (!isCurrentAccount()) return;
     hydrateLoadedSets(records, persistedSourcePaths);
     await restoreBrowserFileHandles(Object.values(loadedSets));
+    if (!isCurrentAccount()) return;
   }
   await loadUserStudyState();
+  if (!isCurrentAccount()) return;
   updateManagerUserChip();
   renderSetList();
 }

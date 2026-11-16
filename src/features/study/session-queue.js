@@ -34,7 +34,7 @@ export function createStudySession(saved = null) {
     id: entry.id, key: entry.key,
     answer: levels.has(entry.answer) ? entry.answer : null,
     answerDay: typeof entry.answerDay === "string" ? entry.answerDay : "",
-    beforePending: normalizePending(entry.beforePending),
+    beforePending: entry.beforePending?.key === entry.key ? normalizePending(entry.beforePending) : null,
   }));
   state.cursor = state.history.length ? Math.min(integer(saved.cursor), state.history.length - 1) : -1;
   state.daily = Object.fromEntries(Object.entries(saved.daily && typeof saved.daily === "object" ? saved.daily : {}).filter(([, entry]) => (
@@ -146,8 +146,10 @@ export function assessSession(state, level, assessment, schedule, preferences, n
     Object.defineProperty(state.daily, view.key, { value: daily, writable: true, enumerable: true, configurable: true });
   }
   const cleared = view.answerDay === day && view.answer === level;
-  if (view.answerDay !== day || !view.answer) {
-    view.beforePending = copy(state.pending.find((entry) => entry.key === view.key));
+  const previousLatest = daily.attempts.reduce((latest, entry) => !latest || entry.serial > latest.serial ? entry : latest, null);
+  const existingPending = copy(state.pending.find((entry) => entry.key === view.key));
+  if (view.answerDay !== day || !view.answer || (!cleared && previousLatest?.id !== view.id)) {
+    view.beforePending = existingPending;
   }
   daily.attempts = daily.attempts.filter((entry) => entry.id !== view.id);
   if (!cleared) daily.attempts.push({ id: view.id, level, at: date.toISOString(), serial: ++state.serial });
@@ -164,7 +166,10 @@ export function assessSession(state, level, assessment, schedule, preferences, n
   }
   state.pending = state.pending.filter((entry) => entry.key !== view.key);
   if (nextAssessment && nextAssessment !== "know") {
-    if (cleared && view.beforePending) state.pending.push(copy(view.beforePending));
+    // Removing an older answer must leave a newer answer's consumed gap intact.
+    const unchangedLatest = cleared && latest && latest.id === previousLatest?.id;
+    const restored = unchangedLatest ? existingPending : cleared ? view.beforePending : null;
+    if (restored?.key === view.key) state.pending.push(copy(restored));
     else if (!cleared || latest) state.pending.push({ key: view.key, remaining: gap(nextAssessment, preferences), serial: ++state.serial });
   }
   return { assessment: nextAssessment, schedule: nextSchedule, cleared };

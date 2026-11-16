@@ -126,6 +126,39 @@ describe("in-session relearning", () => {
 });
 
 describe("daily learning credit", () => {
+  it.each([false, true])("preserves the later gap when an older answer is cleared (correct first: %s)", (correctFirst) => {
+    const state = session("ABCDEFGHIJKLMNOPQRST".split(""));
+    let result = answer(state, "dunno");
+    forward(state, 4);
+    result = answer(state, "review", result);
+    forward(state, 6);
+    result = answer(state, "review", result);
+    for (let i = 0; i < 6; i += 1) rewindSession(state);
+    expect(key(state)).toBe("A");
+    if (correctFirst) result = answer(state, "dunno", result);
+    const cleared = answer(state, correctFirst ? "dunno" : "review", result);
+    expect(cleared.assessment).toBe("review");
+    forward(state, 6);
+    expect(forward(state, 6)).toEqual(["J", "K", "L", "M", "N", "A"]);
+  });
+
+  it("rejects another card's undo snapshot without duplicating that card's repeat", () => {
+    let state = session();
+    let result = answer(state, "dunno");
+    advanceSession(state);
+    answer(state, "review");
+    forward(state, 3);
+    expect(key(state)).toBe("A");
+    result = answer(state, "review", result);
+    getSessionPresentation(state).beforePending = { key: "B", remaining: 0, serial: 0 };
+    state = createStudySession(JSON.parse(JSON.stringify(state)));
+    reconcileSession(state, ["A", "B", "C", "D", "E", "F", "G"]);
+    configureSession(state, ["A", "B", "C", "D", "E", "F", "G"]);
+    answer(state, "review", result);
+    expect(state.pending.filter((entry) => entry.key === "B")).toHaveLength(1);
+    expect(state.pending.filter((entry) => entry.key === "A")).toHaveLength(1);
+  });
+
   it("uses the pre-day baseline and hardest answer while keeping the latest assessment", () => {
     const state = session(["A"]);
     const first = answer(state, "dunno");

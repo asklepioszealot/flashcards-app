@@ -141,6 +141,9 @@ export async function handleAuthStateChange(user, event = "unknown") {
   const previousScreen = currentScreen;
   if (previousUserId !== user?.id) {
     setStudySession(null);
+    setLoadedSets({});
+    setSelectedSets(new Set());
+    setAssessments({});
     setAllFlashcards([]);
     setFilteredFlashcards([]);
     setCardOrder([]);
