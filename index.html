@@ -4,7 +4,38 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' data: https: blob:; connect-src 'self' https: ipc: http://ipc.localhost; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Flashcards</title>
+    <title>Flashcards App — Kartlarla Çalışma ve Aralıklı Tekrar</title>
+    <meta name="description" content="Flashcards App ile kendi soru-cevap kartlarını içe aktar, düzenle ve aralıklı tekrar yap. JSON, Markdown, metin ve Anki setleriyle çalışma ilerlemeni takip et." />
+    <link rel="canonical" href="https://asklepioszealot.me/" />
+    <link rel="help" href="/about.html" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "@id": "https://asklepioszealot.me/#app",
+        "name": "Flashcards App",
+        "url": "https://asklepioszealot.me/",
+        "description": "Kendi soru-cevap kartlarını içe aktarmak, düzenlemek ve aralıklı tekrarla çalışmak için bir çalışma uygulaması.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "tr",
+        "author": {
+          "@type": "Person",
+          "name": "AsklepiosZealot",
+          "url": "https://github.com/asklepioszealot"
+        },
+        "softwareHelp": {
+          "@type": "WebPage",
+          "url": "https://asklepioszealot.me/about.html"
+        },
+        "downloadUrl": "https://github.com/asklepioszealot/flashcards-app/releases",
+        "featureList": [
+          "JSON, Markdown, metin ve Anki (.apkg) kart setlerini içe aktarma",
+          "Kart düzenleme, konuya göre filtreleme ve karıştırma",
+          "Aralıklı tekrar ve çalışma ilerlemesini takip etme"
+        ]
+      }
+    </script>
     <link rel="icon" type="image/png" href="./app-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1613,6 +1644,19 @@
         color: rgba(248, 250, 252, 0.8);
         font-size: 15px;
         max-width: 44ch;
+      }
+
+      .auth-about-link {
+        display: inline-block;
+        margin-top: 20px;
+        color: #f8fafc;
+        text-underline-offset: 4px;
+      }
+
+      .auth-about-link:focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 5px;
+        border-radius: 3px;
       }
 
       .auth-form-panel {
@@ -4064,6 +4108,7 @@
           <p>
             Giriş yap, setlerini senkron tut ve çalışmaya devam et.
           </p>
+          <a class="auth-about-link" href="/about.html">Flashcards App nedir? Özellikler ve kullanım</a>
         </div>
         <div class="auth-form-panel">
           <div>

@@ -1,0 +1,27 @@
+# Public pages may be indexed and used to answer user questions.
+# Model training is not permitted. These preferences rely on crawler compliance.
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+
+# Search crawlers and user-requested retrieval.
+User-agent: OAI-SearchBot
+User-agent: Claude-SearchBot
+User-agent: PerplexityBot
+User-agent: ChatGPT-User
+User-agent: Claude-User
+User-agent: Perplexity-User
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+
+# Training and training-data collection controls.
+# Google-Extended also controls grounding in some Gemini products;
+# blocking it does not block ordinary Google Search.
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+Disallow: /
+
+Sitemap: https://asklepioszealot.me/sitemap.xml
